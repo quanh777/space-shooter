@@ -3,17 +3,17 @@ class Boss extends Enemy {
         super('boss');
 
         const bossNumber = Math.floor(wave / 5);
-        const difficultyMultiplier = 1 + bossNumber * 0.5;
+        const difficultyMultiplier = bossNumber === 1 ? 1 : (1 + (bossNumber - 1) * 0.4);
 
         this.bossType = Math.floor(Math.random() * 3);
 
-        const baseHp = 300 + Math.random() * 200;
+        const baseHp = bossNumber === 1 ? (200 + Math.random() * 100) : (350 + Math.random() * 200);
         this.hp = Math.floor(baseHp * difficultyMultiplier);
         this.maxHp = this.hp;
-        this.spd = (0.8 + Math.random() * 0.4) * (1 + bossNumber * 0.15);
+        this.spd = bossNumber === 1 ? (0.6 + Math.random() * 0.3) : ((0.8 + Math.random() * 0.4) * (1 + (bossNumber - 1) * 0.15));
 
-        const baseCooldown = 2000 + Math.random() * 1000;
-        this.attackCooldown = Math.max(600, baseCooldown - bossNumber * 350);
+        const baseCooldown = bossNumber === 1 ? 3000 : (2000 + Math.random() * 1000);
+        this.attackCooldown = Math.max(700, baseCooldown - (bossNumber - 1) * 300);
         this.lastAttack = 0;
         this.phase = 1;
 
