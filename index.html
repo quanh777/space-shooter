@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Space Shooter - @Qu4nh</title>
+    <meta name="description"
+        content="Space Shooter - An exciting HTML5 space shooting game with bosses, powerups and online leaderboard. Play now!">
+    <meta name="keywords" content="space shooter, html5 game, web game, javascript game, shooter game, browser game">
+    <meta name="author" content="@Qu4nh">
+
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Space Shooter - HTML5 Game">
+    <meta property="og:description" content="Fight through waves of enemies and bosses! Online leaderboard included.">
+    <meta property="og:image" content="./screenshot.png">
+
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:title" content="Space Shooter - HTML5 Game">
+    <meta property="twitter:description" content="Fight through waves of enemies and bosses!">
+    <meta property="twitter:image" content="./screenshot.png">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="stars-bg">
+        <div class="stars"></div>
+        <div class="stars2"></div>
+        <div class="stars3"></div>
+    </div>
+
+    <div id="loadingScreen" class="loading-screen">
+        <div class="loading-content">
+            <h1>SPACE SHOOTER</h1>
+            <div class="spaceship-icon">🚀</div>
+            <div class="loading-bar">
+                <div class="loading-fill"></div>
+            </div>
+            <p data-lang="loading">Đang tải...</p>
+            <p class="loading-credit" data-lang="loadingCredit">bởi @Qu4nh</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <button id="langToggle" class="lang-toggle" onclick="toggleLanguage()">🌐 EN</button>
+
+        <div id="mainMenu" class="menu-screen">
+            <div class="menu-bg-effects">
+                <div class="floating-asteroid a1">🪨</div>
+                <div class="floating-asteroid a2">☄️</div>
+                <div class="floating-asteroid a3">⭐</div>
+            </div>
+            <h1 class="game-title">
+                <span class="title-icon">🚀</span>
+                SPACE SHOOTER
+                <span class="title-icon">🛸</span>
+            </h1>
+            <div class="menu-buttons">
+                <button class="btn btn-primary" onclick="startGame()" data-lang="playGame">
+                    <span class="btn-icon">▶</span> CHƠI GAME
+                </button>
+                <button class="btn btn-secondary" onclick="showLeaderboard()" data-lang="leaderboard">
+                    <span class="btn-icon">🏆</span> BẢNG XẾP HẠNG
+                </button>
+                <button class="btn btn-tertiary" onclick="showInstructions()" data-lang="controls">
+                    <span class="btn-icon">🎮</span> HƯỚNG DẪN
+                </button>
+            </div>
+            <div class="credit">@Qu4nh</div>
+        </div>
+
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+        <div id="gameOverScreen" class="menu-screen hidden">
+            <div class="game-over-effects">
+                <div class="explosion-icon">💥</div>
+            </div>
+            <h1 class="game-over-title" data-lang="gameOver">GAME OVER</h1>
+
+            <div class="game-over-content">
+                <div class="game-over-left">
+                    <div id="finalStats">
+                        <p><span data-lang="score">Score</span>: <span id="finalScore" class="stat-value">0</span></p>
+                        <p><span data-lang="wave">Wave</span>: <span id="finalWave" class="stat-value">0</span></p>
+                    </div>
+
+                    <div class="score-submit">
+                        <input type="text" id="playerName" data-lang="enterName" placeholder="Enter your name"
+                            maxlength="20">
+                        <button class="btn btn-primary" onclick="submitScore()" data-lang="submitScore">
+                            <span class="btn-icon">📤</span> SUBMIT
+                        </button>
+                    </div>
+
+                    <div class="menu-buttons">
+                        <button class="btn btn-secondary" onclick="restartGame()" data-lang="playAgain">
+                            <span class="btn-icon">🔄</span> PLAY AGAIN
+                        </button>
+                        <button class="btn btn-tertiary" onclick="showMainMenu()" data-lang="mainMenu">
+                            <span class="btn-icon">🏠</span> MAIN MENU
+                        </button>
+                    </div>
+                </div>
+
+                <div class="game-over-right">
+                    <div id="gameOverLeaderboard" class="leaderboard-section">
+                        <h2 data-lang="top10">🏆 TOP 10</h2>
+                        <div id="gameOverLeaderboardContent">Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="leaderboardScreen" class="menu-screen hidden">
+            <h1 class="leaderboard-title">
+                <span class="title-icon">🏆</span>
+                <span data-lang="leaderboard">BẢNG XẾP HẠNG</span>
+            </h1>
+            <div id="leaderboardContent">
+                <div class="loading" data-lang="loadingScores">Đang tải...</div>
+            </div>
+            <button class="btn btn-secondary" onclick="hideLeaderboard()" data-lang="back">
+                <span class="btn-icon">◀</span> QUAY LẠI
+            </button>
+        </div>
+
+        <div id="instructionsScreen" class="menu-screen hidden">
+            <h1 class="instructions-title">
+                <span class="title-icon">🎮</span>
+                <span data-lang="controls">HƯỚNG DẪN</span>
+            </h1>
+            <div class="instructions-content">
+                <div class="control-group">
+                    <h3 data-lang="movement">Di Chuyển</h3>
+                    <p><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> - <span data-lang="move">Di chuyển</span></p>
+                    <p><kbd>Shift</kbd> - <span data-lang="dash">Lướt (tốn năng lượng)</span></p>
+                </div>
+                <div class="control-group">
+                    <h3 data-lang="combat">Chiến Đấu</h3>
+                    <p><kbd>Space</kbd> - <span data-lang="autoShoot">Tự động ngắm và bắn</span></p>
+                    <p><kbd>E</kbd> - <span data-lang="bombSkill">Skill Bomb (Sát thương diện rộng)</span></p>
+                </div>
+                <div class="control-group">
+                    <h3 data-lang="shop">Cửa Hàng</h3>
+                    <p><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> - <span data-lang="selectItems">Chọn vật
+                            phẩm</span></p>
+                    <p><kbd>Enter</kbd> - <span data-lang="buyItems">Mua vật phẩm đã chọn</span></p>
+                    <p><kbd>Esc</kbd> - <span data-lang="skipShop">Bỏ qua shop</span></p>
+                </div>
+                <div class="control-group">
+                    <h3 data-lang="tips">Mẹo Chơi</h3>
+                    <p data-lang="tip1">• Wave 5, 10, 15... là BOSS waves</p>
+                    <p data-lang="tip2">• Shop xuất hiện sau khi hạ boss</p>
+                    <p data-lang="tip3">• Enemy vàng rơi nhiều tiền hơn</p>
+                    <p data-lang="tip4">• Nâng cấp skill để gây sát thương lớn</p>
+                </div>
+            </div>
+            <button class="btn btn-secondary" onclick="hideInstructions()" data-lang="back">
+                <span class="btn-icon">◀</span> QUAY LẠI
+            </button>
+        </div>
+
+        <div id="mobileControls" class="mobile-controls hidden">
+            <div class="joystick-wrapper">
+                <div id="joystick" class="joystick">
+                    <div class="joystick-inner"></div>
+                </div>
+            </div>
+            <div class="action-buttons">
+                <button id="shootBtn" class="action-btn shoot-btn">SHOOT</button>
+                <button id="skillBtn" class="action-btn skill-btn">SKILL</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <script src="firebase-config.js"></script>
+    <script src="language.js"></script>
+    <script src="game.js"></script>
+    <script src="game-core.js"></script>
+    <script src="boss.js"></script>
+    <script src="wave-transition.js"></script>
+    <script src="game-loop.js"></script>
+    <script src="mobile-controls.js"></script>
+    <script src="leaderboard.js"></script>
+</body>
+
+</html>
