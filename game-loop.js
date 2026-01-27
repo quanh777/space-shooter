@@ -1,9 +1,12 @@
-﻿
 let isPaused = false;
 
 let comboScoreEarned = 0;
 let comboEndDisplay = null;
 let comboEnemyBreakdown = { small: 0, medium: 0, large: 0, elite: 0, boss: 0 };
+
+let spawnQueue = [];
+let spawnTimer = 0;
+let spawnInterval = 800;
 
 function addComboKill(scoreEarned = 0, enemyType = 'small') {
     comboKills++;
@@ -613,25 +616,78 @@ function update() {
         } else {
             const baseCount = Math.floor(wave * 1.5 + 3);
             const bonusCount = Math.floor(Math.random() * 3) - 1;
-            const n = Math.max(3, baseCount + bonusCount);
+            const totalEnemies = Math.max(3, baseCount + bonusCount);
 
             const eliteChance = wave >= 3 ? Math.min(0.15, (wave - 2) * 0.02) : 0;
             const largeChance = Math.min(0.25, wave * 0.02);
             const mediumChance = Math.min(0.4, 0.25 + wave * 0.01);
 
-            for (let i = 0; i < n; i++) {
-                const r = Math.random();
-                let type;
-                if (r < eliteChance) type = 'elite';
-                else if (r < eliteChance + largeChance) type = 'large';
-                else if (r < eliteChance + largeChance + mediumChance) type = 'medium';
-                else type = 'small';
-                enemies.push(new Enemy(type));
+            spawnQueue = [];
+            let remaining = totalEnemies;
+
+            while (remaining > 0) {
+                const batchType = Math.random();
+                let batch = [];
+                let maxBatch;
+
+                if (batchType < 0.35) {
+                    const typeRoll = Math.random();
+                    let singleType, batchLimit;
+                    if (typeRoll < 0.5) {
+                        singleType = 'small'; batchLimit = 4 + Math.floor(Math.random() * 3);
+                    } else if (typeRoll < 0.8) {
+                        singleType = 'medium'; batchLimit = 3 + Math.floor(Math.random() * 2);
+                    } else {
+                        singleType = 'large'; batchLimit = 2 + Math.floor(Math.random() * 2);
+                    }
+                    maxBatch = Math.min(remaining, batchLimit);
+                    for (let i = 0; i < maxBatch; i++) batch.push(singleType);
+                } else {
+                    maxBatch = Math.min(remaining, 3 + Math.floor(Math.random() * 2));
+                    for (let i = 0; i < maxBatch; i++) {
+                        const r = Math.random();
+                        let type;
+                        if (r < eliteChance) type = 'elite';
+                        else if (r < eliteChance + largeChance) type = 'large';
+                        else if (r < eliteChance + largeChance + mediumChance) type = 'medium';
+                        else type = 'small';
+                        batch.push(type);
+                    }
+
+                    const eliteCount = batch.filter(t => t === 'elite').length;
+                    const largeCount = batch.filter(t => t === 'large').length;
+                    if (eliteCount > 2) {
+                        batch = batch.filter(t => t !== 'elite').concat(['elite', 'elite']);
+                    }
+                    if (largeCount > 3) {
+                        batch = batch.filter(t => t !== 'large').concat(['large', 'large', 'large']);
+                    }
+                }
+
+                spawnQueue.push(batch);
+                remaining -= batch.length;
             }
 
             if (wave >= 3 && wave % 3 === 0 && wave % 5 !== 0) {
-                enemies.push(new Enemy('elite'));
+                spawnQueue.push(['elite']);
             }
+
+            spawnInterval = Math.max(3000, 4000 - wave * 50);
+            spawnTimer = 0;
+
+            if (spawnQueue.length > 0) {
+                const firstBatch = spawnQueue.shift();
+                firstBatch.forEach(type => enemies.push(new Enemy(type)));
+            }
+        }
+    }
+
+    if (spawnQueue.length > 0 && !isResting && !isShop && !isTransitionActive()) {
+        spawnTimer += 16.67;
+        if (spawnTimer >= spawnInterval) {
+            spawnTimer = 0;
+            const batch = spawnQueue.shift();
+            batch.forEach(type => enemies.push(new Enemy(type)));
         }
     }
 
@@ -1156,4 +1212,3 @@ window.addEventListener('load', () => {
         document.getElementById('mainMenu').classList.remove('hidden');
     }, 1000);
 });
-
