@@ -761,7 +761,7 @@ function draw() {
         if (breakdownParts.length > 0) {
             ctx.font = '14px Arial';
             ctx.fillStyle = '#aaa';
-            ctx.fillText(breakdownParts.join(' â€¢ '), W / 2, comboEndDisplay.y + 50);
+            ctx.fillText(breakdownParts.join(' • '), W / 2, comboEndDisplay.y + 50);
         }
 
         ctx.restore();
@@ -1156,3 +1156,4 @@ window.addEventListener('load', () => {
         document.getElementById('mainMenu').classList.remove('hidden');
     }, 1000);
 });
+
