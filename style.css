@@ -4,6 +4,13 @@
     box-sizing: border-box;
 }
 
+:root {
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-top: env(safe-area-inset-top, 0px);
+    --safe-area-left: env(safe-area-inset-left, 0px);
+    --safe-area-right: env(safe-area-inset-right, 0px);
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', system-ui, sans-serif;
     overflow: hidden;
@@ -93,8 +100,8 @@ body {
 
 .lang-toggle {
     position: absolute;
-    top: 16px;
-    right: 16px;
+    top: calc(16px + var(--safe-area-top));
+    right: calc(16px + var(--safe-area-right));
     z-index: 200;
     padding: 10px 20px;
     font-size: 13px;
@@ -803,8 +810,8 @@ kbd {
 
 .credit {
     position: absolute;
-    bottom: 16px;
-    right: 20px;
+    bottom: calc(16px + var(--safe-area-bottom));
+    right: calc(20px + var(--safe-area-right));
     font-size: 13px;
     color: rgba(255, 255, 255, 0.3);
     font-style: italic;
@@ -955,8 +962,8 @@ kbd {
 
 .pause-wrapper {
     position: absolute;
-    top: 16px;
-    left: 16px;
+    top: calc(16px + var(--safe-area-top));
+    left: calc(16px + var(--safe-area-left));
     pointer-events: auto;
     z-index: 151;
 }
@@ -988,8 +995,8 @@ kbd {
 
 .joystick-wrapper {
     position: absolute;
-    bottom: 80px;
-    left: 44px;
+    bottom: calc(80px + var(--safe-area-bottom));
+    left: calc(44px + var(--safe-area-left));
     pointer-events: auto;
 }
 
@@ -1029,8 +1036,8 @@ kbd {
 
 .action-buttons {
     position: absolute;
-    bottom: 90px;
-    right: 20px;
+    bottom: calc(90px + var(--safe-area-bottom));
+    right: calc(20px + var(--safe-area-right));
     width: 130px;
     height: 120px;
     pointer-events: auto;
@@ -1238,8 +1245,8 @@ kbd {
 
 .achievement-icon-btn {
     position: absolute;
-    bottom: 20px;
-    left: 20px;
+    bottom: calc(20px + var(--safe-area-bottom));
+    left: calc(20px + var(--safe-area-left));
     width: 50px;
     height: 50px;
     border-radius: 50%;
@@ -1428,7 +1435,7 @@ kbd {
 
 .achievement-notification {
     position: fixed;
-    top: 20px;
+    top: calc(20px + var(--safe-area-top));
     left: 50%;
     transform: translateX(-50%) translateY(-100px);
     display: flex;
