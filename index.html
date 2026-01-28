@@ -67,10 +67,16 @@
                 <button class="btn btn-secondary" onclick="showLeaderboard()" data-lang="leaderboard">
                     <span class="btn-icon">🏆</span> BẢNG XẾP HẠNG
                 </button>
-                <button class="btn btn-tertiary" onclick="showInstructions()" data-lang="controls">
-                    <span class="btn-icon">🎮</span> HƯỚNG DẪN
+                <button class="btn btn-tertiary" onclick="showInstructions()" data-lang="instructions">
+                    <span class="btn-icon">📖</span> INSTRUCTIONS
+                </button>
+                <button class="btn btn-tertiary" onclick="showInfo()" data-lang="info">
+                    <span class="btn-icon">ℹ️</span> INFO
                 </button>
             </div>
+            <button class="achievement-icon-btn" onclick="showAchievements()" title="Achievements">
+                🏅
+            </button>
             <div class="credit">@Qu4nh</div>
         </div>
 
@@ -90,10 +96,13 @@
                     </div>
 
                     <div class="score-submit">
-                        <input type="text" id="playerName" data-lang="enterName" placeholder="Enter your name"
+                        <p class="submit-encourage" data-lang="encourageSubmit">🏆 Ghi danh vào bảng xếp hạng!</p>
+                        <p id="rankPreview" class="rank-preview"></p>
+                        <input type="text" id="playerName" data-lang="enterName" placeholder="Nhập tên của bạn"
                             maxlength="20">
-                        <button class="btn btn-primary" onclick="submitScore()" data-lang="submitScore">
-                            <span class="btn-icon">📤</span> SUBMIT
+                        <button class="btn btn-primary submit-btn-highlight" onclick="submitScore()"
+                            data-lang="submitScore">
+                            <span class="btn-icon">📤</span> GỬI ĐIỂM
                         </button>
                     </div>
 
@@ -119,7 +128,7 @@
         <div id="leaderboardScreen" class="menu-screen hidden">
             <h1 class="leaderboard-title">
                 <span class="title-icon">🏆</span>
-                <span data-lang="leaderboard">BẢNG XẾP HẠNG</span>
+                <span data-lang="leaderboardTitle">BẢNG XẾP HẠNG</span>
                 <span class="title-icon">🏆</span>
             </h1>
             <div id="leaderboardContent">
@@ -167,17 +176,77 @@
             </button>
         </div>
 
+        <div id="infoScreen" class="menu-screen hidden">
+            <h1 class="instructions-title" data-lang="info">ℹ️ INFO</h1>
+            <div class="instructions-content">
+                <div class="control-group">
+                    <h3 data-lang="aboutGame">About Game</h3>
+                    <p data-lang="gameDescription">Trò chơi arcade vũ trụ được phát triển độc lập, kết hợp cơ chế di
+                        chuyển nhanh nhẹn với hệ thống tiến hóa nhân vật sâu sắc.</p>
+                </div>
+                <div class="control-group">
+                    <h3 data-lang="credits">Credits</h3>
+                    <p><span data-lang="developer">Phát triển bởi</span>: <strong>Qu4nh</strong></p>
+                    <p><span data-lang="version">Phiên bản</span>: <strong>2.0</strong></p>
+                    <p><span data-lang="releaseDate">Ngày phát hành</span>: <strong>07/2025</strong></p>
+                    <p><span data-lang="lastUpdated">Cập nhật cuối</span>: <strong>01/2026</strong></p>
+                    <p><span data-lang="codeLines">Dòng code</span>: <strong>~5000+</strong></p>
+                </div>
+                <div class="control-group">
+                    <h3 data-lang="techSkills">Kỹ năng kỹ thuật</h3>
+                    <p data-lang="skill1">• Canvas 2D rendering & game loop optimization</p>
+                    <p data-lang="skill2">• Object-oriented design patterns (Factory, State)</p>
+                    <p data-lang="skill3">• Firebase Realtime Database integration</p>
+                    <p data-lang="skill4">• Responsive design & touch event handling</p>
+                    <p data-lang="skill5">• Multi-language internationalization (i18n)</p>
+                </div>
+                <div class="control-group">
+                    <h3 data-lang="highlights">Điểm nổi bật</h3>
+                    <p data-lang="highlight1">• Hệ thống điều khiển phản hồi tức thì</p>
+                    <p data-lang="highlight2">• Boss AI với nhiều giai đoạn chiến đấu</p>
+                    <p data-lang="highlight3">• Hơn 10 nâng cấp đa dạng</p>
+                    <p data-lang="highlight4">• Xếp hạng trực tuyến toàn cầu</p>
+                </div>
+                <div class="control-group">
+                    <h3 data-lang="feedback">Góp ý & Đánh giá</h3>
+                    <p data-lang="feedbackDesc">Ý kiến của bạn giúp game ngày càng hoàn thiện!</p>
+                    <a href="https://forms.gle/NQdmzA83NbHGvQT16" target="_blank" class="btn btn-tertiary feedback-btn">
+                        <span class="btn-icon">📝</span> <span data-lang="sendFeedback">Gửi góp ý</span>
+                    </a>
+                </div>
+            </div>
+            <button class="btn btn-secondary" onclick="hideInfo()" data-lang="back">
+                <span class="btn-icon">◀</span> QUAY LẠI
+            </button>
+        </div>
+
+        <div id="achievementsScreen" class="menu-screen hidden">
+            <h1 class="instructions-title">
+                <span class="title-icon">🏅</span>
+                <span data-lang="achievementsTitle">THÀNH TỰU</span>
+                <span class="title-icon">🏅</span>
+            </h1>
+            <div id="achievementsList" class="achievements-list"></div>
+            <button class="btn btn-secondary" onclick="hideAchievements()" data-lang="back">
+                <span class="btn-icon">◀</span> QUAY LẠI
+            </button>
+        </div>
+
         <div id="mobileControls" class="mobile-controls hidden">
+            <div class="pause-wrapper">
+                <button id="pauseBtn" class="pause-btn-mobile">⏸</button>
+            </div>
+
             <div class="joystick-wrapper">
                 <div id="joystick" class="joystick">
                     <div class="joystick-inner"></div>
                 </div>
             </div>
+
             <div class="action-buttons">
-                <button id="shootBtn" class="action-btn shoot-btn">SHOOT</button>
                 <button id="skillBtn" class="action-btn skill-btn">SKILL</button>
+                <button id="shootBtn" class="action-btn shoot-btn">SHOOT</button>
                 <button id="dashBtn" class="action-btn dash-btn">DASH</button>
-                <button id="pauseBtn" class="action-btn pause-btn">⏸</button>
             </div>
         </div>
     </div>
@@ -195,5 +264,7 @@
     <script src="interactive-bg.js"></script>
     <script src="mobile-controls.js"></script>
     <script src="leaderboard.js"></script>
+    <script src="achievements.js"></script>
 </body>
+
 </html>
