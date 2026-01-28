@@ -1,5 +1,7 @@
+
 let joystickActive = false;
 let joystickData = { x: 0, y: 0 };
+
 function initMobileControls() {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
         || window.innerWidth <= 850;
@@ -8,9 +10,9 @@ function initMobileControls() {
         document.getElementById('mobileControls').classList.remove('hidden');
         setupJoystick();
         setupActionButtons();
-        setupCanvasTouch();
     }
 }
+
 function setupJoystick() {
     const joystick = document.getElementById('joystick');
     const inner = joystick.querySelector('.joystick-inner');
@@ -91,78 +93,19 @@ function setupActionButtons() {
 
     pauseBtn.addEventListener('touchstart', (e) => {
         e.preventDefault();
-        keys['Escape'] = true;
-        setTimeout(() => keys['Escape'] = false, 100);
-    });
-}
-
-function setupCanvasTouch() {
-    const canvas = document.getElementById('gameCanvas');
-
-    canvas.addEventListener('touchstart', (e) => {
-        if (typeof isShop === 'undefined' || !isShop) return;
-
-        e.preventDefault();
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-
-        const touch = e.touches[0];
-        const x = (touch.clientX - rect.left) * scaleX;
-        const y = (touch.clientY - rect.top) * scaleY;
-
-        handleShopTouch(x, y);
-    });
-}
-
-function handleShopTouch(x, y) {
-    const startY = 190;
-    const spacing = 65;
-    const btnHeight = 55;
-    const btnWidth = 420;
-    const btnX = W / 2 - btnWidth / 2;
-
-    if (typeof itemsToSell !== 'undefined') {
-        itemsToSell.forEach((item, i) => {
-            const itemY = startY + i * spacing - 8;
-            if (x >= btnX && x <= btnX + btnWidth && y >= itemY && y <= itemY + btnHeight) {
-                const itm = shopItems[item];
-                const price = getItemPrice(item);
-                const maxed = itm.max !== -1 && itm.b >= itm.max;
-                const skillUpLimited = item === 'Skill Up' && skillUpBoughtThisShop;
-                const afford = playerMoney >= price;
-
-                if (!maxed && !skillUpLimited && afford) {
-                    const idx = selectedItems.indexOf(item);
-                    if (idx !== -1) {
-                        selectedItems.splice(idx, 1);
-                    } else {
-                        selectedItems.push(item);
-                    }
-                }
-            }
-        });
-    }
-
-    const btnY1 = H - 150;
-    const btnY2 = H - 95;
-    const btnY3 = H - 45;
-    const btnH = 45;
-    const btnW = 300;
-    const btnCenterX = W / 2 - btnW / 2;
-
-    if (x >= btnCenterX && x <= btnCenterX + btnW) {
-        if (y >= btnY1 && y <= btnY1 + btnH) {
-            keys['Enter'] = true;
-            setTimeout(() => keys['Enter'] = false, 100);
-        } else if (y >= btnY2 && y <= btnY2 + btnH) {
-            keys['r'] = true;
-            setTimeout(() => keys['r'] = false, 100);
-        } else if (y >= btnY3 && y <= btnY3 + btnH) {
+        e.stopPropagation();
+        // Toggle pause
+        if (typeof isPaused !== 'undefined') {
+            isPaused = !isPaused;
+        }
+        // Simulate escape key
+        if (typeof handlePause === 'function') {
+            handlePause();
+        } else {
             keys['Escape'] = true;
             setTimeout(() => keys['Escape'] = false, 100);
         }
-    }
+    });
 }
 
 window.addEventListener('load', () => {
