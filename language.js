@@ -26,7 +26,7 @@ const LANGUAGES = {
         leaderboardTitle: 'BẢNG XẾP HẠNG',
         movement: 'Di Chuyển',
         move: 'Di chuyển',
-        dash: 'Lướt',
+        dash: 'Lướt (tốn năng lượng)',
         combat: 'Chiến Đấu',
         autoShoot: 'Tự động ngắm và bắn',
         bombSkill: 'Skill Bomb (Sát thương diện rộng)',
@@ -260,4 +260,5 @@ window.addEventListener('DOMContentLoaded', () => {
     updateAllText();
     updateLangButton();
 });
+
 
