@@ -1,7 +1,5 @@
-
 let joystickActive = false;
 let joystickData = { x: 0, y: 0 };
-
 function initMobileControls() {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
         || window.innerWidth <= 850;
@@ -13,7 +11,6 @@ function initMobileControls() {
         setupCanvasTouch();
     }
 }
-
 function setupJoystick() {
     const joystick = document.getElementById('joystick');
     const inner = joystick.querySelector('.joystick-inner');
