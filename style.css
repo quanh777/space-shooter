@@ -100,8 +100,8 @@ body {
 
 .lang-toggle {
     position: absolute;
-    top: calc(16px + var(--safe-area-top));
-    right: calc(16px + var(--safe-area-right));
+    top: 16px;
+    right: 16px;
     z-index: 200;
     padding: 10px 20px;
     font-size: 13px;
@@ -810,8 +810,8 @@ kbd {
 
 .credit {
     position: absolute;
-    bottom: calc(16px + var(--safe-area-bottom));
-    right: calc(20px + var(--safe-area-right));
+    bottom: 16px;
+    right: 20px;
     font-size: 13px;
     color: rgba(255, 255, 255, 0.3);
     font-style: italic;
@@ -962,8 +962,8 @@ kbd {
 
 .pause-wrapper {
     position: absolute;
-    top: calc(16px + var(--safe-area-top));
-    left: calc(16px + var(--safe-area-left));
+    top: 16px;
+    left: 16px;
     pointer-events: auto;
     z-index: 151;
 }
@@ -995,8 +995,8 @@ kbd {
 
 .joystick-wrapper {
     position: absolute;
-    bottom: calc(80px + var(--safe-area-bottom));
-    left: calc(44px + var(--safe-area-left));
+    bottom: 80px;
+    left: 44px;
     pointer-events: auto;
 }
 
@@ -1036,8 +1036,8 @@ kbd {
 
 .action-buttons {
     position: absolute;
-    bottom: calc(90px + var(--safe-area-bottom));
-    right: calc(20px + var(--safe-area-right));
+    bottom: 90px;
+    right: 20px;
     width: 130px;
     height: 120px;
     pointer-events: auto;
@@ -1150,6 +1150,31 @@ kbd {
         font-size: 32px;
     }
 
+    .achievement-icon-btn {
+        bottom: 150px !important;
+    }
+
+    .credit {
+        bottom: 100px !important;
+        right: 20px !important;
+        width: 100%;
+        text-align: center;
+        right: 0 !important;
+        pointer-events: none;
+    }
+
+    .lang-toggle {
+        top: 50px !important;
+    }
+
+    .pause-wrapper {
+        top: 50px !important;
+    }
+
+    .achievement-notification {
+        top: 60px !important;
+    }
+
     .btn {
         padding: 14px 32px;
         font-size: 14px;
@@ -1245,8 +1270,8 @@ kbd {
 
 .achievement-icon-btn {
     position: absolute;
-    bottom: calc(20px + var(--safe-area-bottom));
-    left: calc(20px + var(--safe-area-left));
+    bottom: 20px;
+    left: 20px;
     width: 50px;
     height: 50px;
     border-radius: 50%;
@@ -1435,7 +1460,7 @@ kbd {
 
 .achievement-notification {
     position: fixed;
-    top: calc(20px + var(--safe-area-top));
+    top: 20px;
     left: 50%;
     transform: translateX(-50%) translateY(-100px);
     display: flex;
