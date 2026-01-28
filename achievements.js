@@ -1,4 +1,3 @@
-// Achievement definitions with levels (like Clash Royale)
 const ACHIEVEMENTS = {
     kills: {
         id: 'kills',
@@ -66,7 +65,6 @@ const ACHIEVEMENTS = {
     }
 };
 
-// Progress data stored in localStorage
 let achievementData = {
     kills: 0,
     waves: 0,
@@ -188,7 +186,6 @@ function showNextAchievement() {
     }, 3000);
 }
 
-// Game integration functions
 function onEnemyKilled() {
     updateAchievement('kills', 1);
 }
@@ -225,7 +222,6 @@ function onGameOver(finalScore) {
     updateAchievement('highScore', finalScore, true);
 }
 
-// UI Functions
 function showAchievements() {
     document.getElementById('mainMenu').classList.add('hidden');
     document.getElementById('achievementsScreen').classList.remove('hidden');
@@ -259,7 +255,6 @@ function renderAchievementsList() {
         const data = ach[lang] || ach.vi;
         const desc = data.desc.replace('{target}', progress.target);
 
-        // Gradient class based on level
         const levelClass = isMaxed ? 'level-max' : level > 0 ? `level-${Math.min(level, 5)}` : 'level-0';
 
         html += `
@@ -285,5 +280,5 @@ function renderAchievementsList() {
     container.innerHTML = html;
 }
 
-// Initialize
 loadAchievements();
+
