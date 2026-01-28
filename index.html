@@ -51,12 +51,15 @@
                 <div class="floating-asteroid a1">🪨</div>
                 <div class="floating-asteroid a2">☄️</div>
                 <div class="floating-asteroid a3">⭐</div>
+                <div class="floating-asteroid a4">💫</div>
+                <div class="floating-asteroid a5">🌟</div>
             </div>
             <h1 class="game-title">
                 <span class="title-icon">🚀</span>
                 SPACE SHOOTER
                 <span class="title-icon">🛸</span>
             </h1>
+            <p class="game-subtitle" data-lang="subtitle">Cuộc chiến vũ trụ huyền thoại</p>
             <div class="menu-buttons">
                 <button class="btn btn-primary" onclick="startGame()" data-lang="playGame">
                     <span class="btn-icon">▶</span> CHƠI GAME
@@ -173,6 +176,8 @@
             <div class="action-buttons">
                 <button id="shootBtn" class="action-btn shoot-btn">SHOOT</button>
                 <button id="skillBtn" class="action-btn skill-btn">SKILL</button>
+                <button id="dashBtn" class="action-btn dash-btn">DASH</button>
+                <button id="pauseBtn" class="action-btn pause-btn">⏸</button>
             </div>
         </div>
     </div>
@@ -187,6 +192,7 @@
     <script src="boss.js"></script>
     <script src="wave-transition.js"></script>
     <script src="game-loop.js"></script>
+    <script src="interactive-bg.js"></script>
     <script src="mobile-controls.js"></script>
     <script src="leaderboard.js"></script>
 </body>
