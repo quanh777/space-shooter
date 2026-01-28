@@ -1,7 +1,8 @@
-﻿const LANGUAGES = {
+const LANGUAGES = {
     vi: {
         loading: 'Đang tải...',
         loadingCredit: 'bởi @Qu4nh',
+        subtitle: 'Cuộc chiến vũ trụ 67',
 
         playGame: 'CHƠI GAME',
         leaderboard: 'BẢNG XẾP HẠNG',
@@ -71,6 +72,7 @@
     en: {
         loading: 'Loading...',
         loadingCredit: 'by @Qu4nh',
+        subtitle: '67 space battles',
 
         playGame: 'PLAY GAME',
         leaderboard: 'LEADERBOARD',
