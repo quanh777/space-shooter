@@ -1,16 +1,27 @@
 
 let joystickActive = false;
 let joystickData = { x: 0, y: 0 };
+let isMobileDevice = false;
 
 function initMobileControls() {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
         || window.innerWidth <= 850;
 
-    if (isMobile) {
-        document.getElementById('mobileControls').classList.remove('hidden');
+    if (isMobileDevice) {
         setupJoystick();
         setupActionButtons();
     }
+}
+
+function showMobileControls() {
+    if (!isMobileDevice) return;
+    const controls = document.getElementById('mobileControls');
+    if (controls) controls.classList.remove('hidden');
+}
+
+function hideMobileControls() {
+    const controls = document.getElementById('mobileControls');
+    if (controls) controls.classList.add('hidden');
 }
 
 function setupJoystick() {
@@ -94,11 +105,9 @@ function setupActionButtons() {
     pauseBtn.addEventListener('touchstart', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        // Toggle pause
         if (typeof isPaused !== 'undefined') {
             isPaused = !isPaused;
         }
-        // Simulate escape key
         if (typeof handlePause === 'function') {
             handlePause();
         } else {
