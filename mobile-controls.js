@@ -1,4 +1,3 @@
-
 let joystickActive = false;
 let joystickData = { x: 0, y: 0 };
 let isMobileDevice = false;
@@ -53,7 +52,6 @@ function setupJoystick() {
 
         inner.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
 
-        // Provide smooth analog values (-1 to 1)
         joystickData.x = deltaX / 35;
         joystickData.y = deltaY / 35;
     });
@@ -120,3 +118,4 @@ function setupActionButtons() {
 window.addEventListener('load', () => {
     initMobileControls();
 });
+
