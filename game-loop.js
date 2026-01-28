@@ -20,6 +20,8 @@ function addComboKill(scoreEarned = 0, enemyType = 'small') {
     maxCombo = Math.max(maxCombo, comboKills);
     comboMultiplier = comboKills < 3 ? 1 : (comboKills < 6 ? 1.5 : (comboKills < 10 ? 2 : 3));
 
+    if (typeof onEnemyKilled === 'function') onEnemyKilled();
+
     if (comboKills >= 5 && comboKills % 5 === 0) {
         screenShake = 5;
         for (let i = 0; i < 15; i++) {
@@ -326,21 +328,15 @@ function update() {
     if (keys[' '] && canShoot) shoot();
     if (keys['e']) useSkill();
 
-    // === JUST SHAPES & BEATS STYLE MOVEMENT ===
-    // Instant, precise movement with quick dash bursts
-
     const baseSpeed = hasBuff('speed') ? 3.5 : 2.3;
 
-    // Get input direction
     let inputX = 0, inputY = 0;
 
-    // PC keyboard input
     if (keys['a']) inputX -= 1;
     if (keys['d']) inputX += 1;
     if (keys['w']) inputY -= 1;
     if (keys['s']) inputY += 1;
 
-    // Mobile joystick input
     if (typeof joystickData !== 'undefined' && joystickData) {
         const deadzone = 0.15;
         if (Math.abs(joystickData.x) > deadzone) {
@@ -353,9 +349,7 @@ function update() {
 
     const hasInput = inputX !== 0 || inputY !== 0;
 
-    // Dash mechanic - short burst
     if (keys['Shift'] && !isSliding && energy >= 10 && hasInput) {
-        // Start dash
         const magnitude = Math.sqrt(inputX * inputX + inputY * inputY);
         window.dashDirection = {
             x: inputX / magnitude,
@@ -364,31 +358,27 @@ function update() {
         isSliding = true;
         lastSlide = now;
         energy -= 10;
+
+        if (typeof onDash === 'function') onDash();
     }
 
-    // Calculate movement
     let moveX = 0, moveY = 0;
 
     if (isSliding) {
-        // Dash movement - short quick burst
         const dashSpeed = 8;
-        const dashDuration = 60; // Very short dash
+        const dashDuration = 60; 
         const elapsed = now - lastSlide;
 
         if (elapsed < dashDuration) {
-            // Active dash
             moveX = window.dashDirection.x * dashSpeed;
             moveY = window.dashDirection.y * dashSpeed;
         } else {
-            // Dash ended
             isSliding = false;
             window.dashDirection = null;
         }
     }
 
-    // Normal movement (only if not dashing)
     if (!isSliding && hasInput) {
-        // Instant movement - no acceleration
         const magnitude = Math.sqrt(inputX * inputX + inputY * inputY);
         const normalizedX = inputX / magnitude;
         const normalizedY = inputY / magnitude;
@@ -396,20 +386,16 @@ function update() {
         moveX = normalizedX * baseSpeed;
         moveY = normalizedY * baseSpeed;
 
-        // Update aim direction
         dirX = normalizedX;
         dirY = normalizedY;
     } else if (!isSliding) {
-        // No input and not dashing - stop immediately
         dirX = 0;
         dirY = 0;
     }
 
-    // Apply movement
     playerX += moveX;
     playerY += moveY;
 
-    // Boundary clamping
     if (playerX < 0) playerX = 0;
     if (playerX > W - PW) playerX = W - PW;
     if (playerY < 0) playerY = 0;
@@ -1022,6 +1008,10 @@ function startGame() {
     const langBtn = document.getElementById('langToggle');
     if (langBtn) langBtn.classList.add('hidden');
 
+    // Show pause button on mobile
+    const pauseBtn = document.getElementById('pauseBtn');
+    if (pauseBtn) pauseBtn.style.display = 'block';
+
     if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
         animationFrameId = null;
@@ -1029,6 +1019,10 @@ function startGame() {
 
     gameRunning = true;
     resetGame();
+
+    // Track game start for achievements
+    if (typeof onGameStart === 'function') onGameStart();
+
     gameLoop();
 }
 
@@ -1108,6 +1102,24 @@ function gameOver() {
     const langBtn = document.getElementById('langToggle');
     if (langBtn) langBtn.classList.remove('hidden');
 
+    const pauseBtn = document.getElementById('pauseBtn');
+    if (pauseBtn) pauseBtn.style.display = 'none';
+
+    if (typeof onGameOver === 'function') onGameOver(score);
+    if (typeof onWaveComplete === 'function') onWaveComplete(wave);
+
+    const savedName = localStorage.getItem('playerName');
+    const nameInput = document.getElementById('playerName');
+    if (savedName && nameInput) {
+        nameInput.value = savedName;
+    }
+
+    setTimeout(() => {
+        if (nameInput) nameInput.focus();
+    }, 300);
+
+    updateRankPreview(score);
+
     loadGameOverLeaderboard();
 }
 
@@ -1122,6 +1134,9 @@ function showMainMenu() {
 
     const langBtn = document.getElementById('langToggle');
     if (langBtn) langBtn.classList.remove('hidden');
+
+    const pauseBtn = document.getElementById('pauseBtn');
+    if (pauseBtn) pauseBtn.style.display = 'none';
 }
 
 function showInstructions() {
@@ -1131,6 +1146,16 @@ function showInstructions() {
 
 function hideInstructions() {
     document.getElementById('instructionsScreen').classList.add('hidden');
+    document.getElementById('mainMenu').classList.remove('hidden');
+}
+
+function showInfo() {
+    document.getElementById('mainMenu').classList.add('hidden');
+    document.getElementById('infoScreen').classList.remove('hidden');
+}
+
+function hideInfo() {
+    document.getElementById('infoScreen').classList.add('hidden');
     document.getElementById('mainMenu').classList.remove('hidden');
 }
 
@@ -1178,6 +1203,9 @@ document.addEventListener('keydown', e => {
                 shopItems[item].b++;
                 applyItem(item);
 
+                // Track achievement
+                if (typeof onPurchase === 'function') onPurchase();
+
                 if (item === 'Skill Up') skillUpBoughtThisShop = true;
             });
             selectedItems = [];
@@ -1219,8 +1247,10 @@ canvas.addEventListener('click', e => {
     if (!isShop) return;
 
     const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const mx = (e.clientX - rect.left) * scaleX;
+    const my = (e.clientY - rect.top) * scaleY;
 
     const startY = 190, spacing = 65;
     itemsToSell.forEach((item, i) => {
@@ -1271,6 +1301,97 @@ canvas.addEventListener('click', e => {
     if (mx >= W / 2 - btnW / 2 && mx <= W / 2 + btnW / 2 && my >= btnY3 && my <= btnY3 + btnH) {
         selectedItems = [];
         isShop = false;
+    }
+});
+
+canvas.addEventListener('touchstart', e => {
+    if (isPaused) {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
+
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        const mx = (touch.clientX - rect.left) * scaleX;
+        const my = (touch.clientY - rect.top) * scaleY;
+
+        const btnW = 220, btnH = 50;
+        const btnX = W / 2 - btnW / 2;
+
+        if (mx >= btnX && mx <= btnX + btnW && my >= H / 2 - 10 && my <= H / 2 - 10 + btnH) {
+            isPaused = false;
+        }
+
+        if (mx >= btnX && mx <= btnX + btnW && my >= H / 2 + 55 && my <= H / 2 + 55 + btnH) {
+            resetGame();
+        }
+
+        if (mx >= btnX && mx <= btnX + btnW && my >= H / 2 + 120 && my <= H / 2 + 120 + btnH) {
+            isPaused = false;
+            showMainMenu();
+        }
+        return;
+    }
+
+    if (isShop) {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
+
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        const mx = (touch.clientX - rect.left) * scaleX;
+        const my = (touch.clientY - rect.top) * scaleY;
+
+        const startY = 190, spacing = 65;
+        itemsToSell.forEach((item, i) => {
+            const y = startY + i * spacing;
+            const bw = 420, bh = 55, bx = W / 2 - bw / 2, by = y - 8;
+
+            if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
+                const itm = shopItems[item];
+                const price = getItemPrice(item);
+                const maxed = itm.max !== -1 && itm.b >= itm.max;
+                const skillUpLimited = item === 'Skill Up' && skillUpBoughtThisShop;
+
+                if (playerMoney >= price && !maxed && !skillUpLimited) {
+                    if (selectedItems.includes(item)) {
+                        selectedItems = selectedItems.filter(i => i !== item);
+                    } else {
+                        selectedItems.push(item);
+                    }
+                }
+            }
+        });
+
+        const btnY1 = H - 150, btnY2 = H - 95, btnY3 = H - 45;
+        const btnH = 45, btnW = 300;
+
+        if (mx >= W / 2 - btnW / 2 && mx <= W / 2 + btnW / 2) {
+            if (my >= btnY1 && my <= btnY1 + btnH) {
+                if (selectedItems.length > 0) {
+                    const total = selectedItems.reduce((sum, item) => sum + getItemPrice(item), 0);
+                    if (playerMoney >= total) {
+                        selectedItems.forEach(item => {
+                            const price = getItemPrice(item);
+                            playerMoney -= price;
+                            shopItems[item].b++;
+                            applyItem(item);
+                            if (item === 'Skill Up') skillUpBoughtThisShop = true;
+                        });
+                        selectedItems = [];
+                    }
+                }
+            } else if (my >= btnY2 && my <= btnY2 + btnH) {
+                refreshShop();
+            } else if (my >= btnY3 && my <= btnY3 + btnH) {
+                selectedItems = [];
+                isShop = false;
+            }
+        }
+        return;
     }
 });
 
