@@ -326,26 +326,94 @@ function update() {
     if (keys[' '] && canShoot) shoot();
     if (keys['e']) useSkill();
 
-    dirX = 0; dirY = 0;
+    // === JUST SHAPES & BEATS STYLE MOVEMENT ===
+    // Instant, precise movement with quick dash bursts
 
-    let dx = 0, dy = 0;
-    if (keys['a']) dx = -1;
-    if (keys['d']) dx = 1;
-    if (keys['w']) dy = -1;
-    if (keys['s']) dy = 1;
+    const baseSpeed = hasBuff('speed') ? 3.5 : 2.3;
 
-    if (dx || dy) {
-        const mag = Math.sqrt(dx * dx + dy * dy);
-        dirX = dx / mag; dirY = dy / mag;
-        const speedMult = hasBuff('speed') ? 1.5 : 1;
-        playerX = Math.max(0, Math.min(W - PW, playerX + dirX * playerSpeed * speedMult));
-        playerY = Math.max(0, Math.min(H - PH, playerY + dirY * playerSpeed * speedMult));
+    // Get input direction
+    let inputX = 0, inputY = 0;
+
+    // PC keyboard input
+    if (keys['a']) inputX -= 1;
+    if (keys['d']) inputX += 1;
+    if (keys['w']) inputY -= 1;
+    if (keys['s']) inputY += 1;
+
+    // Mobile joystick input
+    if (typeof joystickData !== 'undefined' && joystickData) {
+        const deadzone = 0.15;
+        if (Math.abs(joystickData.x) > deadzone) {
+            inputX = joystickData.x;
+        }
+        if (Math.abs(joystickData.y) > deadzone) {
+            inputY = joystickData.y;
+        }
     }
 
-    if (keys['Shift'] && !isSliding && energy >= 10 && (dx || dy)) {
-        playerSpeed = 5; isSliding = true; lastSlide = now; energy -= 10;
+    const hasInput = inputX !== 0 || inputY !== 0;
+
+    // Dash mechanic - short burst
+    if (keys['Shift'] && !isSliding && energy >= 10 && hasInput) {
+        // Start dash
+        const magnitude = Math.sqrt(inputX * inputX + inputY * inputY);
+        window.dashDirection = {
+            x: inputX / magnitude,
+            y: inputY / magnitude
+        };
+        isSliding = true;
+        lastSlide = now;
+        energy -= 10;
     }
-    if (isSliding && now - lastSlide >= 100) { playerSpeed = 2.5; isSliding = false }
+
+    // Calculate movement
+    let moveX = 0, moveY = 0;
+
+    if (isSliding) {
+        // Dash movement - short quick burst
+        const dashSpeed = 8;
+        const dashDuration = 60; // Very short dash
+        const elapsed = now - lastSlide;
+
+        if (elapsed < dashDuration) {
+            // Active dash
+            moveX = window.dashDirection.x * dashSpeed;
+            moveY = window.dashDirection.y * dashSpeed;
+        } else {
+            // Dash ended
+            isSliding = false;
+            window.dashDirection = null;
+        }
+    }
+
+    // Normal movement (only if not dashing)
+    if (!isSliding && hasInput) {
+        // Instant movement - no acceleration
+        const magnitude = Math.sqrt(inputX * inputX + inputY * inputY);
+        const normalizedX = inputX / magnitude;
+        const normalizedY = inputY / magnitude;
+
+        moveX = normalizedX * baseSpeed;
+        moveY = normalizedY * baseSpeed;
+
+        // Update aim direction
+        dirX = normalizedX;
+        dirY = normalizedY;
+    } else if (!isSliding) {
+        // No input and not dashing - stop immediately
+        dirX = 0;
+        dirY = 0;
+    }
+
+    // Apply movement
+    playerX += moveX;
+    playerY += moveY;
+
+    // Boundary clamping
+    if (playerX < 0) playerX = 0;
+    if (playerX > W - PW) playerX = W - PW;
+    if (playerY < 0) playerY = 0;
+    if (playerY > H - PH) playerY = H - PH;
 
     bullets = bullets.filter(b => {
         b.update();
