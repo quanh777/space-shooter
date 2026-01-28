@@ -1,4 +1,3 @@
-/* Modern Minimalist Gaming Theme with Auto-Scaling */
 * {
     margin: 0;
     padding: 0;
@@ -16,7 +15,6 @@ body {
     min-height: 100vh;
 }
 
-/* === ANIMATED BACKGROUND === */
 .stars-bg {
     position: fixed;
     top: 0;
@@ -76,7 +74,6 @@ body {
     }
 }
 
-/* === CONTAINER WITH AUTO-SCALING === */
 .container {
     position: relative;
     width: 800px;
@@ -95,7 +92,6 @@ body {
     }
 }
 
-/* === LANGUAGE TOGGLE === */
 .lang-toggle {
     position: absolute;
     top: 16px;
@@ -146,7 +142,6 @@ body {
     display: none !important;
 }
 
-/* === MENU SCREENS === */
 .menu-screen {
     position: absolute;
     top: 0;
@@ -175,7 +170,6 @@ body {
     display: none;
 }
 
-/* === SCREEN GRADIENT OVERLAYS === */
 #leaderboardScreen::before {
     content: '';
     position: absolute;
@@ -960,7 +954,6 @@ kbd {
     font-size: 20px;
 }
 
-/* === RESPONSIVE === */
 @media (max-width: 850px) {
     body {
         align-items: stretch;
@@ -1064,7 +1057,7 @@ kbd {
         width: 38px;
         height: 38px;
     }
-
+    
     .action-btn {
         width: 58px;
         height: 58px;
