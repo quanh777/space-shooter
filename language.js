@@ -121,7 +121,7 @@ const LANGUAGES = {
         mainMenu: 'MAIN MENU',
         top10: '🏆 TOP 10',
 
-        controls: 'CONTROLS',
+        controls: 'INSTRUCTIONS',
         leaderboardTitle: 'LEADERBOARD',
         movement: 'Movement',
         move: 'Move',
@@ -260,3 +260,4 @@ window.addEventListener('DOMContentLoaded', () => {
     updateAllText();
     updateLangButton();
 });
+
