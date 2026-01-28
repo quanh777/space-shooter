@@ -1008,7 +1008,6 @@ function startGame() {
     const langBtn = document.getElementById('langToggle');
     if (langBtn) langBtn.classList.add('hidden');
 
-    // Show pause button on mobile
     const pauseBtn = document.getElementById('pauseBtn');
     if (pauseBtn) pauseBtn.style.display = 'block';
 
@@ -1020,7 +1019,6 @@ function startGame() {
     gameRunning = true;
     resetGame();
 
-    // Track game start for achievements
     if (typeof onGameStart === 'function') onGameStart();
 
     gameLoop();
