@@ -1,4 +1,4 @@
-﻿function showLeaderboard() {
+function showLeaderboard() {
     document.getElementById('mainMenu').classList.add('hidden');
     document.getElementById('leaderboardScreen').classList.remove('hidden');
     loadLeaderboard();
@@ -63,7 +63,7 @@ function displayLeaderboardTable(scores) {
     const content = document.getElementById('leaderboardContent');
 
     let html = '<table class="leaderboard-table">';
-    html += `<thead><tr><th>${getLangText('rank', 'Hạng')}</th><th>${getLangText('name', 'Tên')}</th><th>${getLangText('score', 'Điểm')}</th><th>Wave</th></tr></thead>`;
+    html += `<thead><tr><th>${getLangText('rank', 'Hạng')}</th><th>${getLangText('name', 'Tên')}</th><th>${getLangText('score', 'Điểm')}</th><th>${getLangText('wave', 'Wave')}</th></tr></thead>`;
     html += '<tbody>';
 
     scores.forEach((entry, index) => {
@@ -119,7 +119,9 @@ function submitScore() {
     window.leaderboardRef.push(scoreEntry)
         .then((ref) => {
             window.lastSubmittedKey = ref.key;
-            alert('Gửi điểm thành công!');
+            // Save player name for next time
+            localStorage.setItem('playerName', playerName);
+            alert(getLangText('submitSuccess', 'Gửi điểm thành công!'));
             document.getElementById('gameOverScreen').classList.add('hidden');
             showLeaderboard();
         })
@@ -196,7 +198,7 @@ function loadGameOverLeaderboard() {
             }
 
             let html = '<table class="leaderboard-table compact">';
-            html += '<thead><tr><th>#</th><th>Tên</th><th>Điểm</th></tr></thead>';
+            html += `<thead><tr><th>#</th><th>${getLangText('name', 'Tên')}</th><th>${getLangText('score', 'Điểm')}</th></tr></thead>`;
             html += '<tbody>';
 
             scores.forEach((entry, index) => {
@@ -216,5 +218,40 @@ function loadGameOverLeaderboard() {
         .catch(error => {
             console.error('Lỗi tải leaderboard:', error);
             content.innerHTML = `<div class="loading">Lỗi: ${error.message}</div>`;
+        });
+}
+
+function updateRankPreview(playerScore) {
+    const rankPreviewEl = document.getElementById('rankPreview');
+    if (!rankPreviewEl || !window.leaderboardRef) return;
+
+    window.leaderboardRef.orderByChild('score').once('value')
+        .then(snapshot => {
+            const scores = [];
+            if (snapshot.exists()) {
+                snapshot.forEach(childSnapshot => {
+                    scores.push(childSnapshot.val().score);
+                });
+            }
+
+            scores.sort((a, b) => b - a);
+
+            let rank = 1;
+            for (const s of scores) {
+                if (playerScore >= s) break;
+                rank++;
+            }
+
+            const lang = typeof getLang === 'function' ? getLang() : {};
+            const template = lang.rankPreview || 'You would rank #{rank}!';
+
+            if (rank <= 10) {
+                rankPreviewEl.innerHTML = `<strong style="color: #ffd700;">🔥 ${template.replace('{rank}', rank)}</strong>`;
+            } else {
+                rankPreviewEl.textContent = template.replace('{rank}', rank);
+            }
+        })
+        .catch(() => {
+            rankPreviewEl.textContent = '';
         });
 }
