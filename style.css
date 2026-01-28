@@ -786,18 +786,19 @@ button:active {
 kbd {
     display: inline-block;
     padding: 6px 10px;
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(30, 30, 50, 0.9);
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(88, 101, 242, 0.4);
     border-radius: 8px;
     font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
     font-weight: 600;
     font-size: 12px;
     margin: 0 3px;
-    color: rgba(255, 255, 255, 0.9);
+    color: rgba(255, 255, 255, 0.95);
     box-shadow:
-        0 2px 6px rgba(0, 0, 0, 0.2),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        0 2px 6px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 0 0 1px rgba(88, 101, 242, 0.2);
 }
 
 .credit {
@@ -995,15 +996,21 @@ kbd {
 .joystick {
     width: 110px;
     height: 110px;
-    background: rgba(20, 20, 30, 0.4);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 2px solid rgba(255, 255, 255, 0.1);
+    background: rgba(20, 20, 30, 0.25);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 2px solid rgba(255, 255, 255, 0.08);
     border-radius: 50%;
     position: relative;
     box-shadow:
-        0 8px 32px rgba(0, 0, 0, 0.3),
-        inset 0 2px 8px rgba(255, 255, 255, 0.05);
+        0 8px 32px rgba(0, 0, 0, 0.15),
+        inset 0 2px 8px rgba(255, 255, 255, 0.03);
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+}
+
+.joystick:active {
+    opacity: 0.9;
 }
 
 .joystick-inner {
@@ -1036,21 +1043,23 @@ kbd {
     border: none;
     font-size: 10px;
     font-weight: 700;
-    color: white;
+    color: rgba(255, 255, 255, 0.8);
     cursor: pointer;
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     transition: all 0.2s ease;
     box-shadow:
-        0 6px 20px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+        0 4px 12px rgba(0, 0, 0, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.05);
     position: absolute;
     pointer-events: auto;
+    opacity: 0.5;
 }
 
 .action-btn:active {
-    transform: scale(0.92);
+    transform: scale(0.88);
+    opacity: 1;
 }
 
 .skill-btn {
@@ -1061,7 +1070,8 @@ kbd {
 }
 
 .skill-btn:active {
-    transform: translateX(-50%) scale(0.92);
+    transform: translateX(-50%) scale(0.88);
+    box-shadow: 0 0 25px rgba(237, 66, 100, 0.8), 0 0 50px rgba(237, 66, 100, 0.4);
 }
 
 .shoot-btn {
@@ -1070,10 +1080,18 @@ kbd {
     background: linear-gradient(135deg, rgba(255, 170, 0, 0.8), rgba(255, 136, 0, 0.6));
 }
 
+.shoot-btn:active {
+    box-shadow: 0 0 25px rgba(255, 170, 0, 0.8), 0 0 50px rgba(255, 170, 0, 0.4);
+}
+
 .dash-btn {
     bottom: 0;
     left: 0;
     background: linear-gradient(135deg, rgba(88, 101, 242, 0.8), rgba(88, 101, 242, 0.6));
+}
+
+.dash-btn:active {
+    box-shadow: 0 0 25px rgba(88, 101, 242, 0.8), 0 0 50px rgba(88, 101, 242, 0.4);
 }
 
 @media (max-width: 850px) {
