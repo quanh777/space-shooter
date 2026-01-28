@@ -450,6 +450,9 @@ class Enemy {
             const greedMultiplier = 1 + (window.moneyBonus || 0);
             const finalMoney = Math.floor(this.money * greedMultiplier);
             playerMoney += finalMoney;
+
+            if (typeof onMoneyEarned === 'function') onMoneyEarned(finalMoney);
+
             for (let i = 0; i < 10; i++) particles.push(new Particle(this.x + Math.random() * this.w, this.y + Math.random() * this.h, '#ff0', 1, 3, 30));
         }
     }
