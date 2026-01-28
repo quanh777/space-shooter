@@ -1,4 +1,4 @@
-﻿
+
 let joystickActive = false;
 let joystickData = { x: 0, y: 0 };
 
@@ -10,6 +10,7 @@ function initMobileControls() {
         document.getElementById('mobileControls').classList.remove('hidden');
         setupJoystick();
         setupActionButtons();
+        setupCanvasTouch();
     }
 }
 
@@ -42,13 +43,9 @@ function setupJoystick() {
 
         inner.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
 
+        // Provide smooth analog values (-1 to 1)
         joystickData.x = deltaX / 35;
         joystickData.y = deltaY / 35;
-
-        keys['w'] = joystickData.y < -0.3;
-        keys['s'] = joystickData.y > 0.3;
-        keys['a'] = joystickData.x < -0.3;
-        keys['d'] = joystickData.x > 0.3;
     });
 
     joystick.addEventListener('touchend', (e) => {
@@ -56,13 +53,14 @@ function setupJoystick() {
         joystickActive = false;
         inner.style.transform = 'translate(-50%, -50%)';
         joystickData = { x: 0, y: 0 };
-        keys['w'] = keys['s'] = keys['a'] = keys['d'] = false;
     });
 }
 
 function setupActionButtons() {
     const shootBtn = document.getElementById('shootBtn');
     const skillBtn = document.getElementById('skillBtn');
+    const dashBtn = document.getElementById('dashBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
 
     shootBtn.addEventListener('touchstart', (e) => {
         e.preventDefault();
@@ -83,6 +81,91 @@ function setupActionButtons() {
         e.preventDefault();
         keys['e'] = false;
     });
+
+    dashBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        keys['Shift'] = true;
+    });
+
+    dashBtn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        keys['Shift'] = false;
+    });
+
+    pauseBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        keys['Escape'] = true;
+        setTimeout(() => keys['Escape'] = false, 100);
+    });
+}
+
+function setupCanvasTouch() {
+    const canvas = document.getElementById('gameCanvas');
+
+    canvas.addEventListener('touchstart', (e) => {
+        if (typeof isShop === 'undefined' || !isShop) return;
+
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        const touch = e.touches[0];
+        const x = (touch.clientX - rect.left) * scaleX;
+        const y = (touch.clientY - rect.top) * scaleY;
+
+        handleShopTouch(x, y);
+    });
+}
+
+function handleShopTouch(x, y) {
+    const startY = 190;
+    const spacing = 65;
+    const btnHeight = 55;
+    const btnWidth = 420;
+    const btnX = W / 2 - btnWidth / 2;
+
+    if (typeof itemsToSell !== 'undefined') {
+        itemsToSell.forEach((item, i) => {
+            const itemY = startY + i * spacing - 8;
+            if (x >= btnX && x <= btnX + btnWidth && y >= itemY && y <= itemY + btnHeight) {
+                const itm = shopItems[item];
+                const price = getItemPrice(item);
+                const maxed = itm.max !== -1 && itm.b >= itm.max;
+                const skillUpLimited = item === 'Skill Up' && skillUpBoughtThisShop;
+                const afford = playerMoney >= price;
+
+                if (!maxed && !skillUpLimited && afford) {
+                    const idx = selectedItems.indexOf(item);
+                    if (idx !== -1) {
+                        selectedItems.splice(idx, 1);
+                    } else {
+                        selectedItems.push(item);
+                    }
+                }
+            }
+        });
+    }
+
+    const btnY1 = H - 150;
+    const btnY2 = H - 95;
+    const btnY3 = H - 45;
+    const btnH = 45;
+    const btnW = 300;
+    const btnCenterX = W / 2 - btnW / 2;
+
+    if (x >= btnCenterX && x <= btnCenterX + btnW) {
+        if (y >= btnY1 && y <= btnY1 + btnH) {
+            keys['Enter'] = true;
+            setTimeout(() => keys['Enter'] = false, 100);
+        } else if (y >= btnY2 && y <= btnY2 + btnH) {
+            keys['r'] = true;
+            setTimeout(() => keys['r'] = false, 100);
+        } else if (y >= btnY3 && y <= btnY3 + btnH) {
+            keys['Escape'] = true;
+            setTimeout(() => keys['Escape'] = false, 100);
+        }
+    }
 }
 
 window.addEventListener('load', () => {
