@@ -3,21 +3,24 @@ class Boss extends Enemy {
         super('boss');
 
         const bossNumber = Math.floor(wave / 5);
-        const difficultyMultiplier = bossNumber === 1 ? 1 : (1 + (bossNumber - 1) * 0.4);
+        const difficultyMultiplier = bossNumber === 1 ? 1 : (1 + (bossNumber - 1) * 0.5);
+
+        this.damageMultiplier = 1 + (bossNumber - 1) * 0.3;
 
         this.bossType = Math.floor(Math.random() * 3);
 
-        const baseHp = bossNumber === 1 ? (200 + Math.random() * 100) : (350 + Math.random() * 200);
+        const baseHp = bossNumber === 1 ? (200 + Math.random() * 100) : (400 + Math.random() * 250);
         this.hp = Math.floor(baseHp * difficultyMultiplier);
         this.maxHp = this.hp;
-        this.spd = bossNumber === 1 ? (0.6 + Math.random() * 0.3) : ((0.8 + Math.random() * 0.4) * (1 + (bossNumber - 1) * 0.15));
 
-        const baseCooldown = bossNumber === 1 ? 3000 : (2000 + Math.random() * 1000);
-        this.attackCooldown = Math.max(700, baseCooldown - (bossNumber - 1) * 300);
+        this.spd = bossNumber === 1 ? (0.6 + Math.random() * 0.3) : ((0.9 + Math.random() * 0.5) * (1 + (bossNumber - 1) * 0.2));
+
+        const baseCooldown = bossNumber === 1 ? 3000 : (1800 + Math.random() * 800);
+        this.attackCooldown = Math.max(500, baseCooldown - (bossNumber - 1) * 350);
         this.lastAttack = 0;
         this.phase = 1;
 
-        this.w = 70 + bossNumber * 12 + Math.random() * 20;
+        this.w = 70 + bossNumber * 15 + Math.random() * 20;
         this.h = this.w;
         this.rotation = 0;
         this.glowIntensity = 0;
@@ -29,12 +32,12 @@ class Boss extends Enemy {
         this.laserAngle = 0;
         this.laserSweep = false;
         this.laserTimer = 0;
-        this.laserChargeTime = Math.max(500, 1000 - bossNumber * 100);
-        this.laserFireTime = 2500 + bossNumber * 400;
-        this.laserSweepSpeed = 0.025 + bossNumber * 0.005;
+        this.laserChargeTime = Math.max(400, 1000 - bossNumber * 120);
+        this.laserFireTime = 2800 + bossNumber * 500;
+        this.laserSweepSpeed = 0.028 + bossNumber * 0.007;
 
         this.lastSummon = 0;
-        this.summonCount = 3 + Math.floor(bossNumber * 0.7);
+        this.summonCount = 3 + Math.floor(bossNumber * 0.9);
 
         this.dying = false;
         this.deathTimer = 0;
@@ -42,13 +45,13 @@ class Boss extends Enemy {
         this.transitioning = false;
         this.transitionTimer = 0;
 
-        this.canTeleport = Math.random() < 0.35 + bossNumber * 0.12;
+        this.canTeleport = Math.random() < 0.35 + bossNumber * 0.15;
         this.teleporting = false;
         this.teleportTimer = 0;
         this.teleportTarget = null;
 
         this.mines = [];
-        this.mineCount = 4 + Math.floor(bossNumber * 0.8);
+        this.mineCount = 4 + Math.floor(bossNumber * 1.0);
 
         this.enraged = false;
         this.rageThreshold = 0.35 + Math.random() * 0.1;
@@ -72,6 +75,12 @@ class Boss extends Enemy {
         this.bulletHellAngle = 0;
         this.shieldActive = false;
         this.shieldTimer = 0;
+
+        this.bulletSpeedMultiplier = 1 + (bossNumber - 1) * 0.15;
+    }
+
+    getDamage(baseDamage) {
+        return Math.floor(baseDamage * this.damageMultiplier);
     }
 
     generateRandomAttackPool() {
@@ -323,7 +332,7 @@ class Boss extends Enemy {
             const px = playerX + PW / 2, py = playerY + PH / 2;
             const d = distToSegment(px, py, cx, cy, lx, ly);
 
-            const laserDamage = this.enraged ? 1.5 : 1;
+            const laserDamage = (this.enraged ? 1.5 : 1) * this.damageMultiplier;
             if (d < 35 && !invincible) {
                 playerHealth -= laserDamage;
                 if (Math.random() < 0.4) {
@@ -679,7 +688,7 @@ class Boss extends Enemy {
                     angle: a,
                     delay: ring * 150,
                     color: this.colors[this.bossType],
-                    damage: 15
+                    damage: this.getDamage(15)
                 });
             }
         }
@@ -694,7 +703,7 @@ class Boss extends Enemy {
         for (let arm = 0; arm < arms; arm++) {
             for (let i = 0; i < count; i++) {
                 const a = (2 * Math.PI * i / count * 3) + Date.now() / 400 + (arm * Math.PI);
-                scheduledBullets.push({ x: cx, y: cy, angle: a, delay: i * 35, color: '#fa0', damage: 12 });
+                scheduledBullets.push({ x: cx, y: cy, angle: a, delay: i * 35, color: '#fa0', damage: this.getDamage(12) });
             }
         }
     }
@@ -709,7 +718,7 @@ class Boss extends Enemy {
         for (let w = 0; w < waves; w++) {
             for (let i = -count; i <= count; i++) {
                 const a = baseAngle + i * 0.1;
-                scheduledBullets.push({ x: cx, y: cy, angle: a, delay: Math.abs(i) * 40 + w * 300, color: '#0ff', damage: 10 });
+                scheduledBullets.push({ x: cx, y: cy, angle: a, delay: Math.abs(i) * 40 + w * 300, color: '#0ff', damage: this.getDamage(10) });
             }
         }
     }
@@ -722,7 +731,7 @@ class Boss extends Enemy {
 
         for (let i = 0; i < count; i++) {
             const a = baseAngle + (Math.random() - 0.5) * 0.6;
-            scheduledBullets.push({ x: cx, y: cy, angle: a, delay: 0, color: '#f00', damage: 18 });
+            scheduledBullets.push({ x: cx, y: cy, angle: a, delay: 0, color: '#f00', damage: this.getDamage(18) });
         }
         screenShake = 10;
     }
@@ -780,7 +789,7 @@ class Boss extends Enemy {
                     x: cx, y: cy, angle: a,
                     delay: ring * 180,
                     color: ['#f00', '#ff0', '#0ff', '#f0f'][ring],
-                    damage: 14
+                    damage: this.getDamage(14)
                 });
             }
         }
@@ -819,7 +828,7 @@ class Boss extends Enemy {
                 angle: a,
                 delay: i * 25,
                 color: i % 2 === 0 ? '#ff0' : '#f0f',
-                damage: 10
+                damage: this.getDamage(10)
             });
         }
         this.bulletHellAngle += 0.5;
@@ -858,7 +867,11 @@ class Boss extends Enemy {
             ));
         }
         screenShake = 35;
-        playerMoney += 60 + Math.floor(wave / 5) * 30;
+        const bossReward = 60 + Math.floor(wave / 5) * 30;
+        playerMoney += bossReward;
+
+        if (typeof onBossDefeated === 'function') onBossDefeated();
+        if (typeof onMoneyEarned === 'function') onMoneyEarned(bossReward);
     }
 
     hit(dmg) {
