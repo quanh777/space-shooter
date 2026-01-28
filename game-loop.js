@@ -366,7 +366,7 @@ function update() {
 
     if (isSliding) {
         const dashSpeed = 8;
-        const dashDuration = 60; 
+        const dashDuration = 60;
         const elapsed = now - lastSlide;
 
         if (elapsed < dashDuration) {
@@ -1011,6 +1011,8 @@ function startGame() {
     const pauseBtn = document.getElementById('pauseBtn');
     if (pauseBtn) pauseBtn.style.display = 'block';
 
+    if (typeof showMobileControls === 'function') showMobileControls();
+
     if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
         animationFrameId = null;
@@ -1103,6 +1105,8 @@ function gameOver() {
     const pauseBtn = document.getElementById('pauseBtn');
     if (pauseBtn) pauseBtn.style.display = 'none';
 
+    if (typeof hideMobileControls === 'function') hideMobileControls();
+
     if (typeof onGameOver === 'function') onGameOver(score);
     if (typeof onWaveComplete === 'function') onWaveComplete(wave);
 
@@ -1135,6 +1139,8 @@ function showMainMenu() {
 
     const pauseBtn = document.getElementById('pauseBtn');
     if (pauseBtn) pauseBtn.style.display = 'none';
+
+    if (typeof hideMobileControls === 'function') hideMobileControls();
 }
 
 function showInstructions() {
