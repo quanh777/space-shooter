@@ -1,28 +1,29 @@
-// === LANGUAGE SYSTEM - Hệ thống đa ngôn ngữ ===
-
-const LANGUAGES = {
+﻿const LANGUAGES = {
     vi: {
-        // Loading
         loading: 'Đang tải...',
         loadingCredit: 'bởi @Qu4nh',
+        subtitle: 'Cuộc chiến vũ trụ 67',
 
-        // Menu
-        playGame: 'CHƠI GAME',
+        playGame: 'CHƠI',
         leaderboard: 'BẢNG XẾP HẠNG',
-        controls: 'HƯỚNG DẪN',
+        instructions: 'HƯỚNG DẪN',
+        info: 'THÔNG TIN',
+        achievementsTitle: 'THÀNH TỰU',
         back: 'QUAY LẠI',
 
-        // Game Over
         gameOver: 'THUA CUỘC',
         score: 'Điểm',
         wave: 'Wave',
         enterName: 'Nhập tên của bạn',
         submitScore: 'GỬI ĐIỂM',
+        encourageSubmit: '🏆 Ghi danh vào bảng xếp hạng!',
+        rankPreview: 'Bạn sẽ xếp hạng #{rank}!',
         playAgain: 'CHƠI LẠI',
         mainMenu: 'MENU CHÍNH',
         top10: '🏆 TOP 10',
 
-        // Instructions
+        controls: 'HƯỚNG DẪN',
+        leaderboardTitle: 'BẢNG XẾP HẠNG',
         movement: 'Di Chuyển',
         move: 'Di chuyển',
         dash: 'Lướt',
@@ -33,18 +34,39 @@ const LANGUAGES = {
         selectItems: 'Chọn vật phẩm',
         buyItems: 'Mua vật phẩm đã chọn',
         skipShop: 'Bỏ qua shop',
-        tips: 'Mẹo Chơi',
+        tips: 'Mẹo',
         tip1: '• Wave 5, 10, 15... là BOSS waves',
         tip2: '• Shop xuất hiện sau khi hạ boss',
         tip3: '• Enemy vàng rơi nhiều tiền hơn',
         tip4: '• Nâng cấp skill để gây sát thương lớn',
 
-        // Wave Transition
+        aboutGame: 'Về Game',
+        gameDescription: 'Trò chơi arcade vũ trụ được phát triển độc lập, kết hợp cơ chế di chuyển nhanh nhẹn với hệ thống tiến hóa nhân vật sâu sắc.',
+        credits: 'Credits',
+        developer: 'Phát triển bởi',
+        version: 'Phiên bản',
+        releaseDate: 'Ngày phát hành',
+        lastUpdated: 'Cập nhật cuối',
+        codeLines: 'Dòng code',
+        techSkills: 'Kỹ năng kỹ thuật',
+        skill1: '• Canvas 2D rendering & tối ưu game loop',
+        skill2: '• Thiết kế hướng đối tượng (Factory, State pattern)',
+        skill3: '• Tích hợp Firebase Realtime Database',
+        skill4: '• Responsive design & xử lý touch event',
+        skill5: '• Đa ngôn ngữ (i18n)',
+        highlights: 'Điểm nổi bật',
+        highlight1: '• Hệ thống điều khiển phản hồi tức thì',
+        highlight2: '• Boss với nhiều giai đoạn chiến đấu',
+        highlight3: '• Hơn 10 nâng cấp đa dạng',
+        highlight4: '• Xếp hạng trực tuyến toàn cầu',
+        feedback: 'Góp ý & Đánh giá',
+        feedbackDesc: 'Ý kiến của bạn giúp game ngày càng hoàn thiện!',
+        sendFeedback: 'Gửi Góp Ý',
+
         bossWave: 'BOSS WAVE',
         getReady: 'Sẵn sàng!',
         prepareForBattle: 'Chuẩn bị chiến đấu!',
 
-        // Leaderboard
         rank: 'Hạng',
         name: 'Tên',
         loadingScores: 'Đang tải...',
@@ -54,7 +76,6 @@ const LANGUAGES = {
         enterNameAlert: 'Vui lòng nhập tên!',
         nameTooLong: 'Tên không được quá 20 ký tự!',
 
-        // In-game UI
         health: 'HP',
         energy: 'NL',
         money: 'Tiền',
@@ -78,27 +99,30 @@ const LANGUAGES = {
         shieldCd: 'Khiên CD'
     },
     en: {
-        // Loading
         loading: 'Loading...',
         loadingCredit: 'by @Qu4nh',
+        subtitle: '67 space battles',
 
-        // Menu
-        playGame: 'PLAY GAME',
+        playGame: 'PLAY',
         leaderboard: 'LEADERBOARD',
-        controls: 'CONTROLS',
+        instructions: 'INSTRUCTIONS',
+        info: 'INFO',
+        achievementsTitle: 'ACHIEVEMENTS',
         back: 'BACK',
 
-        // Game Over
         gameOver: 'GAME OVER',
         score: 'Score',
         wave: 'Wave',
         enterName: 'Enter your name',
         submitScore: 'SUBMIT SCORE',
+        encourageSubmit: '🏆 Join the leaderboard!',
+        rankPreview: 'You would rank #{rank}!',
         playAgain: 'PLAY AGAIN',
         mainMenu: 'MAIN MENU',
         top10: '🏆 TOP 10',
 
-        // Instructions
+        controls: 'CONTROLS',
+        leaderboardTitle: 'LEADERBOARD',
         movement: 'Movement',
         move: 'Move',
         dash: 'Dash (costs energy)',
@@ -115,12 +139,33 @@ const LANGUAGES = {
         tip3: '• Yellow enemies drop more money',
         tip4: '• Upgrade your skill to deal massive damage',
 
-        // Wave Transition
+        aboutGame: 'About Game',
+        gameDescription: 'An independently developed space arcade game combining responsive movement mechanics with deep character progression.',
+        credits: 'Credits',
+        developer: 'Developed by',
+        version: 'Version',
+        releaseDate: 'Release Date',
+        lastUpdated: 'Last Updated',
+        codeLines: 'Lines of code',
+        techSkills: 'Technical Skills',
+        skill1: '• Canvas 2D rendering & game loop optimization',
+        skill2: '• Object-oriented design patterns (Factory, State)',
+        skill3: '• Firebase Realtime Database integration',
+        skill4: '• Responsive design & touch event handling',
+        skill5: '• Multi-language internationalization (i18n)',
+        highlights: 'Highlights',
+        highlight1: '• Instant-response control system',
+        highlight2: '• Multi-phase boss battles',
+        highlight3: '• 10+ diverse upgrades',
+        highlight4: '• Global online leaderboard',
+        feedback: 'Feedback & Review',
+        feedbackDesc: 'Your feedback helps improve the game!',
+        sendFeedback: 'Send Feedback',
+
         bossWave: 'BOSS WAVE',
         getReady: 'Get ready!',
         prepareForBattle: 'Prepare for battle!',
 
-        // Leaderboard
         rank: 'Rank',
         name: 'Name',
         loadingScores: 'Loading...',
@@ -130,7 +175,6 @@ const LANGUAGES = {
         enterNameAlert: 'Please enter your name!',
         nameTooLong: 'Name must be 20 characters or less!',
 
-        // In-game UI
         health: 'HP',
         energy: 'EN',
         money: 'Money',
@@ -155,7 +199,6 @@ const LANGUAGES = {
     }
 };
 
-// Ngôn ngữ mặc định
 let currentLang = localStorage.getItem('spaceshooter_lang') || 'vi';
 
 function getLang() {
@@ -167,6 +210,21 @@ function toggleLanguage() {
     localStorage.setItem('spaceshooter_lang', currentLang);
     updateAllText();
     updateLangButton();
+
+    const leaderboardScreen = document.getElementById('leaderboardScreen');
+    if (leaderboardScreen && !leaderboardScreen.classList.contains('hidden')) {
+        loadLeaderboard();
+    }
+
+    const gameOverLeaderboard = document.getElementById('gameOverLeaderboard');
+    if (gameOverLeaderboard && gameOverLeaderboard.innerHTML.includes('leaderboard-table')) {
+        loadGameOverLeaderboard();
+    }
+
+    const achievementsScreen = document.getElementById('achievementsScreen');
+    if (achievementsScreen && !achievementsScreen.classList.contains('hidden')) {
+        if (typeof renderAchievementsList === 'function') renderAchievementsList();
+    }
 }
 
 function updateLangButton() {
@@ -180,14 +238,12 @@ function updateLangButton() {
 function updateAllText() {
     const lang = getLang();
 
-    // Loading screen
     const loadingText = document.querySelector('.loading-content p:not(.loading-credit)');
     if (loadingText) loadingText.textContent = lang.loading;
 
     const loadingCredit = document.querySelector('.loading-credit');
     if (loadingCredit) loadingCredit.textContent = lang.loadingCredit;
 
-    // Main menu buttons
     document.querySelectorAll('[data-lang]').forEach(el => {
         const key = el.getAttribute('data-lang');
         if (lang[key]) {
@@ -200,7 +256,6 @@ function updateAllText() {
     });
 }
 
-// Init on load
 window.addEventListener('DOMContentLoaded', () => {
     updateAllText();
     updateLangButton();

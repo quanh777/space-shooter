@@ -1,16 +1,16 @@
-// === GAME LOOP - Logic và Controls ===
+﻿let isPaused = false;
 
-let isPaused = false;
-
-// === COMBO SYSTEM ===
 let comboScoreEarned = 0;
 let comboEndDisplay = null;
 let comboEnemyBreakdown = { small: 0, medium: 0, large: 0, elite: 0, boss: 0 };
 
-// Thêm kill vào combo
+let spawnQueue = [];
+let spawnTimer = 0;
+let spawnInterval = 800;
+
 function addComboKill(scoreEarned = 0, enemyType = 'small') {
     comboKills++;
-    comboTimer = 2500; // 2.5s để giữ combo
+    comboTimer = 2500;
     comboScoreEarned += scoreEarned;
 
     if (comboEnemyBreakdown[enemyType] !== undefined) {
@@ -18,10 +18,10 @@ function addComboKill(scoreEarned = 0, enemyType = 'small') {
     }
 
     maxCombo = Math.max(maxCombo, comboKills);
-    // Multiplier: 1x (0-2), 1.5x (3-5), 2x (6-9), 3x (10+)
     comboMultiplier = comboKills < 3 ? 1 : (comboKills < 6 ? 1.5 : (comboKills < 10 ? 2 : 3));
 
-    // Visual feedback cho combo cao
+    if (typeof onEnemyKilled === 'function') onEnemyKilled();
+
     if (comboKills >= 5 && comboKills % 5 === 0) {
         screenShake = 5;
         for (let i = 0; i < 15; i++) {
@@ -30,23 +30,20 @@ function addComboKill(scoreEarned = 0, enemyType = 'small') {
     }
 }
 
-// Update combo timer
 function updateCombo() {
     if (comboTimer > 0) {
         comboTimer -= 16.67;
         if (comboTimer <= 0) {
-            // Combo kết thúc - hiển thị điểm nếu combo >= 3
             if (comboKills >= 3) {
                 comboEndDisplay = {
                     kills: comboKills,
                     score: comboScoreEarned,
                     breakdown: { ...comboEnemyBreakdown },
                     alpha: 1,
-                    timer: 240, // 4 giây (60fps)
+                    timer: 240,
                     y: H / 2 - 60
                 };
             }
-            // Reset combo
             comboKills = 0;
             comboMultiplier = 1;
             comboScoreEarned = 0;
@@ -54,7 +51,6 @@ function updateCombo() {
         }
     }
 
-    // Update combo end display (4 giây)
     if (comboEndDisplay) {
         comboEndDisplay.timer--;
         if (comboEndDisplay.timer <= 60) {
@@ -67,7 +63,6 @@ function updateCombo() {
     }
 }
 
-// === CRITICAL HIT ===
 function checkCrit() {
     return Math.random() < CRIT_CHANCE;
 }
@@ -76,9 +71,8 @@ function applyCritDamage(baseDmg, isCrit) {
     return isCrit ? Math.floor(baseDmg * CRIT_MULTIPLIER) : baseDmg;
 }
 
-// === POWER-UP FUNCTIONS ===
 function spawnPowerUp(x, y) {
-    if (Math.random() > 0.25) return; // 25% chance drop
+    if (Math.random() > 0.25) return;
 
     const types = Object.keys(POWER_UP_TYPES);
     const type = types[Math.floor(Math.random() * types.length)];
@@ -107,13 +101,12 @@ let buffTexts = [];
 
 function updateBuffTexts() {
     buffTexts = buffTexts.filter(t => {
-        t.y -= 1;
-        t.alpha -= 0.02;
+        t.y -= 0.4;
+        t.alpha -= 0.0067;
         return t.alpha > 0;
     });
 }
 
-// === WAVE BONUS ===
 function calculateWaveBonus() {
     const clearTime = Date.now() - waveStartTime;
     if (clearTime < 10000) return 100;
@@ -122,7 +115,6 @@ function calculateWaveBonus() {
     return 0;
 }
 
-// Tìm enemy gần nhất để auto-aim
 function aimEnemy() {
     let min = Infinity, target = null;
     enemies.forEach(e => {
@@ -153,9 +145,7 @@ function shoot() {
     canShoot = false; lastShot = Date.now();
 }
 
-// Nổ bomb với hiệu ứng
 function explodeBomb(bomb) {
-    // Hiệu ứng sóng xung kích
     for (let ring = 0; ring < 3; ring++) {
         const ringRadius = skill.radius * (ring + 1) / 3;
         for (let i = 0; i < 16; i++) {
@@ -169,7 +159,6 @@ function explodeBomb(bomb) {
         }
     }
 
-    // Particles trung tâm
     for (let i = 0; i < 50; i++) {
         const ang = Math.random() * Math.PI * 2;
         const dist = Math.random() * skill.radius * 0.7;
@@ -184,7 +173,6 @@ function explodeBomb(bomb) {
 
     screenShake = 25;
 
-    // Damage enemies trong bán kính
     enemies.forEach(enemy => {
         const dx = (enemy.x + enemy.w / 2) - bomb.x;
         const dy = (enemy.y + enemy.h / 2) - bomb.y;
@@ -213,14 +201,12 @@ function explodeBomb(bomb) {
     enemies = enemies.filter(e => e.hp > 0);
 }
 
-// Sử dụng skill bomb
 function useSkill() {
     if (Date.now() - skill.lastUse >= skill.cooldown && energy >= skill.cost) {
         energy -= skill.cost; skill.lastUse = Date.now();
 
         const cx = playerX + PW / 2, cy = playerY + PH / 2;
 
-        // Tìm target gần nhất
         let target = null;
         let minDist = Infinity;
         enemies.forEach(e => {
@@ -233,7 +219,6 @@ function useSkill() {
             }
         });
 
-        // Particles phóng
         for (let i = 0; i < 15; i++) {
             const ang = Math.random() * Math.PI * 2;
             particles.push(new Particle(
@@ -243,7 +228,6 @@ function useSkill() {
             ));
         }
 
-        // Tạo homing missile
         bombProjectiles.push({
             x: cx,
             y: cy,
@@ -258,7 +242,6 @@ function useSkill() {
     }
 }
 
-// Tính giá item shop (tăng theo số lần mua)
 function getItemPrice(item) {
     if (item === 'Skill Up') {
         return Math.floor((40 + bossKills * 30) * Math.pow(1.4, shopItems[item].b));
@@ -293,18 +276,15 @@ function applyItem(item) {
     }
 }
 
-// Tạo danh sách items ngẫu nhiên cho shop (không thiên vị)
 function generateShopItems() {
     const allItems = Object.keys(shopItems).filter(k => k !== 'Skill Up');
     const available = allItems.filter(k => shopItems[k].max === -1 || shopItems[k].b < shopItems[k].max);
 
-    // Shuffle ngẫu nhiên không thiên vị (Fisher-Yates)
     for (let i = available.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [available[i], available[j]] = [available[j], available[i]];
     }
 
-    // Lấy 3 items đầu tiên + Skill Up (nếu chưa max)
     const items = available.slice(0, 3);
     if (shopItems['Skill Up'].b < shopItems['Skill Up'].max) {
         items.push('Skill Up');
@@ -312,23 +292,20 @@ function generateShopItems() {
     return items;
 }
 
-// Refresh shop với giá tăng dần
 function refreshShop() {
-    const refreshCost = 20 + shopRefreshCount * 15; // 20, 35, 50, 65...
+    const refreshCost = 20 + shopRefreshCount * 15;
     if (playerMoney >= refreshCost) {
         playerMoney -= refreshCost;
         shopRefreshCount++;
-        skillUpBoughtThisShop = false; // Reset Skill Up limit khi refresh
+        skillUpBoughtThisShop = false;
         itemsToSell = generateShopItems();
         selectedItems = [];
     }
 }
 
-// === MAIN UPDATE LOOP ===
 function update() {
     if (!gameRunning || isShop || isPaused) return;
 
-    // Pause khi wave transition
     if (isTransitionActive()) {
         updateWaveTransition();
         return;
@@ -336,49 +313,97 @@ function update() {
 
     const now = Date.now();
 
-    // Shield duration - tăng theo upgrade
     const shieldDuration = 1250 + (shopItems["Shield"].b * 750);
     if (invincible && now - invTime >= shieldDuration) invincible = false;
 
-    // Shooting cooldown
     const effectiveCooldown = hasBuff('rapid') ? bulletCooldown * 0.5 : bulletCooldown;
     if (now - lastShot >= effectiveCooldown) canShoot = true;
 
-    // Energy regen
     if (energy < 100 && now - lastSlide >= 2000) energy = Math.min(100, energy + energyRegen / 60);
 
-    // HP Regen (từ item Regen)
     if (window.hpRegen && playerHealth < maxHealth) {
         playerHealth = Math.min(maxHealth, playerHealth + window.hpRegen / 60);
     }
 
-    // Input
     if (keys[' '] && canShoot) shoot();
     if (keys['e']) useSkill();
 
-    let dx = 0, dy = 0;
-    if (keys['a']) dx = -1; if (keys['d']) dx = 1;
-    if (keys['w']) dy = -1; if (keys['s']) dy = 1;
+    const baseSpeed = hasBuff('speed') ? 3.5 : 2.3;
 
-    if (dx || dy) {
-        const mag = Math.sqrt(dx * dx + dy * dy);
-        dirX = dx / mag; dirY = dy / mag;
-        const speedMult = hasBuff('speed') ? 1.5 : 1;
-        playerX = Math.max(0, Math.min(W - PW, playerX + dirX * playerSpeed * speedMult));
-        playerY = Math.max(0, Math.min(H - PH, playerY + dirY * playerSpeed * speedMult));
-    } else { dirX = 0; dirY = 0 }
+    let inputX = 0, inputY = 0;
 
-    // Dash
-    if (keys['Shift'] && !isSliding && energy >= 10) {
-        playerSpeed = 5; isSliding = true; lastSlide = now; energy -= 10;
+    if (keys['a']) inputX -= 1;
+    if (keys['d']) inputX += 1;
+    if (keys['w']) inputY -= 1;
+    if (keys['s']) inputY += 1;
+
+    if (typeof joystickData !== 'undefined' && joystickData) {
+        const deadzone = 0.15;
+        if (Math.abs(joystickData.x) > deadzone) {
+            inputX = joystickData.x;
+        }
+        if (Math.abs(joystickData.y) > deadzone) {
+            inputY = joystickData.y;
+        }
     }
-    if (isSliding && now - lastSlide >= 100) { playerSpeed = 2.5; isSliding = false }
 
-    // Update bullets
+    const hasInput = inputX !== 0 || inputY !== 0;
+
+    if (keys['Shift'] && !isSliding && energy >= 10 && hasInput) {
+        const magnitude = Math.sqrt(inputX * inputX + inputY * inputY);
+        window.dashDirection = {
+            x: inputX / magnitude,
+            y: inputY / magnitude
+        };
+        isSliding = true;
+        lastSlide = now;
+        energy -= 10;
+
+        if (typeof onDash === 'function') onDash();
+    }
+
+    let moveX = 0, moveY = 0;
+
+    if (isSliding) {
+        const dashSpeed = 8;
+        const dashDuration = 60;
+        const elapsed = now - lastSlide;
+
+        if (elapsed < dashDuration) {
+            moveX = window.dashDirection.x * dashSpeed;
+            moveY = window.dashDirection.y * dashSpeed;
+        } else {
+            isSliding = false;
+            window.dashDirection = null;
+        }
+    }
+
+    if (!isSliding && hasInput) {
+        const magnitude = Math.sqrt(inputX * inputX + inputY * inputY);
+        const normalizedX = inputX / magnitude;
+        const normalizedY = inputY / magnitude;
+
+        moveX = normalizedX * baseSpeed;
+        moveY = normalizedY * baseSpeed;
+
+        dirX = normalizedX;
+        dirY = normalizedY;
+    } else if (!isSliding) {
+        dirX = 0;
+        dirY = 0;
+    }
+
+    playerX += moveX;
+    playerY += moveY;
+
+    if (playerX < 0) playerX = 0;
+    if (playerX > W - PW) playerX = W - PW;
+    if (playerY < 0) playerY = 0;
+    if (playerY > H - PH) playerY = H - PH;
+
     bullets = bullets.filter(b => {
         b.update();
 
-        // Enemy bullet hit player
         if (b.isEnemy && !invincible) {
             const bx = b.x, by = b.y;
             if (bx >= playerX && bx <= playerX + PW && by >= playerY && by <= playerY + PH) {
@@ -411,11 +436,9 @@ function update() {
         return b.x >= 0 && b.x <= W && b.y >= 0 && b.y <= H;
     });
 
-    // Update enemies
     enemies = enemies.filter(e => {
         e.update();
 
-        // Enemy collision avoidance
         enemies.forEach(other => {
             if (other !== e) {
                 const dx = other.x - e.x, dy = other.y - e.y;
@@ -427,12 +450,12 @@ function update() {
             }
         });
 
-        // Bullet hit enemy với crit
         bullets = bullets.filter(b => {
+            if (b.isEnemy) return true;
+
             if (b.x >= e.x && b.x <= e.x + e.w && b.y >= e.y && b.y <= e.y + e.h) {
-                // Kiểm tra bullet đã hit enemy này chưa (cho piercing)
                 if (!b.hitEnemies) b.hitEnemies = new Set();
-                if (b.hitEnemies.has(e)) return true; // Đã hit rồi, bỏ qua
+                if (b.hitEnemies.has(e)) return true;
                 b.hitEnemies.add(e);
 
                 const isCrit = checkCrit();
@@ -459,18 +482,16 @@ function update() {
                     e.drop();
                     const deathColor = e.type === 'elite' ? '#ffd700' : '#f00';
                     for (let k = 0; k < 20; k++) particles.push(new Particle(e.x + Math.random() * e.w, e.y + Math.random() * e.h, deathColor, 2, 4, 30));
-                    return window.piercingBullets ? true : false; // Piercing: đạn tiếp tục
+                    return window.piercingBullets ? true : false;
                 }
 
-                // Piercing bullets xuyên qua, normal bullets bị destroy
                 return window.piercingBullets ? true : false;
             }
             return true;
         });
 
-        // Player collision với enemy
         if (!invincible && playerX < e.x + e.w && playerX + PW > e.x && playerY < e.y + e.h && playerY + PH > e.y) {
-            const collisionDamage = e.type == 'boss' ? 50 : (e.type == 'elite' ? 35 : (e.type == 'large' ? 30 : (e.type == 'medium' ? 20 : 10)));
+            const collisionDamage = e.contactDamage || (e.type == 'boss' ? 50 : (e.type == 'elite' ? 35 : (e.type == 'large' ? 30 : (e.type == 'medium' ? 20 : 10))));
 
             if (shieldCooldown <= 0 && collisionDamage > 10) {
                 invincible = true;
@@ -497,13 +518,11 @@ function update() {
         return e.hp > 0;
     });
 
-    // Update particles
     particles = particles.filter(p => { p.update(); return p.lt > 0 });
     if (particles.length > 500) {
         particles = particles.slice(-500);
     }
 
-    // Process scheduled bullets (từ Boss)
     scheduledBullets = scheduledBullets.filter(sb => {
         sb.delay -= 16;
         if (sb.delay <= 0) {
@@ -518,7 +537,6 @@ function update() {
         return true;
     });
 
-    // Update bomb projectiles (homing missiles)
     bombProjectiles = bombProjectiles.filter(bomb => {
         bomb.lifeTime--;
         if (bomb.lifeTime <= 0) {
@@ -526,7 +544,6 @@ function update() {
             return false;
         }
 
-        // Re-target nếu target chết
         if (!bomb.target || bomb.target.hp <= 0) {
             let minDist = Infinity;
             enemies.forEach(e => {
@@ -540,7 +557,6 @@ function update() {
             });
         }
 
-        // Homing
         if (bomb.target && bomb.target.hp > 0) {
             const tx = bomb.target.x + bomb.target.w / 2;
             const ty = bomb.target.y + bomb.target.h / 2;
@@ -562,7 +578,6 @@ function update() {
             return false;
         }
 
-        // Collision với enemies
         let hit = false;
         enemies.forEach(e => {
             const dx = (e.x + e.w / 2) - bomb.x;
@@ -578,13 +593,11 @@ function update() {
         return !hit;
     });
 
-    // Shield cooldown - chỉ giảm khi không invincible
     if (shieldCooldown > 0 && !invincible) {
         shieldCooldown -= 16.67;
         if (shieldCooldown < 0) shieldCooldown = 0;
     }
 
-    // Wave 0 = Tutorial
     if (wave === 0 && !isResting) {
         isResting = true;
         restStart = now;
@@ -598,7 +611,6 @@ function update() {
         tutorialProgress = 0;
     }
 
-    // Tutorial circle
     if (wave === 0 && tutorialCircle) {
         tutorialCircle.pulse += 0.05;
 
@@ -622,7 +634,6 @@ function update() {
         }
     }
 
-    // Wave management
     if (enemies.length === 0 && !isResting && !isShop && wave > 0) {
         isResting = true; restStart = now;
         playerHealth = Math.min(maxHealth, playerHealth + 20);
@@ -636,7 +647,6 @@ function update() {
         spawnHealthPickup();
     }
 
-    // End rest và start wave mới
     const restDuration = wave === 0 ? 15000 : 5000;
     if (isResting && now - restStart >= restDuration && !isShop) {
         isResting = false; wave++;
@@ -645,7 +655,6 @@ function update() {
         neededSpawn = true;
     }
 
-    // Spawn sau khi transition xong
     if (neededSpawn && !isTransitionActive()) {
         neededSpawn = false;
         isResting = false;
@@ -653,40 +662,89 @@ function update() {
         if (wave % 5 == 0 && !bossSpawned) {
             enemies.push(new Boss()); bossSpawned = true;
         } else if (wave % 5 == 1 && wave > 1) {
-            // Shop sau boss (wave 6, 11, 16...)
             isShop = true;
             isResting = false;
             skillUpBoughtThisShop = false;
-            shopRefreshCount = 0; // Reset refresh count mỗi lần vào shop
+            shopRefreshCount = 0;
             itemsToSell = generateShopItems();
         } else {
-            // Spawn enemies dựa trên wave
             const baseCount = Math.floor(wave * 1.5 + 3);
             const bonusCount = Math.floor(Math.random() * 3) - 1;
-            const n = Math.max(3, baseCount + bonusCount);
+            const totalEnemies = Math.max(3, baseCount + bonusCount);
 
             const eliteChance = wave >= 3 ? Math.min(0.15, (wave - 2) * 0.02) : 0;
             const largeChance = Math.min(0.25, wave * 0.02);
             const mediumChance = Math.min(0.4, 0.25 + wave * 0.01);
 
-            for (let i = 0; i < n; i++) {
-                const r = Math.random();
-                let type;
-                if (r < eliteChance) type = 'elite';
-                else if (r < eliteChance + largeChance) type = 'large';
-                else if (r < eliteChance + largeChance + mediumChance) type = 'medium';
-                else type = 'small';
-                enemies.push(new Enemy(type));
+            spawnQueue = [];
+            let remaining = totalEnemies;
+
+            while (remaining > 0) {
+                const batchType = Math.random();
+                let batch = [];
+                let maxBatch;
+
+                if (batchType < 0.35) {
+                    const typeRoll = Math.random();
+                    let singleType, batchLimit;
+                    if (typeRoll < 0.5) {
+                        singleType = 'small'; batchLimit = 4 + Math.floor(Math.random() * 3);
+                    } else if (typeRoll < 0.8) {
+                        singleType = 'medium'; batchLimit = 3 + Math.floor(Math.random() * 2);
+                    } else {
+                        singleType = 'large'; batchLimit = 2 + Math.floor(Math.random() * 2);
+                    }
+                    maxBatch = Math.min(remaining, batchLimit);
+                    for (let i = 0; i < maxBatch; i++) batch.push(singleType);
+                } else {
+                    maxBatch = Math.min(remaining, 3 + Math.floor(Math.random() * 2));
+                    for (let i = 0; i < maxBatch; i++) {
+                        const r = Math.random();
+                        let type;
+                        if (r < eliteChance) type = 'elite';
+                        else if (r < eliteChance + largeChance) type = 'large';
+                        else if (r < eliteChance + largeChance + mediumChance) type = 'medium';
+                        else type = 'small';
+                        batch.push(type);
+                    }
+
+                    const eliteCount = batch.filter(t => t === 'elite').length;
+                    const largeCount = batch.filter(t => t === 'large').length;
+                    if (eliteCount > 2) {
+                        batch = batch.filter(t => t !== 'elite').concat(['elite', 'elite']);
+                    }
+                    if (largeCount > 3) {
+                        batch = batch.filter(t => t !== 'large').concat(['large', 'large', 'large']);
+                    }
+                }
+
+                spawnQueue.push(batch);
+                remaining -= batch.length;
             }
 
-            // Bonus elite mỗi 3 wave
             if (wave >= 3 && wave % 3 === 0 && wave % 5 !== 0) {
-                enemies.push(new Enemy('elite'));
+                spawnQueue.push(['elite']);
+            }
+
+            spawnInterval = Math.max(3000, 4000 - wave * 50);
+            spawnTimer = 0;
+
+            if (spawnQueue.length > 0) {
+                const firstBatch = spawnQueue.shift();
+                firstBatch.forEach(type => enemies.push(new Enemy(type)));
             }
         }
     }
 
-    // Health pickup collision - PARTICLES MÀU XANH LÁ
+    if (spawnQueue.length > 0 && !isResting && !isShop && !isTransitionActive()) {
+        spawnTimer += 16.67;
+        if (spawnTimer >= spawnInterval) {
+            spawnTimer = 0;
+            const batch = spawnQueue.shift();
+            batch.forEach(type => enemies.push(new Enemy(type)));
+        }
+    }
+
     if (healthPickup && isResting &&
         playerX < healthPickup.x + 20 && playerX + PW > healthPickup.x &&
         playerY < healthPickup.y + 20 && playerY + PH > healthPickup.y) {
@@ -697,7 +755,6 @@ function update() {
         spawnHealthPickup();
     }
 
-    // Power-up update
     powerUps = powerUps.filter(p => {
         p.pulse += 0.15;
         p.lifetime--;
@@ -734,7 +791,6 @@ function update() {
     if (screenShake > 0) screenShake -= 0.5;
 }
 
-// === MAIN DRAW LOOP ===
 function draw() {
     const shk = screenShake > 0 ? { x: (Math.random() * 2 - 1) * screenShake, y: (Math.random() * 2 - 1) * screenShake } : { x: 0, y: 0 };
     ctx.save(); ctx.translate(shk.x, shk.y);
@@ -745,7 +801,6 @@ function draw() {
     enemies.forEach(e => e.draw());
     bullets.forEach(b => b.draw());
 
-    // Vẽ power-ups
     powerUps.forEach(p => {
         const config = POWER_UP_TYPES[p.type];
         const size = 12 + Math.sin(p.pulse) * 3;
@@ -766,7 +821,6 @@ function draw() {
         ctx.fill();
     });
 
-    // Vẽ combo counter
     if (comboKills >= 2) {
         ctx.save();
         const fadeAlpha = comboTimer < 500 ? comboTimer / 500 : 1;
@@ -793,7 +847,6 @@ function draw() {
         ctx.restore();
     }
 
-    // Vẽ combo end display (4 giây)
     if (comboEndDisplay) {
         ctx.save();
         ctx.globalAlpha = comboEndDisplay.alpha;
@@ -824,7 +877,6 @@ function draw() {
         ctx.restore();
     }
 
-    // Vẽ buff texts
     buffTexts.forEach(t => {
         ctx.save();
         ctx.globalAlpha = t.alpha;
@@ -835,7 +887,6 @@ function draw() {
         ctx.restore();
     });
 
-    // Vẽ active buffs indicator
     let buffIndex = 0;
     Object.keys(activeBuffs).forEach(type => {
         if (hasBuff(type)) {
@@ -858,7 +909,6 @@ function draw() {
         }
     });
 
-    // Vẽ bomb projectiles
     bombProjectiles.forEach(bomb => {
         bomb.trail.forEach((t, i) => {
             const alpha = (t.life / 15) * 0.6;
@@ -905,7 +955,6 @@ function draw() {
     if (isShop) drawShop();
     drawWaveTransition();
 
-    // Pause overlay
     if (isPaused) {
         ctx.fillStyle = 'rgba(0,0,0,0.7)';
         ctx.fillRect(0, 0, W, H);
@@ -920,7 +969,6 @@ function draw() {
         const btnW = 220, btnH = 50;
         const btnX = W / 2 - btnW / 2;
 
-        // Button Configs
         const buttons = [
             { text: lang.resume || 'RESUME', y: H / 2 - 10, color: 'rgba(50, 200, 50, 0.8)' },
             { text: lang.restart || 'RESTART', y: H / 2 + 55, color: 'rgba(255, 165, 0, 0.8)' },
@@ -953,14 +1001,17 @@ function gameLoop() {
     animationFrameId = requestAnimationFrame(gameLoop);
 }
 
-// === MENU FUNCTIONS ===
 function startGame() {
     document.getElementById('mainMenu').classList.add('hidden');
     canvas.style.display = 'block';
 
-    // Ẩn nút ngôn ngữ khi chơi
     const langBtn = document.getElementById('langToggle');
     if (langBtn) langBtn.classList.add('hidden');
+
+    const pauseBtn = document.getElementById('pauseBtn');
+    if (pauseBtn) pauseBtn.style.display = 'block';
+
+    if (typeof showMobileControls === 'function') showMobileControls();
 
     if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
@@ -969,12 +1020,14 @@ function startGame() {
 
     gameRunning = true;
     resetGame();
+
+    if (typeof onGameStart === 'function') onGameStart();
+
     gameLoop();
 }
 
-// === CHEAT CODES (Console) ===
 window.cheat = {
-    money: (amount = 10000) => { playerMoney += amount; console.log(`💰 +${amount}. Total: ${playerMoney}`); },
+    money: (amount = 10000) => { playerMoney += amount; console.log(`ðŸ’° +${amount}. Total: ${playerMoney}`); },
     maxStats: () => {
         maxHealth = 500; playerHealth = 500;
         bulletSpeed = 15; bulletCooldown = 100;
@@ -982,33 +1035,33 @@ window.cheat = {
         skill.level = 5; skill.radius = 250; skill.damage = 300; skill.cooldown = 3000;
         doubleShot = false; tripleShot = true;
         shopItems["Shield"].b = 5;
-        console.log('⚡ All stats maxed!');
+        console.log('âš¡ All stats maxed!');
     },
     wave: (w = 5) => {
         wave = w - 1; enemies = []; isResting = true; restStart = Date.now() - 4500;
-        console.log(`🌊 Skipping to wave ${w}...`);
+        console.log(`ðŸŒŠ Skipping to wave ${w}...`);
     },
     boss: () => {
         enemies = []; enemies.push(new Boss()); bossSpawned = true;
-        console.log('👹 Boss spawned!');
+        console.log('ðŸ‘¹ Boss spawned!');
     },
     shop: () => {
         isShop = true; isResting = false;
         skillUpBoughtThisShop = false;
         shopRefreshCount = 0;
         itemsToSell = generateShopItems();
-        console.log('🛒 Shop opened!');
+        console.log('ðŸ›’ Shop opened!');
     },
-    god: () => { invincible = true; invTime = Infinity; console.log('🛡️ God mode ON!'); },
+    god: () => { invincible = true; invTime = Infinity; console.log('ðŸ›¡ï¸ God mode ON!'); },
     killAll: () => {
         enemies.forEach(e => { score += 50; e.drop(); });
         enemies = [];
-        console.log('💀 All enemies killed!');
+        console.log('ðŸ’€ All enemies killed!');
     },
-    heal: () => { playerHealth = maxHealth; console.log('❤️ Full health!'); },
+    heal: () => { playerHealth = maxHealth; console.log('â¤ï¸ Full health!'); },
     help: () => {
         console.log(`
-🎮 CHEAT COMMANDS:
+ðŸŽ® CHEAT COMMANDS:
   cheat.money(10000)  - Add money
   cheat.maxStats()    - Max all upgrades
   cheat.wave(5)       - Skip to wave 5
@@ -1046,9 +1099,28 @@ function gameOver() {
     document.getElementById('finalWave').textContent = wave;
     document.getElementById('gameOverScreen').classList.remove('hidden');
 
-    // Hiện lại nút ngôn ngữ
     const langBtn = document.getElementById('langToggle');
     if (langBtn) langBtn.classList.remove('hidden');
+
+    const pauseBtn = document.getElementById('pauseBtn');
+    if (pauseBtn) pauseBtn.style.display = 'none';
+
+    if (typeof hideMobileControls === 'function') hideMobileControls();
+
+    if (typeof onGameOver === 'function') onGameOver(score);
+    if (typeof onWaveComplete === 'function') onWaveComplete(wave);
+
+    const savedName = localStorage.getItem('playerName');
+    const nameInput = document.getElementById('playerName');
+    if (savedName && nameInput) {
+        nameInput.value = savedName;
+    }
+
+    setTimeout(() => {
+        if (nameInput) nameInput.focus();
+    }, 300);
+
+    updateRankPreview(score);
 
     loadGameOverLeaderboard();
 }
@@ -1062,9 +1134,13 @@ function showMainMenu() {
     document.getElementById('gameOverScreen').classList.add('hidden');
     document.getElementById('mainMenu').classList.remove('hidden');
 
-    // Hiện lại nút ngôn ngữ
     const langBtn = document.getElementById('langToggle');
     if (langBtn) langBtn.classList.remove('hidden');
+
+    const pauseBtn = document.getElementById('pauseBtn');
+    if (pauseBtn) pauseBtn.style.display = 'none';
+
+    if (typeof hideMobileControls === 'function') hideMobileControls();
 }
 
 function showInstructions() {
@@ -1077,7 +1153,16 @@ function hideInstructions() {
     document.getElementById('mainMenu').classList.remove('hidden');
 }
 
-// === INPUT HANDLING ===
+function showInfo() {
+    document.getElementById('mainMenu').classList.add('hidden');
+    document.getElementById('infoScreen').classList.remove('hidden');
+}
+
+function hideInfo() {
+    document.getElementById('infoScreen').classList.add('hidden');
+    document.getElementById('mainMenu').classList.remove('hidden');
+}
+
 document.addEventListener('keydown', e => {
     keys[e.key] = true;
 
@@ -1090,14 +1175,12 @@ document.addEventListener('keydown', e => {
         resetGame();
     }
 
-    // Phím M để về menu khi đang pause
     if (isPaused && (e.key === 'm' || e.key === 'M')) {
         isPaused = false;
         gameRunning = false;
         canvas.style.display = 'none';
         document.getElementById('mainMenu').classList.remove('hidden');
 
-        // Hiện lại nút ngôn ngữ
         const langBtn = document.getElementById('langToggle');
         if (langBtn) langBtn.classList.remove('hidden');
     }
@@ -1110,7 +1193,6 @@ document.addEventListener('keydown', e => {
                 const price = getItemPrice(item);
                 const maxed = shopItems[item].max !== -1 && shopItems[item].b >= shopItems[item].max;
 
-                // Giới hạn Skill Up chỉ mua 1 lần mỗi shop
                 const skillUpLimited = item === 'Skill Up' && skillUpBoughtThisShop;
 
                 if (playerMoney >= price && !maxed && !skillUpLimited) {
@@ -1125,12 +1207,13 @@ document.addEventListener('keydown', e => {
                 shopItems[item].b++;
                 applyItem(item);
 
-                // Đánh dấu đã mua Skill Up trong shop này
+                // Track achievement
+                if (typeof onPurchase === 'function') onPurchase();
+
                 if (item === 'Skill Up') skillUpBoughtThisShop = true;
             });
             selectedItems = [];
         } else if (e.key === 'r' || e.key === 'R') {
-            // Refresh shop với giá tăng dần
             refreshShop();
         } else if (e.key == 'Escape') {
             selectedItems = [];
@@ -1141,9 +1224,7 @@ document.addEventListener('keydown', e => {
 
 document.addEventListener('keyup', e => { keys[e.key] = false });
 
-// === MOUSE CLICK SHOP ===
 canvas.addEventListener('click', e => {
-    // === PAUSE MENU CLICK ===
     if (isPaused) {
         const rect = canvas.getBoundingClientRect();
         const mx = e.clientX - rect.left;
@@ -1152,17 +1233,14 @@ canvas.addEventListener('click', e => {
         const btnW = 220, btnH = 50;
         const btnX = W / 2 - btnW / 2;
 
-        // Resume coordinates: y = H / 2 - 10
         if (mx >= btnX && mx <= btnX + btnW && my >= H / 2 - 10 && my <= H / 2 - 10 + btnH) {
             isPaused = false;
         }
 
-        // Restart coordinates: y = H / 2 + 55
         if (mx >= btnX && mx <= btnX + btnW && my >= H / 2 + 55 && my <= H / 2 + 55 + btnH) {
             resetGame();
         }
 
-        // Main Menu coordinates: y = H / 2 + 120
         if (mx >= btnX && mx <= btnX + btnW && my >= H / 2 + 120 && my <= H / 2 + 120 + btnH) {
             isPaused = false;
             showMainMenu();
@@ -1173,8 +1251,10 @@ canvas.addEventListener('click', e => {
     if (!isShop) return;
 
     const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const mx = (e.clientX - rect.left) * scaleX;
+    const my = (e.clientY - rect.top) * scaleY;
 
     const startY = 190, spacing = 65;
     itemsToSell.forEach((item, i) => {
@@ -1186,7 +1266,6 @@ canvas.addEventListener('click', e => {
             const price = getItemPrice(item);
             const maxed = itm.max !== -1 && itm.b >= itm.max;
 
-            // Giới hạn Skill Up chỉ mua 1 lần mỗi shop
             const skillUpLimited = item === 'Skill Up' && skillUpBoughtThisShop;
 
             if (playerMoney >= price && !maxed && !skillUpLimited) {
@@ -1199,11 +1278,9 @@ canvas.addEventListener('click', e => {
         }
     });
 
-    // === BUTTON CLICK HANDLERS ===
     const btnY1 = H - 150, btnY2 = H - 95, btnY3 = H - 45;
     const btnW = 300, btnH = 45;
 
-    // BUY Button Click
     if (mx >= W / 2 - btnW / 2 && mx <= W / 2 + btnW / 2 && my >= btnY1 && my <= btnY1 + btnH) {
         if (selectedItems.length > 0) {
             const total = selectedItems.reduce((sum, item) => sum + getItemPrice(item), 0);
@@ -1214,7 +1291,6 @@ canvas.addEventListener('click', e => {
                     shopItems[item].b++;
                     applyItem(item);
 
-                    // Đánh dấu đã mua Skill Up trong shop này
                     if (item === 'Skill Up') skillUpBoughtThisShop = true;
                 });
                 selectedItems = [];
@@ -1222,19 +1298,107 @@ canvas.addEventListener('click', e => {
         }
     }
 
-    // REFRESH Button Click
     if (mx >= W / 2 - btnW / 2 && mx <= W / 2 + btnW / 2 && my >= btnY2 && my <= btnY2 + btnH) {
         refreshShop();
     }
 
-    // SKIP Button Click
     if (mx >= W / 2 - btnW / 2 && mx <= W / 2 + btnW / 2 && my >= btnY3 && my <= btnY3 + btnH) {
         selectedItems = [];
         isShop = false;
     }
 });
 
-// Hide loading screen
+canvas.addEventListener('touchstart', e => {
+    if (isPaused) {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
+
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        const mx = (touch.clientX - rect.left) * scaleX;
+        const my = (touch.clientY - rect.top) * scaleY;
+
+        const btnW = 220, btnH = 50;
+        const btnX = W / 2 - btnW / 2;
+
+        if (mx >= btnX && mx <= btnX + btnW && my >= H / 2 - 10 && my <= H / 2 - 10 + btnH) {
+            isPaused = false;
+        }
+
+        if (mx >= btnX && mx <= btnX + btnW && my >= H / 2 + 55 && my <= H / 2 + 55 + btnH) {
+            resetGame();
+        }
+
+        if (mx >= btnX && mx <= btnX + btnW && my >= H / 2 + 120 && my <= H / 2 + 120 + btnH) {
+            isPaused = false;
+            showMainMenu();
+        }
+        return;
+    }
+
+    if (isShop) {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
+
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        const mx = (touch.clientX - rect.left) * scaleX;
+        const my = (touch.clientY - rect.top) * scaleY;
+
+        const startY = 190, spacing = 65;
+        itemsToSell.forEach((item, i) => {
+            const y = startY + i * spacing;
+            const bw = 420, bh = 55, bx = W / 2 - bw / 2, by = y - 8;
+
+            if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
+                const itm = shopItems[item];
+                const price = getItemPrice(item);
+                const maxed = itm.max !== -1 && itm.b >= itm.max;
+                const skillUpLimited = item === 'Skill Up' && skillUpBoughtThisShop;
+
+                if (playerMoney >= price && !maxed && !skillUpLimited) {
+                    if (selectedItems.includes(item)) {
+                        selectedItems = selectedItems.filter(i => i !== item);
+                    } else {
+                        selectedItems.push(item);
+                    }
+                }
+            }
+        });
+
+        const btnY1 = H - 150, btnY2 = H - 95, btnY3 = H - 45;
+        const btnH = 45, btnW = 300;
+
+        if (mx >= W / 2 - btnW / 2 && mx <= W / 2 + btnW / 2) {
+            if (my >= btnY1 && my <= btnY1 + btnH) {
+                if (selectedItems.length > 0) {
+                    const total = selectedItems.reduce((sum, item) => sum + getItemPrice(item), 0);
+                    if (playerMoney >= total) {
+                        selectedItems.forEach(item => {
+                            const price = getItemPrice(item);
+                            playerMoney -= price;
+                            shopItems[item].b++;
+                            applyItem(item);
+                            if (item === 'Skill Up') skillUpBoughtThisShop = true;
+                        });
+                        selectedItems = [];
+                    }
+                }
+            } else if (my >= btnY2 && my <= btnY2 + btnH) {
+                refreshShop();
+            } else if (my >= btnY3 && my <= btnY3 + btnH) {
+                selectedItems = [];
+                isShop = false;
+            }
+        }
+        return;
+    }
+});
+
 window.addEventListener('load', () => {
     setTimeout(() => {
         document.getElementById('loadingScreen').style.display = 'none';

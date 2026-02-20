@@ -1,17 +1,27 @@
-// === MOBILE CONTROLS - Điều khiển cảm ứng ===
-
+﻿
 let joystickActive = false;
 let joystickData = { x: 0, y: 0 };
+let isMobileDevice = false;
 
 function initMobileControls() {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
         || window.innerWidth <= 850;
 
-    if (isMobile) {
-        document.getElementById('mobileControls').classList.remove('hidden');
+    if (isMobileDevice) {
         setupJoystick();
         setupActionButtons();
     }
+}
+
+function showMobileControls() {
+    if (!isMobileDevice) return;
+    const controls = document.getElementById('mobileControls');
+    if (controls) controls.classList.remove('hidden');
+}
+
+function hideMobileControls() {
+    const controls = document.getElementById('mobileControls');
+    if (controls) controls.classList.add('hidden');
 }
 
 function setupJoystick() {
@@ -43,15 +53,8 @@ function setupJoystick() {
 
         inner.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
 
-        // Chuẩn hoá -1 đến 1
         joystickData.x = deltaX / 35;
         joystickData.y = deltaY / 35;
-
-        // Giả lập phím WASD
-        keys['w'] = joystickData.y < -0.3;
-        keys['s'] = joystickData.y > 0.3;
-        keys['a'] = joystickData.x < -0.3;
-        keys['d'] = joystickData.x > 0.3;
     });
 
     joystick.addEventListener('touchend', (e) => {
@@ -59,13 +62,14 @@ function setupJoystick() {
         joystickActive = false;
         inner.style.transform = 'translate(-50%, -50%)';
         joystickData = { x: 0, y: 0 };
-        keys['w'] = keys['s'] = keys['a'] = keys['d'] = false;
     });
 }
 
 function setupActionButtons() {
     const shootBtn = document.getElementById('shootBtn');
     const skillBtn = document.getElementById('skillBtn');
+    const dashBtn = document.getElementById('dashBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
 
     shootBtn.addEventListener('touchstart', (e) => {
         e.preventDefault();
@@ -85,6 +89,30 @@ function setupActionButtons() {
     skillBtn.addEventListener('touchend', (e) => {
         e.preventDefault();
         keys['e'] = false;
+    });
+
+    dashBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        keys['Shift'] = true;
+    });
+
+    dashBtn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        keys['Shift'] = false;
+    });
+
+    pauseBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof isPaused !== 'undefined') {
+            isPaused = !isPaused;
+        }
+        if (typeof handlePause === 'function') {
+            handlePause();
+        } else {
+            keys['Escape'] = true;
+            setTimeout(() => keys['Escape'] = false, 100);
+        }
     });
 }
 

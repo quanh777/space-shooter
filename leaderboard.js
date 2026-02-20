@@ -1,6 +1,4 @@
-// === LEADERBOARD - Quản lý bảng xếp hạng với Firebase ===
-
-function showLeaderboard() {
+﻿function showLeaderboard() {
     document.getElementById('mainMenu').classList.add('hidden');
     document.getElementById('leaderboardScreen').classList.remove('hidden');
     loadLeaderboard();
@@ -11,7 +9,6 @@ function hideLeaderboard() {
     document.getElementById('mainMenu').classList.remove('hidden');
 }
 
-// Lấy text theo ngôn ngữ hiện tại
 function getLangText(key, fallback) {
     if (typeof getLang === 'function') {
         const lang = getLang();
@@ -20,20 +17,32 @@ function getLangText(key, fallback) {
     return fallback;
 }
 
-// Load top 10 từ Firebase
 function loadLeaderboard() {
     const content = document.getElementById('leaderboardContent');
     content.innerHTML = `<div class="loading">${getLangText('loadingScores', 'Đang tải...')}</div>`;
 
-    leaderboardRef.orderByChild('score').limitToLast(10).once('value')
+    if (!window.leaderboardRef) {
+        content.innerHTML = `<div class="loading">Lỗi: Firebase chưa kết nối!</div>`;
+        return;
+    }
+
+    const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Connection timeout')), 10000);
+    });
+
+    const loadPromise = window.leaderboardRef.orderByChild('score').limitToLast(10).once('value');
+
+    Promise.race([loadPromise, timeoutPromise])
         .then(snapshot => {
             const scores = [];
-            snapshot.forEach(childSnapshot => {
-                scores.push({
-                    key: childSnapshot.key,
-                    ...childSnapshot.val()
+            if (snapshot.exists()) {
+                snapshot.forEach(childSnapshot => {
+                    scores.push({
+                        key: childSnapshot.key,
+                        ...childSnapshot.val()
+                    });
                 });
-            });
+            }
 
             scores.reverse();
 
@@ -46,16 +55,15 @@ function loadLeaderboard() {
         })
         .catch(error => {
             console.error('Lỗi tải leaderboard:', error);
-            content.innerHTML = '<div class="loading">Lỗi kết nối. Kiểm tra Firebase config.</div>';
+            content.innerHTML = `<div class="loading">Lỗi tải dữ liệu: ${error.message}</div>`;
         });
 }
 
-// Hiển thị bảng xếp hạng
 function displayLeaderboardTable(scores) {
     const content = document.getElementById('leaderboardContent');
 
     let html = '<table class="leaderboard-table">';
-    html += `<thead><tr><th>${getLangText('rank', 'Hạng')}</th><th>${getLangText('name', 'Tên')}</th><th>${getLangText('score', 'Điểm')}</th><th>Wave</th></tr></thead>`;
+    html += `<thead><tr><th>${getLangText('rank', 'Hạng')}</th><th>${getLangText('name', 'Tên')}</th><th>${getLangText('score', 'Điểm')}</th><th>${getLangText('wave', 'Wave')}</th></tr></thead>`;
     html += '<tbody>';
 
     scores.forEach((entry, index) => {
@@ -82,7 +90,6 @@ function displayLeaderboardTable(scores) {
     content.innerHTML = html;
 }
 
-// Gửi điểm lên Firebase
 function submitScore() {
     const nameInput = document.getElementById('playerName');
     const playerName = nameInput.value.trim();
@@ -109,10 +116,12 @@ function submitScore() {
         timestamp: Date.now()
     };
 
-    leaderboardRef.push(scoreEntry)
+    window.leaderboardRef.push(scoreEntry)
         .then((ref) => {
             window.lastSubmittedKey = ref.key;
-            alert('Gửi điểm thành công!');
+            // Save player name for next time
+            localStorage.setItem('playerName', playerName);
+            alert(getLangText('submitSuccess', 'Gửi điểm thành công!'));
             document.getElementById('gameOverScreen').classList.add('hidden');
             showLeaderboard();
         })
@@ -122,16 +131,14 @@ function submitScore() {
         });
 }
 
-// Escape HTML để tránh XSS
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
 
-// Dọn dẹp scores cũ (giữ top 100)
 function cleanupLeaderboard() {
-    leaderboardRef.orderByChild('score').once('value')
+    window.leaderboardRef.orderByChild('score').once('value')
         .then(snapshot => {
             const scores = [];
             snapshot.forEach(childSnapshot => {
@@ -145,7 +152,7 @@ function cleanupLeaderboard() {
 
             if (scores.length > 100) {
                 for (let i = 100; i < scores.length; i++) {
-                    leaderboardRef.child(scores[i].key).remove();
+                    window.leaderboardRef.child(scores[i].key).remove();
                 }
             }
         })
@@ -154,22 +161,34 @@ function cleanupLeaderboard() {
         });
 }
 
-// Load leaderboard cho game over screen (phiên bản gọn)
 function loadGameOverLeaderboard() {
     const content = document.getElementById('gameOverLeaderboardContent');
     if (!content) return;
 
     content.innerHTML = '<div class="loading">Đang tải top 10...</div>';
 
-    leaderboardRef.orderByChild('score').limitToLast(10).once('value')
+    if (!window.leaderboardRef) {
+        content.innerHTML = '<div class="loading">Lỗi: Firebase chưa init!</div>';
+        return;
+    }
+
+    const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout')), 8000);
+    });
+
+    const loadPromise = window.leaderboardRef.orderByChild('score').limitToLast(10).once('value');
+
+    Promise.race([loadPromise, timeoutPromise])
         .then(snapshot => {
             const scores = [];
-            snapshot.forEach(childSnapshot => {
-                scores.push({
-                    key: childSnapshot.key,
-                    ...childSnapshot.val()
+            if (snapshot.exists()) {
+                snapshot.forEach(childSnapshot => {
+                    scores.push({
+                        key: childSnapshot.key,
+                        ...childSnapshot.val()
+                    });
                 });
-            });
+            }
 
             scores.reverse();
 
@@ -179,7 +198,7 @@ function loadGameOverLeaderboard() {
             }
 
             let html = '<table class="leaderboard-table compact">';
-            html += '<thead><tr><th>#</th><th>Tên</th><th>Điểm</th></tr></thead>';
+            html += `<thead><tr><th>#</th><th>${getLangText('name', 'Tên')}</th><th>${getLangText('score', 'Điểm')}</th></tr></thead>`;
             html += '<tbody>';
 
             scores.forEach((entry, index) => {
@@ -198,6 +217,41 @@ function loadGameOverLeaderboard() {
         })
         .catch(error => {
             console.error('Lỗi tải leaderboard:', error);
-            content.innerHTML = '<div class="loading">Không thể tải</div>';
+            content.innerHTML = `<div class="loading">Lỗi: ${error.message}</div>`;
+        });
+}
+
+function updateRankPreview(playerScore) {
+    const rankPreviewEl = document.getElementById('rankPreview');
+    if (!rankPreviewEl || !window.leaderboardRef) return;
+
+    window.leaderboardRef.orderByChild('score').once('value')
+        .then(snapshot => {
+            const scores = [];
+            if (snapshot.exists()) {
+                snapshot.forEach(childSnapshot => {
+                    scores.push(childSnapshot.val().score);
+                });
+            }
+
+            scores.sort((a, b) => b - a);
+
+            let rank = 1;
+            for (const s of scores) {
+                if (playerScore >= s) break;
+                rank++;
+            }
+
+            const lang = typeof getLang === 'function' ? getLang() : {};
+            const template = lang.rankPreview || 'You would rank #{rank}!';
+
+            if (rank <= 10) {
+                rankPreviewEl.innerHTML = `<strong style="color: #ffd700;">🔥 ${template.replace('{rank}', rank)}</strong>`;
+            } else {
+                rankPreviewEl.textContent = template.replace('{rank}', rank);
+            }
+        })
+        .catch(() => {
+            rankPreviewEl.textContent = '';
         });
 }

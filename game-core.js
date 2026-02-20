@@ -1,7 +1,4 @@
-// === GAME CORE - Vẽ và UI ===
-
-// Vẽ player với hiệu ứng
-function drawPlayer() {
+﻿function drawPlayer() {
     const cx = playerX + PW / 2, cy = playerY + PH / 2;
     ctx.save();
 
@@ -9,13 +6,11 @@ function drawPlayer() {
         const angle = Math.atan2(dirY, dirX);
         ctx.translate(cx, cy); ctx.rotate(angle); ctx.translate(-cx, -cy);
 
-        // Engine particles khi di chuyển
         if (Math.random() < 0.3) {
             const ex = cx - Math.cos(angle) * PW / 2, ey = cy - Math.sin(angle) * PH / 2;
             particles.push(new Particle(ex, ey, isSliding ? 'rgb(100,200,255)' : 'rgb(100,150,255)', isSliding ? 3 : 1.5, isSliding ? 5 : 3, isSliding ? 15 : 10));
         }
 
-        // Tàu hướng theo hướng di chuyển
         ctx.fillStyle = '#00f'; ctx.beginPath();
         ctx.moveTo(cx + PW / 2, cy);
         ctx.lineTo(cx - PW / 3, cy + PH / 4);
@@ -27,7 +22,6 @@ function drawPlayer() {
         ctx.lineTo(cx - PW / 6, cy - PH / 8);
         ctx.closePath(); ctx.fill();
     } else {
-        // Đứng yên - hình kim cương
         ctx.fillStyle = '#00f'; ctx.beginPath();
         ctx.moveTo(cx, cy - PH / 2);
         ctx.lineTo(cx + PW / 2, cy);
@@ -42,7 +36,6 @@ function drawPlayer() {
         ctx.closePath(); ctx.fill();
     }
 
-    // Hiệu ứng dash
     if (isSliding) {
         ctx.globalAlpha = 0.4;
         ctx.fillStyle = 'rgb(100,100,255)';
@@ -51,7 +44,6 @@ function drawPlayer() {
         for (let i = 0; i < 2; i++) particles.push(new Particle(playerX + Math.random() * PW, playerY + Math.random() * PH, 'rgb(150,150,255)', 2, 4, 10));
     }
 
-    // Hiệu ứng bất tử
     if (invincible) {
         const pulse = (Date.now() % 500) / 500;
         ctx.globalAlpha = 0.4 * pulse;
@@ -63,7 +55,6 @@ function drawPlayer() {
     ctx.restore();
 }
 
-// Vẽ thanh gradient (HP, Energy)
 function drawGradientBar(x, y, w, h, val, maxVal, colors, label) {
     for (let i = 0; i < w; i++) {
         const g = `rgb(${Math.floor(colors.bg.r + i / w * (colors.bg2.r - colors.bg.r))},${Math.floor(colors.bg.g + i / w * (colors.bg2.g - colors.bg.g))},${Math.floor(colors.bg.b + i / w * (colors.bg2.b - colors.bg.b))})`;
@@ -79,15 +70,12 @@ function drawGradientBar(x, y, w, h, val, maxVal, colors, label) {
     ctx.fillStyle = '#fff'; ctx.font = '20px Arial'; ctx.fillText(label, x + w + 5, y + h);
 }
 
-// Vẽ giao diện game
 function drawUI() {
-    // Thanh HP
     drawGradientBar(10, 30, 100, 10, playerHealth, maxHealth, {
         bg: { r: 40, g: 10, b: 10 }, bg2: { r: 80, g: 40, b: 40 },
         high: { r: 100, g: 200, b: 30 }, mid: { r: 200, g: 200, b: 30 }, low: { r: 200, g: 30, b: 30 }
     }, 'Health');
 
-    // Thanh Energy
     drawGradientBar(10, 10, 100, 10, energy, 100, {
         bg: { r: 20, g: 20, b: 60 }, bg2: { r: 50, g: 50, b: 120 },
         high: { r: 30, g: 100, b: 200 }, mid: { r: 30, g: 100, b: 200 }, low: { r: 30, g: 100, b: 200 }
@@ -95,14 +83,12 @@ function drawUI() {
 
     const now = Date.now();
 
-    // Dash cooldown
     if (now - lastSlide < 2000) {
         const pct = (now - lastSlide) / 2000;
         ctx.fillStyle = '#666';
         ctx.fillRect(10, 22, Math.floor(100 * pct), 3);
     }
 
-    // Icon skill với cooldown
     const sx = 10, sy = H - 60;
     ctx.fillStyle = 'rgba(255,0,0,0.7)';
     ctx.fillRect(sx, sy, 40, 40);
@@ -119,26 +105,22 @@ function drawUI() {
         ctx.strokeRect(sx - 2, sy - 2, 44, 44);
     }
 
-    // Level dots
     ctx.fillStyle = '#fff';
     for (let i = 0; i < skill.level; i++) {
         ctx.beginPath(); ctx.arc(sx + 5 + i * 8, sy + 5, 3, 0, Math.PI * 2); ctx.fill();
     }
     ctx.font = '16px Arial'; ctx.fillText('E', sx + 15, sy + 28);
 
-    // Stats
     ctx.fillStyle = '#fff'; ctx.font = '20px Arial';
     ctx.fillText(`Wave: ${wave}`, 10, H - 90);
     ctx.fillText(`Score: ${score}`, 10, H - 120);
     ctx.fillStyle = '#ff0';
     ctx.fillText(`Money: ${playerMoney}`, 10, H - 150);
 
-    // Active powerups
     let py = 50;
     if (doubleShot) { ctx.fillText('Double Shot', W - 150, py); py += 25 }
     if (tripleShot) { ctx.fillText('Triple Shot', W - 150, py); py += 25 }
 
-    // Shield status
     if (invincible) {
         const shieldDuration = 1250 + (shopItems["Shield"].b * 750);
         const remaining = Math.ceil((shieldDuration - (now - invTime)) / 1000 * 10) / 10;
@@ -148,7 +130,6 @@ function drawUI() {
         py += 25;
     }
 
-    // Shield cooldown
     if (shieldCooldown > 0) {
         const cdRemaining = Math.ceil(shieldCooldown / 1000);
         ctx.fillStyle = 'rgba(255, 100, 100, 0.8)';
@@ -162,7 +143,6 @@ function drawUI() {
         py += 25;
     }
 
-    // Tutorial circle (wave 0)
     if (wave === 0 && tutorialCircle) {
         const tc = tutorialCircle;
         const pulseSize = Math.sin(tc.pulse) * 10;
@@ -198,7 +178,6 @@ function drawUI() {
         ctx.textAlign = 'left';
     }
 
-    // Rest timer
     if (isResting && wave >= 0 && !isShop) {
         const duration = wave === 0 ? 15000 : 5000;
         const remain = Math.ceil((duration - (now - restStart)) / 1000);
@@ -216,7 +195,6 @@ function drawUI() {
     }
 }
 
-// Vẽ shop
 function drawShop() {
     ctx.fillStyle = 'rgba(0,0,0,0.85)';
     ctx.fillRect(0, 0, W, H);
@@ -225,7 +203,7 @@ function drawShop() {
     ctx.fillText('SHOP', W / 2, 60);
 
     ctx.font = '32px Arial'; ctx.fillStyle = 'rgb(200,200,255)';
-    ctx.fillText(`Wave ${wave} Completed!`, W / 2, 105);
+    ctx.fillText(`Wave ${wave - 1} Completed!`, W / 2, 105);
 
     const flashTime = Date.now() % 600 < 300;
     const canAffordAny = selectedItems.length > 0 && playerMoney >= selectedItems.reduce((sum, item) => sum + getItemPrice(item), 0);
@@ -281,11 +259,9 @@ function drawShop() {
         }
     });
 
-    // === BUTTONS AT BOTTOM ===
     const btnY1 = H - 150, btnY2 = H - 95, btnY3 = H - 45;
     const btnW = 300, btnH = 45;
 
-    // BUY Button
     const canBuy = selectedItems.length > 0 && canAffordAny;
     ctx.fillStyle = canBuy ? 'rgb(50,120,50)' : 'rgb(70,70,70)';
     ctx.beginPath();
@@ -294,7 +270,6 @@ function drawShop() {
     ctx.fillStyle = '#fff'; ctx.font = 'bold 24px Arial'; ctx.textAlign = 'center';
     ctx.fillText('BUY (Enter)', W / 2, btnY1 + 30);
 
-    // REFRESH Button
     const refreshCost = 20 + shopRefreshCount * 15;
     const canRefresh = playerMoney >= refreshCost;
     ctx.fillStyle = canRefresh ? 'rgb(50,80,140)' : 'rgb(60,60,80)';
@@ -306,7 +281,6 @@ function drawShop() {
     ctx.fillStyle = canRefresh ? '#fff' : '#aaa'; ctx.font = 'bold 22px Arial';
     ctx.fillText(`REFRESH (${refreshCost}$)`, W / 2, btnY2 + 28);
 
-    // SKIP Button  
     ctx.fillStyle = 'rgb(120,50,50)';
     ctx.beginPath();
     ctx.roundRect(W / 2 - btnW / 2, btnY3, btnW, btnH, 10);

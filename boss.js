@@ -1,112 +1,101 @@
-// === BOSS SYSTEM ===
-// Random Boss Types: Destroyer, Summoner, Overlord
-// Wave scaling: Boss mạnh hơn theo wave
-
 class Boss extends Enemy {
     constructor() {
         super('boss');
 
-        // === TÍNH TOÁN ĐỘ KHÓ THEO WAVE ===
         const bossNumber = Math.floor(wave / 5);
-        const difficultyMultiplier = 1 + bossNumber * 0.5;
+        const difficultyMultiplier = bossNumber === 1 ? 1 : (1 + (bossNumber - 1) * 0.5);
 
-        // Random boss type: 0=Destroyer, 1=Summoner, 2=Overlord
+        this.damageMultiplier = 1 + (bossNumber - 1) * 0.3;
+
         this.bossType = Math.floor(Math.random() * 3);
 
-        // === STATS CƠ BẢN ===
-        const baseHp = 300 + Math.random() * 200;
+        const baseHp = bossNumber === 1 ? (200 + Math.random() * 100) : (400 + Math.random() * 250);
         this.hp = Math.floor(baseHp * difficultyMultiplier);
         this.maxHp = this.hp;
-        this.spd = (0.8 + Math.random() * 0.4) * (1 + bossNumber * 0.15);
 
-        // Cooldown attack - nhanh hơn ở wave cao
-        const baseCooldown = 2000 + Math.random() * 1000;
-        this.attackCooldown = Math.max(800, baseCooldown - bossNumber * 300);
+        this.spd = bossNumber === 1 ? (0.6 + Math.random() * 0.3) : ((0.9 + Math.random() * 0.5) * (1 + (bossNumber - 1) * 0.2));
+
+        const baseCooldown = bossNumber === 1 ? 3000 : (1800 + Math.random() * 800);
+        this.attackCooldown = Math.max(500, baseCooldown - (bossNumber - 1) * 350);
         this.lastAttack = 0;
         this.phase = 1;
 
-        // === KÍCH THƯỚC VÀ VISUAL ===
-        this.w = 70 + bossNumber * 12 + Math.random() * 20;
+        this.w = 70 + bossNumber * 15 + Math.random() * 20;
         this.h = this.w;
         this.rotation = 0;
         this.glowIntensity = 0;
 
-        // === ATTACK POOL - Mỗi boss có attacks khác nhau ===
         this.attackPool = this.generateRandomAttackPool();
 
-        // === LASER STATE ===
         this.laserCharging = false;
         this.laserFiring = false;
         this.laserAngle = 0;
         this.laserSweep = false;
         this.laserTimer = 0;
-        this.laserChargeTime = Math.max(600, 1200 - bossNumber * 100);
-        this.laserFireTime = 2000 + bossNumber * 300;
+        this.laserChargeTime = Math.max(400, 1000 - bossNumber * 120);
+        this.laserFireTime = 2800 + bossNumber * 500;
+        this.laserSweepSpeed = 0.028 + bossNumber * 0.007;
 
-        // === SUMMONER STATE ===
         this.lastSummon = 0;
-        this.summonCount = 2 + Math.floor(bossNumber * 0.5);
+        this.summonCount = 3 + Math.floor(bossNumber * 0.9);
 
-        // === DEATH ANIMATION ===
         this.dying = false;
         this.deathTimer = 0;
 
-        // === PHASE TRANSITION ===
         this.transitioning = false;
         this.transitionTimer = 0;
 
-        // === TELEPORT - 30%+ chance có khả năng này ===
-        this.canTeleport = Math.random() < 0.3 + bossNumber * 0.1;
+        this.canTeleport = Math.random() < 0.35 + bossNumber * 0.15;
         this.teleporting = false;
         this.teleportTimer = 0;
         this.teleportTarget = null;
 
-        // === MINES ===
         this.mines = [];
-        this.mineCount = 3 + Math.floor(bossNumber * 0.7);
+        this.mineCount = 4 + Math.floor(bossNumber * 1.0);
 
-        // === RAGE MODE - Kích hoạt khi HP thấp ===
         this.enraged = false;
         this.rageThreshold = 0.35 + Math.random() * 0.1;
 
-        // === CHARGE ATTACK STATE - Dùng animation loop thay vì setTimeout ===
         this.isCharging = false;
         this.chargeDirection = { x: 0, y: 0 };
         this.chargeProgress = 0;
+        this.chargeTrail = [];
 
-        // === ENTRY ANIMATION ===
         this.entering = true;
         this.entryY = -100;
         this.y = -100;
 
-        // === TÊN VÀ MÀU SẮC ===
         this.names = ['DESTROYER', 'SUMMONER', 'OVERLORD', 'CHAOS LORD', 'NIGHTMARE'];
         this.colors = ['#ff3333', '#9933ff', '#ffcc00', '#00ffff', '#ff6600'];
 
         const suffixes = ['', ' MK-' + (bossNumber + 1), ' PRIME', ' OMEGA', ' REDUX'];
         this.displayName = this.names[this.bossType] + (bossNumber > 0 ? suffixes[Math.min(bossNumber, 4)] : '');
         this.color = this.colors[this.bossType];
+
+        this.bulletHellAngle = 0;
+        this.shieldActive = false;
+        this.shieldTimer = 0;
+
+        this.bulletSpeedMultiplier = 1 + (bossNumber - 1) * 0.15;
     }
 
-    // Tạo pool attacks ngẫu nhiên cho từng boss
+    getDamage(baseDamage) {
+        return Math.floor(baseDamage * this.damageMultiplier);
+    }
+
     generateRandomAttackPool() {
-        const allAttacks = ['burst', 'spiral', 'wave', 'shotgun', 'charge', 'summon', 'omniBurst', 'mines', 'laser'];
+        const allAttacks = ['burst', 'spiral', 'wave', 'shotgun', 'charge', 'summon', 'omniBurst', 'mines', 'laser', 'bulletHell'];
         const pool = [];
 
-        // Core attacks theo boss type
         if (this.bossType === 0) {
-            pool.push('burst', 'shotgun');
-            if (Math.random() < 0.5) pool.push('charge');
+            pool.push('burst', 'shotgun', 'charge');
         } else if (this.bossType === 1) {
-            pool.push('summon', 'wave');
-            if (Math.random() < 0.5) pool.push('spiral');
+            pool.push('summon', 'wave', 'spiral');
         } else {
-            pool.push('laser', 'omniBurst');
-            if (Math.random() < 0.5) pool.push('mines');
+            pool.push('laser', 'omniBurst', 'mines');
         }
 
-        // Thêm 1-3 attacks random
-        const extraCount = 1 + Math.floor(Math.random() * 3);
+        const extraCount = 2 + Math.floor(Math.random() * 2);
         const available = allAttacks.filter(a => !pool.includes(a));
         for (let i = 0; i < extraCount && available.length > 0; i++) {
             const idx = Math.floor(Math.random() * available.length);
@@ -119,7 +108,6 @@ class Boss extends Enemy {
     update() {
         const now = Date.now();
 
-        // === ENTRY ANIMATION ===
         if (this.entering) {
             this.entryY += 2;
             this.y = this.entryY;
@@ -139,7 +127,6 @@ class Boss extends Enemy {
             return;
         }
 
-        // === DEATH ANIMATION ===
         if (this.dying) {
             this.deathTimer += 16;
             if (this.deathTimer % 100 < 20) {
@@ -159,7 +146,6 @@ class Boss extends Enemy {
             return;
         }
 
-        // === PHASE CHECK ===
         const hpPct = this.hp / this.maxHp;
         const newPhase = hpPct <= this.rageThreshold ? 3 : (hpPct <= 0.6 ? 2 : 1);
 
@@ -178,11 +164,10 @@ class Boss extends Enemy {
                 ));
             }
 
-            // RAGE MODE - Phase 3
             if (this.phase === 3 && !this.enraged) {
                 this.enraged = true;
-                this.attackCooldown *= 0.5;
-                this.spd *= 1.8;
+                this.attackCooldown *= 0.4;
+                this.spd *= 1.9;
                 screenShake = 25;
             }
         }
@@ -194,27 +179,54 @@ class Boss extends Enemy {
             return;
         }
 
-        // === XỬ LÝ CHARGE ATTACK (thay vì setTimeout) ===
+        if (this.shieldActive) {
+            this.shieldTimer -= 16;
+            if (this.shieldTimer <= 0) {
+                this.shieldActive = false;
+            }
+        }
+
         if (this.isCharging) {
             this.chargeProgress++;
-            if (this.chargeProgress <= 30) {
-                this.x += this.chargeDirection.x * 10;
-                this.y += this.chargeDirection.y * 10;
+            if (this.chargeProgress <= 35) {
+                const moveX = this.chargeDirection.x * 12;
+                const moveY = this.chargeDirection.y * 12;
+                this.x += moveX;
+                this.y += moveY;
+
+                this.chargeTrail.push({ x: this.x + this.w / 2, y: this.y + this.h / 2, life: 20 });
+
+                if (this.x <= 0 || this.x >= W - this.w) {
+                    this.chargeDirection.x *= -1;
+                    screenShake = 8;
+                }
+                if (this.y <= 0 || this.y >= H - this.h) {
+                    this.chargeDirection.y *= -1;
+                    screenShake = 8;
+                }
+
                 this.x = Math.max(0, Math.min(W - this.w, this.x));
                 this.y = Math.max(0, Math.min(H - this.h, this.y));
+
+                if (Math.random() < 0.5) {
+                    particles.push(new Particle(this.x + this.w / 2, this.y + this.h / 2, '#f00', 2, 5, 20));
+                }
             } else {
                 this.isCharging = false;
                 this.chargeProgress = 0;
             }
         }
 
-        // === MOVEMENT ===
+        this.chargeTrail = this.chargeTrail.filter(t => {
+            t.life--;
+            return t.life > 0;
+        });
+
         if (!this.isCharging) {
             this.moveByType();
         }
 
-        // === VISUAL UPDATES ===
-        this.rotation += this.enraged ? 0.05 : 0.02;
+        this.rotation += this.enraged ? 0.06 : 0.02;
         this.anim += 0.1;
         this.pulse += 0.15 * this.pdir;
         if (this.pulse > 6) this.pdir = -1;
@@ -222,13 +234,11 @@ class Boss extends Enemy {
         if (this.flash > 0) this.flash -= 0.05;
         this.glowIntensity = Math.max(0, this.glowIntensity - 0.02);
 
-        // === UPDATE SPECIAL STATES ===
         this.updateLaser();
         this.updateMines();
         this.updateTeleport();
 
-        // === ATTACK LOGIC ===
-        if (now - this.lastAttack >= this.attackCooldown && !this.laserCharging && !this.laserFiring && !this.isCharging) {
+        if (now - this.lastAttack >= this.attackCooldown && !this.laserCharging && !this.laserFiring && !this.isCharging && !this.shieldActive) {
             this.useSkill();
         }
     }
@@ -238,7 +248,6 @@ class Boss extends Enemy {
         const px = playerX + PW / 2, py = playerY + PH / 2;
 
         if (this.bossType === 0) {
-            // DESTROYER - Đuổi theo player
             const dx = px - cx, dy = py - cy;
             const d = Math.sqrt(dx * dx + dy * dy);
 
@@ -250,19 +259,17 @@ class Boss extends Enemy {
             } else if (this.phase === 2) {
                 const t = Date.now() / 1000;
                 if (Math.sin(t * 2) > 0.7) {
-                    this.x += (dx / d) * this.spd * 3;
-                    this.y += (dy / d) * this.spd * 3;
+                    this.x += (dx / d) * this.spd * 3.5;
+                    this.y += (dy / d) * this.spd * 3.5;
                 } else if (d > 80) {
                     this.x += (dx / d) * this.spd * 1.5;
                     this.y += (dy / d) * this.spd * 1.5;
                 }
             } else {
-                // Phase 3 - Berserker zigzag
-                this.x += (dx / d) * this.spd * 1.5 + Math.sin(Date.now() / 100) * this.spd * 1.5;
-                this.y += (dy / d) * this.spd * 1.5 + Math.cos(Date.now() / 80) * this.spd;
+                this.x += (dx / d) * this.spd * 1.8 + Math.sin(Date.now() / 80) * this.spd * 2;
+                this.y += (dy / d) * this.spd * 1.8 + Math.cos(Date.now() / 60) * this.spd * 1.5;
             }
         } else if (this.bossType === 1) {
-            // SUMMONER - Vòng quanh player
             const dx = px - cx, dy = py - cy;
             const d = Math.sqrt(dx * dx + dy * dy);
             const idealDist = 180 + Math.sin(Date.now() / 2000) * 80;
@@ -275,26 +282,24 @@ class Boss extends Enemy {
                 this.y += (dy / d) * this.spd;
             } else {
                 const perpX = -dy / d, perpY = dx / d;
-                this.x += perpX * this.spd * (this.phase >= 2 ? 1.5 : 1);
-                this.y += perpY * this.spd * (this.phase >= 2 ? 1.5 : 1);
+                this.x += perpX * this.spd * (this.phase >= 2 ? 1.8 : 1);
+                this.y += perpY * this.spd * (this.phase >= 2 ? 1.8 : 1);
             }
         } else {
-            // OVERLORD - Di chuyển hình số 8
             if (!this.teleporting) {
-                const t = Date.now() / 3000;
-                const targetX = W / 2 + Math.sin(t) * (W * 0.35);
-                const targetY = H / 2 + Math.sin(t * 2) * (H * 0.3);
+                const t = Date.now() / 2500;
+                const targetX = W / 2 + Math.sin(t) * (W * 0.38);
+                const targetY = H / 2 + Math.sin(t * 2) * (H * 0.32);
 
                 const dx = targetX - cx, dy = targetY - cy;
                 const d = Math.sqrt(dx * dx + dy * dy);
                 if (d > 10) {
-                    this.x += (dx / d) * this.spd * 1.2;
-                    this.y += (dy / d) * this.spd * 1.2;
+                    this.x += (dx / d) * this.spd * 1.4;
+                    this.y += (dy / d) * this.spd * 1.4;
                 }
             }
         }
 
-        // Giữ trong màn hình
         this.x = Math.max(10, Math.min(W - this.w - 10, this.x));
         this.y = Math.max(10, Math.min(H - this.h - 10, this.y));
     }
@@ -304,33 +309,33 @@ class Boss extends Enemy {
             this.laserTimer -= 16;
             const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
             const targetAngle = Math.atan2(playerY + PH / 2 - cy, playerX + PW / 2 - cx);
-            this.laserAngle += (targetAngle - this.laserAngle) * 0.05;
+            this.laserAngle += (targetAngle - this.laserAngle) * 0.04;
 
             if (this.laserTimer <= 0) {
                 this.laserCharging = false;
                 this.laserFiring = true;
                 this.laserTimer = this.laserFireTime;
-                screenShake = 15;
+                screenShake = 18;
             }
         }
 
         if (this.laserFiring) {
             this.laserTimer -= 16;
 
-            if (this.phase === 3 && this.laserSweep) {
-                this.laserAngle += 0.02;
+            if (this.laserSweep) {
+                this.laserAngle += this.laserSweepSpeed * (this.enraged ? 1.5 : 1);
             }
 
-            // Damage player nếu trong laser
             const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
-            const lx = cx + Math.cos(this.laserAngle) * 800;
-            const ly = cy + Math.sin(this.laserAngle) * 800;
+            const lx = cx + Math.cos(this.laserAngle) * 900;
+            const ly = cy + Math.sin(this.laserAngle) * 900;
             const px = playerX + PW / 2, py = playerY + PH / 2;
             const d = distToSegment(px, py, cx, cy, lx, ly);
 
-            if (d < 30 && !invincible) {
-                playerHealth -= 1;
-                if (Math.random() < 0.3) {
+            const laserDamage = (this.enraged ? 1.5 : 1) * this.damageMultiplier;
+            if (d < 35 && !invincible) {
+                playerHealth -= laserDamage;
+                if (Math.random() < 0.4) {
                     particles.push(new Particle(px, py, '#f00', 2, 3, 15));
                 }
             }
@@ -346,17 +351,36 @@ class Boss extends Enemy {
             m.timer -= 16;
             m.pulse = (m.pulse || 0) + 0.1;
 
-            if (m.timer <= 0) {
-                for (let i = 0; i < 20; i++) {
-                    particles.push(new Particle(m.x, m.y, '#fa0', 3, 5, 25));
-                }
-                screenShake = 8;
+            const dx = playerX + PW / 2 - m.x;
+            const dy = playerY + PH / 2 - m.y;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d > 10) {
+                m.x += (dx / d) * 0.5;
+                m.y += (dy / d) * 0.5;
+            }
 
-                const dx = playerX + PW / 2 - m.x, dy = playerY + PH / 2 - m.y;
-                const d = Math.sqrt(dx * dx + dy * dy);
-                if (d < 80 && !invincible) {
-                    playerHealth -= 25;
+            if (m.timer <= 0 || d < 25) {
+                for (let i = 0; i < 25; i++) {
+                    const ang = (i / 25) * Math.PI * 2;
+                    particles.push(new Particle(m.x + Math.cos(ang) * 20, m.y + Math.sin(ang) * 20, '#fa0', 3, 5, 25));
                 }
+                screenShake = 10;
+
+                if (d < 90 && !invincible) {
+                    playerHealth -= 30;
+                }
+
+                for (let i = 0; i < 8; i++) {
+                    const ang = (i / 8) * Math.PI * 2;
+                    scheduledBullets.push({
+                        x: m.x, y: m.y,
+                        angle: ang,
+                        delay: 0,
+                        color: '#fa0',
+                        damage: 8
+                    });
+                }
+
                 return false;
             }
             return true;
@@ -381,6 +405,10 @@ class Boss extends Enemy {
                         '#ff0', 2, 4, 20
                     ));
                 }
+
+                if (this.enraged) {
+                    this.burstAttack();
+                }
             }
 
             if (this.teleportTimer <= 0) {
@@ -393,7 +421,25 @@ class Boss extends Enemy {
         ctx.save();
         const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
 
-        // === GLOW EFFECT ===
+        this.chargeTrail.forEach(t => {
+            ctx.globalAlpha = t.life / 20 * 0.6;
+            ctx.fillStyle = '#ff4400';
+            ctx.beginPath();
+            ctx.arc(t.x, t.y, 15 * (t.life / 20), 0, Math.PI * 2);
+            ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+
+        if (this.shieldActive) {
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 4;
+            ctx.globalAlpha = 0.6 + Math.sin(Date.now() * 0.01) * 0.3;
+            ctx.beginPath();
+            ctx.arc(cx, cy, this.w / 2 + 25, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+        }
+
         const glowSize = 20 + this.pulse + (this.enraged ? 10 : 0) + this.glowIntensity * 30;
         const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, this.w / 2 + glowSize);
         gradient.addColorStop(0, this.colors[this.bossType] + '80');
@@ -403,7 +449,6 @@ class Boss extends Enemy {
         ctx.arc(cx, cy, this.w / 2 + glowSize, 0, Math.PI * 2);
         ctx.fill();
 
-        // === ROTATING RING ===
         ctx.strokeStyle = this.colors[this.bossType];
         ctx.lineWidth = 3;
         ctx.beginPath();
@@ -416,15 +461,13 @@ class Boss extends Enemy {
         }
         ctx.stroke();
 
-        // === MAIN BODY - Khác nhau theo type ===
         if (this.bossType === 0) {
-            // DESTROYER - Hexagon có gai
             ctx.fillStyle = '#880000';
             ctx.beginPath();
             for (let i = 0; i < 6; i++) {
                 const ang = this.rotation + (i / 6) * Math.PI * 2;
                 const r = this.w / 2;
-                const spike = i % 2 === 0 ? 10 : 0;
+                const spike = i % 2 === 0 ? 12 : 0;
                 ctx.lineTo(cx + Math.cos(ang) * (r + spike), cy + Math.sin(ang) * (r + spike));
             }
             ctx.closePath();
@@ -432,7 +475,6 @@ class Boss extends Enemy {
             ctx.strokeStyle = '#ff4444';
             ctx.stroke();
         } else if (this.bossType === 1) {
-            // SUMMONER - Diamond với orbs
             ctx.fillStyle = '#440066';
             ctx.beginPath();
             for (let i = 0; i < 4; i++) {
@@ -445,7 +487,6 @@ class Boss extends Enemy {
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            // Orbiting orbs
             for (let i = 0; i < 4; i++) {
                 const ang = -this.rotation * 2 + (i / 4) * Math.PI * 2;
                 const orbX = cx + Math.cos(ang) * 35;
@@ -456,7 +497,6 @@ class Boss extends Enemy {
                 ctx.fill();
             }
         } else {
-            // OVERLORD - Crown shape
             ctx.fillStyle = '#886600';
             ctx.beginPath();
             ctx.arc(cx, cy, this.w / 2 - 5, 0, Math.PI * 2);
@@ -474,7 +514,6 @@ class Boss extends Enemy {
             }
         }
 
-        // === MẮT BOSS ===
         ctx.fillStyle = '#fff';
         ctx.beginPath();
         ctx.arc(cx, cy, this.w * 0.15, 0, Math.PI * 2);
@@ -486,24 +525,22 @@ class Boss extends Enemy {
         ctx.arc(cx + Math.cos(eyeAng) * 5, cy + Math.sin(eyeAng) * 5, this.w * 0.08, 0, Math.PI * 2);
         ctx.fill();
 
-        // === RAGE INDICATOR ===
         if (this.enraged) {
-            ctx.strokeStyle = `rgba(255, 0, 0, ${0.3 + Math.sin(Date.now() * 0.01) * 0.3})`;
-            ctx.lineWidth = 5;
+            ctx.strokeStyle = `rgba(255, 0, 0, ${0.3 + Math.sin(Date.now() * 0.015) * 0.4})`;
+            ctx.lineWidth = 6;
             ctx.beginPath();
             ctx.arc(cx, cy, this.w / 2 + 20, 0, Math.PI * 2);
             ctx.stroke();
         }
 
-        // === VẼ LASER ===
         if (this.laserCharging) {
             const prog = 1 - this.laserTimer / this.laserChargeTime;
             ctx.strokeStyle = `rgba(255, 0, 0, ${prog})`;
-            ctx.lineWidth = 2 + prog * 5;
+            ctx.lineWidth = 2 + prog * 6;
             ctx.setLineDash([10, 10]);
             ctx.beginPath();
             ctx.moveTo(cx, cy);
-            ctx.lineTo(cx + Math.cos(this.laserAngle) * 500, cy + Math.sin(this.laserAngle) * 500);
+            ctx.lineTo(cx + Math.cos(this.laserAngle) * 600, cy + Math.sin(this.laserAngle) * 600);
             ctx.stroke();
             ctx.setLineDash([]);
 
@@ -517,12 +554,12 @@ class Boss extends Enemy {
         }
 
         if (this.laserFiring) {
-            const beamWidth = 20 + Math.sin(Date.now() * 0.05) * 5;
-            const lx = cx + Math.cos(this.laserAngle) * 800;
-            const ly = cy + Math.sin(this.laserAngle) * 800;
+            const beamWidth = 25 + Math.sin(Date.now() * 0.05) * 8;
+            const lx = cx + Math.cos(this.laserAngle) * 900;
+            const ly = cy + Math.sin(this.laserAngle) * 900;
 
             ctx.strokeStyle = 'rgba(255, 100, 100, 0.5)';
-            ctx.lineWidth = beamWidth * 2;
+            ctx.lineWidth = beamWidth * 2.5;
             ctx.beginPath();
             ctx.moveTo(cx, cy);
             ctx.lineTo(lx, ly);
@@ -543,20 +580,23 @@ class Boss extends Enemy {
             ctx.stroke();
         }
 
-        // === VẼ MINES ===
         this.mines.forEach(m => {
             const danger = m.timer < 1000;
-            const pulse = Math.sin(m.pulse * (danger ? 3 : 1)) * 0.3 + 0.7;
+            const pulse = Math.sin(m.pulse * (danger ? 4 : 1)) * 0.3 + 0.7;
             ctx.fillStyle = danger ? `rgba(255, 0, 0, ${pulse})` : `rgba(255, 150, 0, ${pulse})`;
             ctx.beginPath();
-            ctx.arc(m.x, m.y, 12 + (danger ? Math.sin(m.pulse * 5) * 3 : 0), 0, Math.PI * 2);
+            ctx.arc(m.x, m.y, 14 + (danger ? Math.sin(m.pulse * 6) * 4 : 0), 0, Math.PI * 2);
             ctx.fill();
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 2;
             ctx.stroke();
+
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(m.x, m.y, 4, 0, Math.PI * 2);
+            ctx.fill();
         });
 
-        // === HIT FLASH ===
         if (this.flash > 0) {
             ctx.globalAlpha = this.flash;
             ctx.fillStyle = '#fff';
@@ -568,7 +608,6 @@ class Boss extends Enemy {
 
         ctx.restore();
 
-        // === HEALTH BAR VÀ TÊN ===
         this.drawHealthBar();
 
         ctx.fillStyle = this.color;
@@ -593,7 +632,6 @@ class Boss extends Enemy {
         ctx.fillStyle = hpColor;
         ctx.fillRect(barX, barY, hpPct * barWidth, barH);
 
-        // Phase markers
         ctx.fillStyle = '#fff';
         ctx.fillRect(barX + barWidth * 0.6 - 1, barY, 2, barH);
         ctx.fillRect(barX + barWidth * 0.3 - 1, barY, 2, barH);
@@ -612,13 +650,13 @@ class Boss extends Enemy {
             attacks.push('teleport');
         }
 
-        if (this.phase === 3 && !attacks.includes('laserSweep')) {
+        if (this.phase === 3) {
             attacks.push('laserSweep');
+            attacks.push('bulletHell');
         }
 
         const attack = attacks[Math.floor(Math.random() * attacks.length)];
 
-        // Thực hiện attack
         if (attack === 'burst') this.burstAttack();
         else if (attack === 'spiral') this.spiralAttack();
         else if (attack === 'wave') this.waveAttack();
@@ -630,30 +668,43 @@ class Boss extends Enemy {
         else if (attack === 'laser') this.laserAttack(false);
         else if (attack === 'laserSweep') this.laserAttack(true);
         else if (attack === 'teleport') this.teleportAttack();
+        else if (attack === 'bulletHell') this.bulletHellAttack();
 
-        // RAGE MODE: 30% thêm attack thứ 2 (không dùng setTimeout)
-        if (this.enraged && Math.random() < 0.3) {
-            this.attackCooldown *= 0.5; // Giảm cooldown tạm thời
+        if (this.enraged && Math.random() < 0.4) {
+            this.attackCooldown *= 0.6;
         }
     }
 
-    // === CÁC ATTACK TYPES ===
     burstAttack() {
         const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
-        const count = this.enraged ? 24 : 16;
-        for (let i = 0; i < count; i++) {
-            const a = (2 * Math.PI * i / count) + this.rotation;
-            scheduledBullets.push({ x: cx, y: cy, angle: a, delay: 0, color: this.colors[this.bossType], damage: 15 });
+        const count = this.enraged ? 28 : 18;
+        const rings = this.phase >= 2 ? 2 : 1;
+
+        for (let ring = 0; ring < rings; ring++) {
+            for (let i = 0; i < count; i++) {
+                const a = (2 * Math.PI * i / count) + this.rotation + ring * 0.15;
+                scheduledBullets.push({
+                    x: cx, y: cy,
+                    angle: a,
+                    delay: ring * 150,
+                    color: this.colors[this.bossType],
+                    damage: this.getDamage(15)
+                });
+            }
         }
-        screenShake = 5;
+        screenShake = 6;
     }
 
     spiralAttack() {
         const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
-        const count = this.enraged ? 30 : 20;
-        for (let i = 0; i < count; i++) {
-            const a = (2 * Math.PI * i / count * 2) + Date.now() / 500;
-            scheduledBullets.push({ x: cx, y: cy, angle: a, delay: i * 40, color: '#fa0', damage: 12 });
+        const count = this.enraged ? 40 : 25;
+        const arms = this.phase >= 2 ? 2 : 1;
+
+        for (let arm = 0; arm < arms; arm++) {
+            for (let i = 0; i < count; i++) {
+                const a = (2 * Math.PI * i / count * 3) + Date.now() / 400 + (arm * Math.PI);
+                scheduledBullets.push({ x: cx, y: cy, angle: a, delay: i * 35, color: '#fa0', damage: this.getDamage(12) });
+            }
         }
     }
 
@@ -661,11 +712,14 @@ class Boss extends Enemy {
         const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
         const px = playerX + PW / 2, py = playerY + PH / 2;
         const baseAngle = Math.atan2(py - cy, px - cx);
-        const count = this.enraged ? 7 : 5;
+        const count = this.enraged ? 9 : 6;
+        const waves = this.phase >= 2 ? 2 : 1;
 
-        for (let i = -count; i <= count; i++) {
-            const a = baseAngle + i * 0.12;
-            scheduledBullets.push({ x: cx, y: cy, angle: a, delay: Math.abs(i) * 50, color: '#0ff', damage: 10 });
+        for (let w = 0; w < waves; w++) {
+            for (let i = -count; i <= count; i++) {
+                const a = baseAngle + i * 0.1;
+                scheduledBullets.push({ x: cx, y: cy, angle: a, delay: Math.abs(i) * 40 + w * 300, color: '#0ff', damage: this.getDamage(10) });
+            }
         }
     }
 
@@ -673,15 +727,15 @@ class Boss extends Enemy {
         const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
         const px = playerX + PW / 2, py = playerY + PH / 2;
         const baseAngle = Math.atan2(py - cy, px - cx);
+        const count = this.enraged ? 12 : 8;
 
-        for (let i = 0; i < 8; i++) {
-            const a = baseAngle + (Math.random() - 0.5) * 0.5;
-            scheduledBullets.push({ x: cx, y: cy, angle: a, delay: 0, color: '#f00', damage: 20 });
+        for (let i = 0; i < count; i++) {
+            const a = baseAngle + (Math.random() - 0.5) * 0.6;
+            scheduledBullets.push({ x: cx, y: cy, angle: a, delay: 0, color: '#f00', damage: this.getDamage(18) });
         }
-        screenShake = 8;
+        screenShake = 10;
     }
 
-    // FIX: Dùng state thay vì setTimeout
     chargeAttack() {
         const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
         const dx = playerX + PW / 2 - cx, dy = playerY + PH / 2 - cy;
@@ -690,54 +744,67 @@ class Boss extends Enemy {
         this.isCharging = true;
         this.chargeProgress = 0;
         this.chargeDirection = { x: dx / d, y: dy / d };
-        screenShake = 10;
+        this.chargeTrail = [];
+        screenShake = 12;
     }
 
     summonAttack() {
-        const count = this.enraged ? this.summonCount + 2 : this.summonCount;
+        const count = this.enraged ? this.summonCount + 3 : this.summonCount;
+        const spawnMedium = this.phase >= 2 && Math.random() < 0.4;
+
         for (let i = 0; i < count; i++) {
             const ang = (i / count) * Math.PI * 2;
-            const ex = this.x + this.w / 2 + Math.cos(ang) * 60;
-            const ey = this.y + this.h / 2 + Math.sin(ang) * 60;
+            const ex = this.x + this.w / 2 + Math.cos(ang) * 70;
+            const ey = this.y + this.h / 2 + Math.sin(ang) * 70;
 
-            const minion = new Enemy('small');
+            const minion = new Enemy('small', true);
             minion.x = ex;
             minion.y = ey;
-            minion.hp *= 0.5;
             enemies.push(minion);
 
-            for (let j = 0; j < 10; j++) {
-                particles.push(new Particle(ex, ey, '#a0f', 2, 3, 20));
+            for (let j = 0; j < 12; j++) {
+                particles.push(new Particle(ex, ey, '#9933ff', 2, 4, 25));
             }
         }
-        screenShake = 5;
+
+        if (spawnMedium) {
+            const medMinion = new Enemy('medium', true);
+            medMinion.x = this.x + this.w / 2;
+            medMinion.y = this.y + this.h + 30;
+            enemies.push(medMinion);
+        }
+
+        screenShake = 6;
     }
 
     omniBurstAttack() {
         const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
-        for (let ring = 0; ring < 3; ring++) {
-            for (let i = 0; i < 16; i++) {
-                const a = (2 * Math.PI * i / 16) + ring * 0.1;
+        const rings = this.enraged ? 4 : 3;
+
+        for (let ring = 0; ring < rings; ring++) {
+            const bulletCount = 16 + ring * 2;
+            for (let i = 0; i < bulletCount; i++) {
+                const a = (2 * Math.PI * i / bulletCount) + ring * 0.12;
                 scheduledBullets.push({
                     x: cx, y: cy, angle: a,
-                    delay: ring * 200,
-                    color: ['#f00', '#ff0', '#0ff'][ring],
-                    damage: 15
+                    delay: ring * 180,
+                    color: ['#f00', '#ff0', '#0ff', '#f0f'][ring],
+                    damage: this.getDamage(14)
                 });
             }
         }
-        screenShake = 12;
+        screenShake = 14;
     }
 
     minesAttack() {
-        const count = this.enraged ? 7 : 4;
+        const count = this.enraged ? 8 : 5;
         for (let i = 0; i < count; i++) {
-            const offsetX = (Math.random() - 0.5) * 200;
-            const offsetY = (Math.random() - 0.5) * 200;
+            const offsetX = (Math.random() - 0.5) * 250;
+            const offsetY = (Math.random() - 0.5) * 250;
             this.mines.push({
-                x: Math.max(20, Math.min(W - 20, playerX + PW / 2 + offsetX)),
-                y: Math.max(20, Math.min(H - 20, playerY + PH / 2 + offsetY)),
-                timer: 2500,
+                x: Math.max(30, Math.min(W - 30, playerX + PW / 2 + offsetX)),
+                y: Math.max(30, Math.min(H - 30, playerY + PH / 2 + offsetY)),
+                timer: 2200,
                 pulse: 0
             });
         }
@@ -750,9 +817,27 @@ class Boss extends Enemy {
         this.laserSweep = sweep;
     }
 
+    bulletHellAttack() {
+        const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
+        const bulletCount = this.enraged ? 60 : 40;
+
+        for (let i = 0; i < bulletCount; i++) {
+            const a = this.bulletHellAngle + (i / bulletCount) * Math.PI * 4;
+            scheduledBullets.push({
+                x: cx, y: cy,
+                angle: a,
+                delay: i * 25,
+                color: i % 2 === 0 ? '#ff0' : '#f0f',
+                damage: this.getDamage(10)
+            });
+        }
+        this.bulletHellAngle += 0.5;
+        screenShake = 5;
+    }
+
     teleportAttack() {
         this.teleporting = true;
-        this.teleportTimer = 1000;
+        this.teleportTimer = 800;
 
         for (let i = 0; i < 20; i++) {
             const ang = (i / 20) * Math.PI * 2;
@@ -770,23 +855,32 @@ class Boss extends Enemy {
     }
 
     finalExplosion() {
-        for (let i = 0; i < 100; i++) {
+        for (let i = 0; i < 120; i++) {
             const ang = Math.random() * Math.PI * 2;
-            const dist = Math.random() * 100;
-            const colors = ['#ff0', '#f80', '#f00', '#fff'];
+            const dist = Math.random() * 120;
+            const colors = ['#ff0', '#f80', '#f00', '#fff', this.color];
             particles.push(new Particle(
                 this.x + this.w / 2 + Math.cos(ang) * dist,
                 this.y + this.h / 2 + Math.sin(ang) * dist,
                 colors[Math.floor(Math.random() * colors.length)],
-                3 + Math.random() * 4, 8, 50
+                3 + Math.random() * 5, 10, 60
             ));
         }
-        screenShake = 30;
-        playerMoney += 50 + Math.floor(wave / 5) * 25;
+        screenShake = 35;
+        const bossReward = 60 + Math.floor(wave / 5) * 30;
+        playerMoney += bossReward;
+
+        if (typeof onBossDefeated === 'function') onBossDefeated();
+        if (typeof onMoneyEarned === 'function') onMoneyEarned(bossReward);
     }
 
     hit(dmg) {
         if (this.dying || this.entering) return;
+
+        if (this.shieldActive) {
+            dmg = Math.floor(dmg * 0.2);
+        }
+
         super.hit(dmg);
         this.glowIntensity = 0.5;
 
@@ -797,10 +891,8 @@ class Boss extends Enemy {
     }
 }
 
-// === SCHEDULED BULLETS - Xử lý bullets từ boss attacks ===
 let scheduledBullets = [];
 
-// === HEALTH PICKUP SYSTEM ===
 let healthPickup = null;
 
 function spawnHealthPickup() {
@@ -814,10 +906,8 @@ function drawHealthPickup() {
     if (!healthPickup) return;
     const x = healthPickup.x, y = healthPickup.y;
 
-    // Hiệu ứng pulse
     const pulse = Math.sin(Date.now() * 0.003) * 0.2 + 1.0;
 
-    // Glow xanh lá
     ctx.globalAlpha = 0.3 * pulse;
     ctx.fillStyle = '#0f0';
     ctx.beginPath();
@@ -825,7 +915,6 @@ function drawHealthPickup() {
     ctx.fill();
     ctx.globalAlpha = 1;
 
-    // Hình trái tim màu xanh
     ctx.fillStyle = '#0f0';
     ctx.beginPath();
     ctx.moveTo(x + 10, y + 5);
@@ -838,7 +927,6 @@ function drawHealthPickup() {
     ctx.fill();
 }
 
-// === UTILITY: Tính khoảng cách từ điểm đến đoạn thẳng ===
 function distToSegment(px, py, x1, y1, x2, y2) {
     const dx = x2 - x1, dy = y2 - y1;
     const len2 = dx * dx + dy * dy;

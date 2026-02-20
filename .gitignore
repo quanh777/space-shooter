@@ -1,0 +1,9 @@
+.agent/
+.gemini/
+docs/
+
+package.json
+package-lock.json
+
+*.md
+!README.md
