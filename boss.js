@@ -9,7 +9,7 @@ class Boss extends Enemy {
 
         this.bossType = Math.floor(Math.random() * 3);
 
-        const baseHp = bossNumber === 1 ? (3000 + Math.random() * 1000) : (5000 + Math.random() * 2500);
+        const baseHp = bossNumber === 1 ? (1750 + Math.random() * 200) : (2500 + Math.random() * 300);
         this.hp = Math.floor(baseHp * difficultyMultiplier);
         this.maxHp = this.hp;
 
@@ -273,7 +273,7 @@ class Boss extends Enemy {
         } else if (this.state === 'WAITING_CLEAR_REST') {
             if (this.isScreenClear()) {
                 this.state = 'RESTING';
-                this.restTimer = 5000 + Math.random() * 5000; // Sleep 5 to 10 seconds
+                this.restTimer = 2000 + Math.random() * 2000; // Sleep 2 to 4 seconds
             }
         } else if (this.state === 'RESTING') {
             this.restTimer -= 16;
@@ -301,29 +301,71 @@ class Boss extends Enemy {
         let finalSpd = this.spd;
         if (this.state === 'RESTING') finalSpd *= 0.35; // Slow down during rest
 
-        // FIND FARTHEST CORNER/SIDE FROM PLAYER
-        let targetX = px < W / 2 ? W - 150 : 150;
-        let targetY = py < H / 2 ? H - 150 : 150;
+        if (this.bossType === 0) {
+            // DESTROYER: Aggressive but keeps a respectful distance after skills
+            const dx = px - cx, dy = py - cy;
+            const d = Math.sqrt(dx * dx + dy * dy);
 
-        // Occasionally switch it up slightly so it forms an arc rather than rigidly snapping to the corner point
-        const t = Date.now() / 2000;
-        targetX += Math.sin(t) * 100;
-        targetY += Math.cos(t) * 100;
+            if (this.phase === 1) {
+                if (d > 100) {
+                    this.x += (dx / d) * finalSpd;
+                    this.y += (dy / d) * finalSpd;
+                }
+            } else if (this.phase === 2) {
+                const t = Date.now() / 1000;
+                if (Math.sin(t * 2) > 0.7) {
+                    this.x += (dx / d) * finalSpd * 3.5;
+                    this.y += (dy / d) * finalSpd * 3.5;
+                } else if (d > 80) {
+                    this.x += (dx / d) * finalSpd * 1.5;
+                    this.y += (dy / d) * finalSpd * 1.5;
+                }
+            } else {
+                this.x += (dx / d) * finalSpd * 1.8 + Math.sin(Date.now() / 80) * finalSpd * 2;
+                this.y += (dy / d) * finalSpd * 1.8 + Math.cos(Date.now() / 60) * finalSpd * 1.5;
+            }
 
-        const tx = targetX - cx;
-        const ty = targetY - cy;
-        const tDist = Math.sqrt(tx * tx + ty * ty);
+            // Anti-Hug logic
+            if (d < 150 && !this.isCharging && this.state !== 'RESTING') {
+                this.x -= (dx / d) * finalSpd * 1.5;
+                this.y -= (dy / d) * finalSpd * 1.5;
+            }
 
-        if (tDist > 10) {
-            this.x += (tx / tDist) * finalSpd * 1.5;
-            this.y += (ty / tDist) * finalSpd * 1.5;
-        }
+        } else if (this.bossType === 1) {
+            // SUMMONER: Constantly evades to ideal distance ring
+            const dx = px - cx, dy = py - cy;
+            const d = Math.sqrt(dx * dx + dy * dy) || 1;
+            const idealDist = 200 + Math.sin(Date.now() / 2000) * 80;
 
-        // Emergency Anti-Hug: if player gets too close, push away even faster
-        const d = Math.sqrt((px - cx) ** 2 + (py - cy) ** 2);
-        if (d < 250 && !this.isCharging) {
-            this.x -= ((px - cx) / d) * finalSpd * 2.5;
-            this.y -= ((py - cy) / d) * finalSpd * 2.5;
+            if (d < idealDist - 40) {
+                this.x -= (dx / d) * finalSpd * 1.5;
+                this.y -= (dy / d) * finalSpd * 1.5;
+            } else if (d > idealDist + 40) {
+                this.x += (dx / d) * finalSpd;
+                this.y += (dy / d) * finalSpd;
+            } else {
+                const perpX = -dy / d, perpY = dx / d;
+                this.x += perpX * finalSpd * (this.phase >= 2 ? 1.5 : 1);
+                this.y += perpY * finalSpd * (this.phase >= 2 ? 1.5 : 1);
+            }
+        } else {
+            // OVERLORD: Figure 8 and stays opposite to player Y
+            if (!this.teleporting) {
+                const t = Date.now() / 2500;
+                let targetX = W / 2 + Math.sin(t) * (W * 0.38);
+                let targetY = H / 4 + Math.sin(t * 2) * (H * 0.2);
+
+                if (py < H / 2) {
+                    targetY = H * 0.75 + Math.sin(t * 2) * (H * 0.2);
+                }
+
+                const dx = targetX - cx, dy = targetY - cy;
+                const d = Math.sqrt(dx * dx + dy * dy);
+                if (d > 10) {
+                    this.x += (dx / d) * finalSpd * 1.4;
+                    this.y += (dy / d) * finalSpd * 1.4;
+                }
+            }
         }
 
         this.x = Math.max(10, Math.min(W - this.w - 10, this.x));
@@ -649,12 +691,6 @@ class Boss extends Enemy {
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 2;
         ctx.strokeRect(barX, barY, barWidth, barH);
-
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 12px "Courier New", monospace';
-        ctx.textAlign = 'right';
-        ctx.fillText(`PHASE ${this.phase}`, barX + barWidth, barY + 25);
-        ctx.textAlign = 'left';
     }
 
     useSkill() {
