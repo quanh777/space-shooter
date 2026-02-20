@@ -15,7 +15,6 @@ class Boss extends Enemy {
 
         this.spd = 0.9 + bossNumber * 0.1;
 
-        // FSM AI
         this.state = 'IDLE';
         this.consecutiveAttacks = 0;
         this.maxConsecutiveAttacks = 3;
@@ -95,15 +94,14 @@ class Boss extends Enemy {
 
     generateRandomAttackPool() {
         const typePools = [
-            ['machineGun', 'shotgunBlast', 'charge', 'novaRing', 'crossBurst'],       // DESTROYER
-            ['minionSwarm', 'lotusSpiral', 'homingOrbs', 'flowerPetals', 'waveAttack'], // SUMMONER
-            ['strategicMines', 'deathRay', 'gridLock', 'sniperShot', 'matrixRings']      // OVERLORD
+            ['machineGun', 'shotgunBlast', 'charge', 'novaRing', 'crossBurst'],
+            ['minionSwarm', 'lotusSpiral', 'homingOrbs', 'flowerPetals', 'waveAttack'],
+            ['strategicMines', 'deathRay', 'gridLock', 'sniperShot', 'matrixRings']
         ];
 
         const available = [...typePools[this.bossType]];
         const selected = [];
 
-        // Pick 3 random skills dynamically per Boss
         for (let i = 0; i < 3 && available.length > 0; i++) {
             const idx = Math.floor(Math.random() * available.length);
             selected.push(available.splice(idx, 1)[0]);
@@ -151,7 +149,6 @@ class Boss extends Enemy {
             return;
         }
 
-        // Phase Transitions
         const hpPct = this.hp / this.maxHp;
         const newPhase = hpPct <= this.rageThreshold ? 3 : (hpPct <= 0.6 ? 2 : 1);
 
@@ -159,7 +156,7 @@ class Boss extends Enemy {
             this.transitioning = true;
             this.transitionTimer = 60;
             this.phase = newPhase;
-            this.maxConsecutiveAttacks = 2 + this.phase; // Phase 1: 3, Ph2: 4, Ph3: 5
+            this.maxConsecutiveAttacks = 2 + this.phase;
             screenShake = 15;
 
             for (let i = 0; i < 30; i++) {
@@ -198,7 +195,6 @@ class Boss extends Enemy {
 
                 const px = playerX + PW / 2, py = playerY + PH / 2;
                 const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
-                // Add slight inaccuracy so it doesn't 100% laser beam
                 const angle = Math.atan2(py - cy, px - cx) + (Math.random() - 0.5) * 0.2;
 
                 scheduledBullets.push({
@@ -217,14 +213,11 @@ class Boss extends Enemy {
         if (this.sniperActive) {
             this.sniperTimer -= 16;
 
-            // Note: Visual telegraph line is drawn in draw() method using sniperTimer
 
             if (this.sniperTimer <= 0) {
-                // Determine shot count based on phase
-                this.sniperTimer = 800; // wait 0.8s between shots
+                this.sniperTimer = 800;
 
                 const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
-                // Add tiny inaccuracy
                 const priorX = playerX + PW / 2 + (Math.random() - 0.5) * 30;
                 const priorY = playerY + PH / 2 + (Math.random() - 0.5) * 30;
                 const napAngle = Math.atan2(priorY - cy, priorX - cx);
@@ -246,7 +239,6 @@ class Boss extends Enemy {
 
         if (this.preChargeTimer > 0) {
             this.preChargeTimer--;
-            // Give visual feedback that a dash is incoming
             if (this.preChargeTimer % 5 === 0) {
                 this.flash = 0.5;
                 const ang = Math.random() * Math.PI * 2;
@@ -294,7 +286,7 @@ class Boss extends Enemy {
                 this.chargeCount--;
                 if (this.chargeCount > 0) {
                     this.chargeProgress = 0;
-                    this.preChargeTimer = 60; // 1s pause between multi-dashes
+                    this.preChargeTimer = 60;
                     this.isCharging = false;
                     const px = playerX + PW / 2, py = playerY + PH / 2;
                     const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
@@ -312,7 +304,6 @@ class Boss extends Enemy {
             return t.life > 0;
         });
 
-        // Smart Move logic
         if (!this.isCharging && !this.teleporting && !this.clonesActive) {
             this.moveByType();
         }
@@ -328,7 +319,6 @@ class Boss extends Enemy {
         this.updateMines();
         this.updateTeleport();
 
-        // --- FINITE STATE MACHINE (COMBOS & RESTS) ---
         const isBusy = this.preChargeTimer > 0 || this.isCharging || this.machineGunActive || this.sniperActive || this.laserCharging || this.laserFiring || this.teleporting || this.clonesActive;
 
         if (this.state === 'IDLE' && !isBusy) {
@@ -339,26 +329,22 @@ class Boss extends Enemy {
                     this.useSkill();
                     this.consecutiveAttacks++;
                 } else {
-                    // Finished N attacks. Wait for total clear then sleep.
                     this.state = 'WAITING_CLEAR_REST';
                 }
             }
         } else if (this.state === 'ATTACKING') {
-            // Wait until any active channeling is completely finished
             if (!this.laserCharging && !this.laserFiring && !this.isCharging && !this.teleporting && !this.clonesActive) {
                 this.state = 'WAITING_CLEAR_SKILL';
             }
         } else if (this.state === 'WAITING_CLEAR_SKILL') {
-            // Wait for bullets/minions strictly before firing the NEXT skill in the combo
             if (this.isScreenClear()) {
                 this.state = 'IDLE';
-                // 800ms -> 600ms -> 400ms delay between combo attacks
                 this.attackCooldownTimer = Math.max(200, 1000 - (this.phase * 200));
             }
         } else if (this.state === 'WAITING_CLEAR_REST') {
             if (this.isScreenClear()) {
                 this.state = 'RESTING';
-                this.restTimer = 5000 + Math.random() * 5000; // Sleep 5 to 10 seconds
+                this.restTimer = 5000 + Math.random() * 5000;
             }
         } else if (this.state === 'RESTING') {
             this.restTimer -= 16;
@@ -384,13 +370,11 @@ class Boss extends Enemy {
         const px = playerX + PW / 2, py = playerY + PH / 2;
 
         let finalSpd = this.spd;
-        if (this.state === 'RESTING') finalSpd *= 0.35; // Slow down during rest
+        if (this.state === 'RESTING') finalSpd *= 0.35;
 
-        // FIND FARTHEST CORNER/SIDE FROM PLAYER
         let targetX = px < W / 2 ? W - 150 : 150;
         let targetY = py < H / 2 ? H - 150 : 150;
 
-        // Occasionally switch it up slightly so it forms an arc rather than rigidly snapping to the corner point
         const t = Date.now() / 2000;
         targetX += Math.sin(t) * 100;
         targetY += Math.cos(t) * 100;
@@ -404,7 +388,6 @@ class Boss extends Enemy {
             this.y += (ty / tDist) * finalSpd * 1.5;
         }
 
-        // Emergency Anti-Hug: if player gets too close, push away even faster
         const d = Math.sqrt((px - cx) ** 2 + (py - cy) ** 2);
         if (d < 250 && !this.isCharging) {
             this.x -= ((px - cx) / d) * finalSpd * 2.5;
@@ -576,7 +559,6 @@ class Boss extends Enemy {
             ctx.lineTo(cx + Math.cos(angle) * lineLength, cy + Math.sin(angle) * lineLength);
             ctx.stroke();
 
-            // Draw crosshair at player
             ctx.globalAlpha = 1;
             ctx.lineWidth = 2;
             ctx.beginPath();
@@ -789,7 +771,6 @@ class Boss extends Enemy {
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        // Draw phase lines (0.6 and 0.3)
         const p2X = barX + barWidth * 0.6;
         ctx.moveTo(p2X, barY);
         ctx.lineTo(p2X, barY + barH);
@@ -811,11 +792,10 @@ class Boss extends Enemy {
         const px = playerX + PW / 2, py = playerY + PH / 2;
         const baseAngle = Math.atan2(py - cy, px - cx);
 
-        // --- DESTROYER SKILLS (Red/Aggressive) ---
         if (attack === 'machineGun') {
             this.machineGunMaxShots = 10 + this.phase * 5;
             this.machineGunShotsFired = 0;
-            this.machineGunTimer = 0; // Fire first shot immediately
+            this.machineGunTimer = 0;
             this.machineGunActive = true;
         } else if (attack === 'shotgunBlast') {
             const waves = this.phase;
@@ -828,7 +808,7 @@ class Boss extends Enemy {
                 }
             }
         } else if (attack === 'charge') {
-            this.preChargeTimer = 90; // 1.5 seconds warning
+            this.preChargeTimer = 90;
             this.chargeProgress = 0;
             this.chargeCount = this.phase;
             this.chargeDirection = { x: Math.cos(baseAngle), y: Math.sin(baseAngle) };
@@ -859,7 +839,6 @@ class Boss extends Enemy {
             }
         }
 
-        // --- SUMMONER SKILLS (Purple/Space Control) ---
         else if (attack === 'minionSwarm') {
             const count = 2 + this.phase;
             for (let i = 0; i < count; i++) {
@@ -919,7 +898,6 @@ class Boss extends Enemy {
             }
         }
 
-        // --- OVERLORD SKILLS (Gold/Grid Control) ---
         else if (attack === 'strategicMines') {
             const count = 3 + this.phase * 2;
             for (let i = 0; i < count; i++) {
@@ -950,7 +928,7 @@ class Boss extends Enemy {
         } else if (attack === 'sniperShot') {
             this.sniperMaxShots = this.phase === 3 ? 3 : (this.phase === 2 ? 2 : 1);
             this.sniperShotsFired = 0;
-            this.sniperTimer = 1500; // 1.5 seconds warning for the first shot
+            this.sniperTimer = 1500;
             this.sniperActive = true;
         } else if (attack === 'matrixRings') {
             const rings = this.phase;
@@ -972,7 +950,6 @@ class Boss extends Enemy {
         this.teleporting = true;
         this.teleportTimer = 500;
 
-        // Ensure distance is maintained away from the player's direct position
         let tx = playerX + (Math.random() < 0.5 ? -300 : 300);
         let ty = playerY + (Math.random() < 0.5 ? -300 : 300);
 

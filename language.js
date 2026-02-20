@@ -1,4 +1,4 @@
-﻿const LANGUAGES = {
+const LANGUAGES = {
     vi: {
         loading: 'Đang tải...',
         loadingCredit: 'bởi @Qu4nh',

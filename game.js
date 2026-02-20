@@ -130,20 +130,17 @@ class Bullet {
 
         if (this.pulseSpeed) {
             this.timer = (this.timer || 0) + 1;
-            // Speed oscillates between 0.5 and 3.5, creating a stalling effect
             spd = 2 + Math.sin(this.timer * 0.05) * 1.5;
         } else if (this.zigzag) {
             this.timer = (this.timer || 0) + 1;
             const perpX = -this.dy;
             const perpY = this.dx;
-            // Wiggle left and right as it moves forward
             const wiggle = Math.cos(this.timer * 0.1) * 3;
-            // The dx and dy are preserved, just position changed by wiggle
             this.x += perpX * wiggle;
             this.y += perpY * wiggle;
-            spd = 2.5; // Fixed slower speed for falling petal
+            spd = 2.5;
         } else if (this.sniper) {
-            spd = 25; // Extremely fast
+            spd = 25;
         }
 
         this.x += this.dx * spd;
@@ -196,7 +193,7 @@ class Enemy {
 
         const waveScale = 1 + (wave - 1) * 0.15;
         const baseHp = { small: 40, medium: 80, large: 120, elite: 200, boss: 500 };
-        const baseDmg = { small: 10, medium: 20, large: 30, elite: 35, boss: 25 }; // Giảm damage va chạm trực tiếp với sếp
+        const baseDmg = { small: 10, medium: 20, large: 30, elite: 35, boss: 25 };
         const baseScore = { small: 10, medium: 20, large: 30, elite: 50, boss: 200 };
         const moneyRanges = {
             small: { min: 5, max: 25 },
@@ -206,7 +203,7 @@ class Enemy {
             boss: { min: 100, max: 150 }
         };
 
-        this.hp = Math.floor((baseHp[type] || 40) * waveScale * (isMinion ? 1.0 : 1)); // Minions from boss have normal HP for their tier
+        this.hp = Math.floor((baseHp[type] || 40) * waveScale * (isMinion ? 1.0 : 1));
         this.maxHp = this.hp;
         this.contactDamage = Math.floor((baseDmg[type] || 10) * waveScale * (isMinion ? 0.5 : 1));
         this.scoreValue = Math.floor((baseScore[type] || 10) * (1 + wave * 0.08));
@@ -497,7 +494,6 @@ class Enemy {
     }
 }
 
-// Ensure the loading screen is dismissed when all resources have finished loading
 window.addEventListener('load', () => {
     setTimeout(() => {
         const loadingScreen = document.getElementById('loadingScreen');

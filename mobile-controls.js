@@ -1,4 +1,3 @@
-﻿
 let joystickActive = false;
 let joystickData = { x: 0, y: 0 };
 let isMobileDevice = false;

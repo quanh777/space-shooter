@@ -1,4 +1,4 @@
-﻿function showLeaderboard() {
+function showLeaderboard() {
     document.getElementById('mainMenu').classList.add('hidden');
     document.getElementById('leaderboardScreen').classList.remove('hidden');
     loadLeaderboard();
@@ -119,7 +119,6 @@ function submitScore() {
     window.leaderboardRef.push(scoreEntry)
         .then((ref) => {
             window.lastSubmittedKey = ref.key;
-            // Save player name for next time
             localStorage.setItem('playerName', playerName);
             alert(getLangText('submitSuccess', 'Gửi điểm thành công!'));
             document.getElementById('gameOverScreen').classList.add('hidden');

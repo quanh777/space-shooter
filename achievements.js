@@ -224,7 +224,6 @@ function onGameOver(finalScore) {
     updateAchievement('highScore', finalScore, true);
 }
 
-// UI Functions
 function showAchievements() {
     document.getElementById('mainMenu').classList.add('hidden');
     document.getElementById('achievementsScreen').classList.remove('hidden');
@@ -283,5 +282,4 @@ function renderAchievementsList() {
     container.innerHTML = html;
 }
 
-// Initialize
 loadAchievements();

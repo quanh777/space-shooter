@@ -650,7 +650,7 @@ function update() {
     const restDuration = wave === 0 ? 15000 : 5000;
     if (isResting && now - restStart >= restDuration && !isShop) {
         isResting = false; wave++;
-        bossSpawned = false; // Reset to ensure boss spawns correctly
+        bossSpawned = false;
         showWaveTransition(wave);
         neededSpawn = true;
     }
