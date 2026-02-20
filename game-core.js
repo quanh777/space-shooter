@@ -118,8 +118,8 @@ function drawUI() {
     ctx.fillText(`Money: ${playerMoney}`, 10, H - 150);
 
     let py = 50;
-    if (doubleShot) { ctx.fillText('Double Shot', W - 150, py); py += 25 }
-    if (tripleShot) { ctx.fillText('Triple Shot', W - 150, py); py += 25 }
+    if (doubleShotCount > 0) { ctx.fillText(`Double Shot x${doubleShotCount}`, W - 150, py); py += 25 }
+    if (tripleShotCount > 0) { ctx.fillText(`Triple Shot x${tripleShotCount}`, W - 150, py); py += 25 }
 
     if (invincible) {
         const shieldDuration = 1250 + (shopItems["Shield"].b * 750);

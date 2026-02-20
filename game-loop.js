@@ -132,13 +132,23 @@ function shoot() {
     const aim = aimEnemy(), cx = playerX + PW / 2, cy = playerY + PH / 2;
     bullets.push(new Bullet(cx, cy, aim.x, aim.y));
 
-    if (doubleShot) {
-        bullets.push(new Bullet(cx - 10, cy, aim.x, aim.y));
-        bullets.push(new Bullet(cx + 10, cy, aim.x, aim.y));
-    } else if (tripleShot) {
+    if (doubleShotCount > 0) {
+        const perpX = -aim.y;
+        const perpY = aim.x;
+        for (let i = 1; i <= doubleShotCount; i++) {
+            const spread = 12 * i;
+            bullets.push(new Bullet(cx + perpX * spread, cy + perpY * spread, aim.x, aim.y));
+            bullets.push(new Bullet(cx - perpX * spread, cy - perpY * spread, aim.x, aim.y));
+        }
+    }
+
+    if (tripleShotCount > 0) {
         const a = Math.atan2(aim.y, aim.x);
-        bullets.push(new Bullet(cx, cy, Math.cos(a - 0.3), Math.sin(a - 0.3)));
-        bullets.push(new Bullet(cx, cy, Math.cos(a + 0.3), Math.sin(a + 0.3)));
+        for (let i = 1; i <= tripleShotCount; i++) {
+            const angleOffset = 0.15 * i;
+            bullets.push(new Bullet(cx, cy, Math.cos(a - angleOffset), Math.sin(a - angleOffset)));
+            bullets.push(new Bullet(cx, cy, Math.cos(a + angleOffset), Math.sin(a + angleOffset)));
+        }
     }
 
     for (let i = 0; i < 3; i++) particles.push(new Particle(cx, cy, 'rgb(100,150,255)', 2, 3, 10));
@@ -257,11 +267,11 @@ function applyItem(item) {
     else if (item == 'Energy Upgrade') energyRegen += 5;
     else if (item == 'Bullet Speed') bulletSpeed += 2;
     else if (item == 'Bullet Damage') bulletDamage += 10;
-    else if (item == 'Double Shot') { doubleShot = true; tripleShot = false }
-    else if (item == 'Triple Shot') { tripleShot = true; doubleShot = false }
+    else if (item == 'Double Shot') doubleShotCount++;
+    else if (item == 'Triple Shot') tripleShotCount++;
     else if (item == 'Piercing') window.piercingBullets = true;
     else if (item == 'Max Health') { maxHealth += 25; playerHealth = Math.min(maxHealth, playerHealth + 25) }
-    else if (item == 'Fire Rate') bulletCooldown = Math.max(200, bulletCooldown - 100);
+    else if (item == 'Fire Rate') bulletCooldown = Math.max(100, bulletCooldown - 60);
     else if (item == 'Regen') window.hpRegen = (window.hpRegen || 0) + 0.5;
     else if (item == 'Speed Boost') playerSpeed += 0.3;
     else if (item == 'Dash Cooldown') window.dashCooldownReduction = (window.dashCooldownReduction || 0) + 500;
@@ -269,10 +279,9 @@ function applyItem(item) {
     else if (item == 'Magnet') window.pickupRange = (window.pickupRange || 50) + 50;
     else if (item == 'Greed') window.moneyBonus = (window.moneyBonus || 0) + 0.2;
     else if (item == 'Skill Up') {
-        if (skill.level < skill.maxLvl) {
-            skill.level++; skill.radius += 30; skill.damage += 40;
-            skill.cooldown = Math.max(3000, skill.cooldown - 500);
-        }
+        skillUpBoughtThisShop = true;
+        skill.level++; skill.radius += 30; skill.damage += 40;
+        skill.cooldown = Math.max(1500, skill.cooldown - 500);
     }
 }
 
@@ -286,7 +295,7 @@ function generateShopItems() {
     }
 
     const items = available.slice(0, 3);
-    if (shopItems['Skill Up'].b < shopItems['Skill Up'].max) {
+    if (!skillUpBoughtThisShop) {
         items.push('Skill Up');
     }
     return items;
@@ -531,6 +540,13 @@ function update() {
             enemyBullet.dmg = sb.damage;
             enemyBullet.isEnemy = true;
             enemyBullet.speed = 4;
+
+            // Transfer Boss Tags
+            if (sb.pulseSpeed) enemyBullet.pulseSpeed = true;
+            if (sb.zigzag) enemyBullet.zigzag = true;
+            if (sb.bounces) enemyBullet.bounces = sb.bounces;
+            if (sb.sniper) enemyBullet.sniper = true;
+
             bullets.push(enemyBullet);
             return false;
         }
@@ -1033,7 +1049,7 @@ window.cheat = {
         bulletSpeed = 15; bulletCooldown = 100;
         energyRegen = 50; energy = 100;
         skill.level = 5; skill.radius = 250; skill.damage = 300; skill.cooldown = 3000;
-        doubleShot = false; tripleShot = true;
+        doubleShotCount = 5; tripleShotCount = 5;
         shopItems["Shield"].b = 5;
         console.log('âš¡ All stats maxed!');
     },
@@ -1080,7 +1096,7 @@ function resetGame() {
     bullets = []; enemies = []; particles = [];
     bombProjectiles = []; shieldCooldown = 0;
     bossKills = 0; bossSpawned = false; isShop = false;
-    doubleShot = false; tripleShot = false;
+    doubleShotCount = 0; tripleShotCount = 0;
     isResting = false; restStart = 0; neededSpawn = false;
     tutorialCircle = null; tutorialProgress = 0;
 

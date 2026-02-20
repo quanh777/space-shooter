@@ -6,7 +6,7 @@ let gameRunning = false;
 let score = 0, wave = 0, playerHealth = 100, maxHealth = 100;
 let playerMoney = 0, energy = 100, energyRegen = 10;
 let invincible = false, invTime = 0, screenShake = 0;
-let doubleShot = false, tripleShot = false;
+let doubleShotCount = 0, tripleShotCount = 0;
 let isResting = false, restStart = 0, bossSpawned = false;
 let isShop = false, selectedItems = [], itemsToSell = [];
 let skillUpBoughtThisShop = false;
@@ -39,35 +39,35 @@ const PW = 50, PH = 50;
 let playerX = 375, playerY = 275, playerSpeed = 2.5;
 let dirX = 0, dirY = 0, isSliding = false, lastSlide = 0;
 
-let bullets = [], bulletSpeed = 5, bulletCooldown = 500;
-let bulletDamage = 20, canShoot = true, lastShot = 0;
+let bullets = [], bulletSpeed = 5, bulletCooldown = 400;
+let bulletDamage = 25, canShoot = true, lastShot = 0;
 
 let enemies = [], particles = [];
 let bombProjectiles = [];
 
-const skill = { level: 1, maxLvl: 5, cooldown: 6000, lastUse: 0, radius: 100, damage: 100, cost: 20 };
+const skill = { level: 1, maxLvl: 999, cooldown: 6000, lastUse: 0, radius: 100, damage: 100, cost: 20 };
 
 let shieldCooldown = 0;
 const SHIELD_COOLDOWN_BASE = 10000;
 
 const shopItems = {
     "Health Upgrade": { price: 50, max: -1, b: 0, desc: "Heal 25 HP instantly", descVI: "Hồi 25 HP ngay" },
-    "Max Health": { price: 100, max: 5, b: 0, desc: "+25 Max HP", descVI: "+25 HP tối đa" },
-    "Shield": { price: 60, max: 5, b: 0, desc: "Auto shield +duration -CD", descVI: "Khiên tự động +thời gian -CD" },
-    "Regen": { price: 120, max: 3, b: 0, desc: "+0.5 HP/sec regen", descVI: "+0.5 HP/giây" },
-    "Energy Upgrade": { price: 30, max: 5, b: 0, desc: "+5 energy regen", descVI: "+5 hồi năng lượng" },
-    "Speed Boost": { price: 80, max: 3, b: 0, desc: "+0.3 move speed", descVI: "+0.3 tốc độ di chuyển" },
-    "Dash Cooldown": { price: 100, max: 2, b: 0, desc: "-0.5s dash cooldown", descVI: "-0.5s CD dash" },
-    "Bullet Speed": { price: 20, max: 3, b: 0, desc: "+2 bullet speed", descVI: "+2 tốc độ đạn" },
-    "Bullet Damage": { price: 90, max: 3, b: 0, desc: "+10 bullet damage", descVI: "+10 sát thương đạn" },
-    "Fire Rate": { price: 70, max: 3, b: 0, desc: "-100ms fire delay", descVI: "-100ms thời gian bắn" },
-    "Double Shot": { price: 80, max: 1, b: 0, desc: "Fire 2 bullets", descVI: "Bắn 2 viên đạn" },
-    "Triple Shot": { price: 150, max: 1, b: 0, desc: "Fire 3 bullets fan", descVI: "Bắn 3 viên hình quạt" },
-    "Piercing": { price: 200, max: 1, b: 0, desc: "Bullets pierce enemies", descVI: "Đạn xuyên địch" },
-    "Skill Up": { price: 50, max: 4, b: 0, desc: "Upgrade bomb skill", descVI: "Nâng cấp skill bomb" },
-    "Luck": { price: 60, max: 3, b: 0, desc: "+15% drop chance", descVI: "+15% tỉ lệ rơi đồ" },
-    "Magnet": { price: 80, max: 2, b: 0, desc: "+50 pickup range", descVI: "+50 tầm nhặt đồ" },
-    "Greed": { price: 100, max: 3, b: 0, desc: "+20% money drops", descVI: "+20% tiền rơi" }
+    "Max Health": { price: 100, max: -1, b: 0, desc: "+25 Max HP", descVI: "+25 HP tối đa" },
+    "Shield": { price: 60, max: -1, b: 0, desc: "Auto shield +duration -CD", descVI: "Khiên tự động +thời gian -CD" },
+    "Regen": { price: 120, max: -1, b: 0, desc: "+0.5 HP/sec regen", descVI: "+0.5 HP/giây" },
+    "Energy Upgrade": { price: 30, max: -1, b: 0, desc: "+5 energy regen", descVI: "+5 hồi năng lượng" },
+    "Speed Boost": { price: 80, max: -1, b: 0, desc: "+0.3 move speed", descVI: "+0.3 tốc độ di chuyển" },
+    "Dash Cooldown": { price: 100, max: -1, b: 0, desc: "-0.5s dash cooldown", descVI: "-0.5s CD dash" },
+    "Bullet Speed": { price: 20, max: -1, b: 0, desc: "+2 bullet speed", descVI: "+2 tốc độ đạn" },
+    "Bullet Damage": { price: 80, max: -1, b: 0, desc: "+10 bullet damage", descVI: "+10 sát thương đạn" },
+    "Fire Rate": { price: 60, max: -1, b: 0, desc: "-60ms fire delay", descVI: "-60ms thời gian bắn" },
+    "Double Shot": { price: 80, max: -1, b: 0, desc: "Fire +2 parallel bullets", descVI: "Bắn thêm 2 đạn song song" },
+    "Triple Shot": { price: 130, max: -1, b: 0, desc: "Fire +2 spread bullets", descVI: "Bắn thêm 2 đạn hình quạt" },
+    "Piercing": { price: 180, max: -1, b: 0, desc: "Bullets pierce enemies", descVI: "Đạn xuyên địch" },
+    "Skill Up": { price: 50, max: -1, b: 0, desc: "Upgrade bomb skill", descVI: "Nâng cấp skill bomb" },
+    "Luck": { price: 60, max: -1, b: 0, desc: "+15% drop chance", descVI: "+15% tỉ lệ rơi đồ" },
+    "Magnet": { price: 80, max: -1, b: 0, desc: "+50 pickup range", descVI: "+50 tầm nhặt đồ" },
+    "Greed": { price: 100, max: -1, b: 0, desc: "+20% money drops", descVI: "+20% tiền rơi" }
 };
 
 let shopRefreshCount = 0;
@@ -125,8 +125,37 @@ class Bullet {
     update() {
         if (this.trail.length > 5) this.trail.shift();
         this.trail.push({ x: this.x, y: this.y });
-        const spd = this.speed !== null ? this.speed : bulletSpeed;
-        this.x += this.dx * spd; this.y += this.dy * spd;
+
+        let spd = this.speed !== null ? this.speed : bulletSpeed;
+
+        if (this.pulseSpeed) {
+            this.timer = (this.timer || 0) + 1;
+            // Speed oscillates between 0.5 and 3.5, creating a stalling effect
+            spd = 2 + Math.sin(this.timer * 0.05) * 1.5;
+        } else if (this.zigzag) {
+            this.timer = (this.timer || 0) + 1;
+            const perpX = -this.dy;
+            const perpY = this.dx;
+            // Wiggle left and right as it moves forward
+            const wiggle = Math.cos(this.timer * 0.1) * 3;
+            // The dx and dy are preserved, just position changed by wiggle
+            this.x += perpX * wiggle;
+            this.y += perpY * wiggle;
+            spd = 2.5; // Fixed slower speed for falling petal
+        } else if (this.sniper) {
+            spd = 25; // Extremely fast
+        }
+
+        this.x += this.dx * spd;
+        this.y += this.dy * spd;
+
+        if (this.bounces > 0) {
+            let bounced = false;
+            if (this.x <= 0 || this.x >= W) { this.dx *= -1; bounced = true; this.x = Math.max(0, Math.min(W, this.x)); }
+            if (this.y <= 0 || this.y >= H) { this.dy *= -1; bounced = true; this.y = Math.max(0, Math.min(H, this.y)); }
+            if (bounced) this.bounces--;
+        }
+
         if (Math.random() < 0.3) particles.push(new Particle(this.x, this.y, this.c, 0.5, 2, 10));
     }
     draw() {
@@ -165,9 +194,9 @@ class Enemy {
         else if (side == 'left') { this.x = -this.w; this.y = Math.random() * (H - this.h) }
         else { this.x = W; this.y = Math.random() * (H - this.h) }
 
-        const waveScale = 1 + (wave - 1) * 0.12;
+        const waveScale = 1 + (wave - 1) * 0.15;
         const baseHp = { small: 40, medium: 80, large: 120, elite: 200, boss: 500 };
-        const baseDmg = { small: 10, medium: 20, large: 30, elite: 35, boss: 50 };
+        const baseDmg = { small: 10, medium: 20, large: 30, elite: 35, boss: 25 }; // Giảm damage va chạm trực tiếp với sếp
         const baseScore = { small: 10, medium: 20, large: 30, elite: 50, boss: 200 };
         const moneyRanges = {
             small: { min: 5, max: 25 },
@@ -177,19 +206,19 @@ class Enemy {
             boss: { min: 100, max: 150 }
         };
 
-        this.hp = Math.floor((baseHp[type] || 40) * waveScale * (isMinion ? 0.4 : 1));
+        this.hp = Math.floor((baseHp[type] || 40) * waveScale * (isMinion ? 1.0 : 1)); // Minions from boss have normal HP for their tier
         this.maxHp = this.hp;
         this.contactDamage = Math.floor((baseDmg[type] || 10) * waveScale * (isMinion ? 0.5 : 1));
         this.scoreValue = Math.floor((baseScore[type] || 10) * (1 + wave * 0.08));
 
         const range = moneyRanges[this.type] || { min: 10, max: 30 };
         const baseMoney = range.min + Math.random() * (range.max - range.min);
-        this.money = Math.floor(baseMoney * (1 + wave * 0.1) * (isMinion ? 0.3 : 1));
+        this.money = Math.floor(baseMoney * (1 + wave * 0.15) * (isMinion ? 0.3 : 2.5));
 
         this.spd = type == 'boss' ? 0.75 : (type == 'elite' ? 1.3 : (type == 'large' ? 1.2 : (type == 'medium' ? 1.4 : 1.5)));
         if (isMinion) this.spd *= 1.3;
 
-        this.canDrop = Math.random() < 0.7 && !isMinion;
+        this.canDrop = Math.random() < 0.35 && !isMinion;
         this.flash = 0; this.anim = 0; this.pulse = 0; this.pdir = 1;
 
         this.aiTimer = 0;
