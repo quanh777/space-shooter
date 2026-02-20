@@ -9,7 +9,7 @@ class Boss extends Enemy {
 
         this.bossType = Math.floor(Math.random() * 3);
 
-        const baseHp = bossNumber === 1 ? (1750 + Math.random() * 200) : (2500 + Math.random() * 300);
+        const baseHp = bossNumber === 1 ? (1500 + Math.random() * 500) : (2500 + Math.random() * 1000);
         this.hp = Math.floor(baseHp * difficultyMultiplier);
         this.maxHp = this.hp;
 
@@ -55,9 +55,20 @@ class Boss extends Enemy {
 
         this.mines = [];
         this.enraged = false;
-        this.rageThreshold = 0.3; // Phase 3
+        this.rageThreshold = 0.3;
+
+        this.machineGunActive = false;
+        this.machineGunTimer = 0;
+        this.machineGunShotsFired = 0;
+        this.machineGunMaxShots = 0;
+
+        this.sniperActive = false;
+        this.sniperTimer = 0;
+        this.sniperShotsFired = 0;
+        this.sniperMaxShots = 0;
 
         this.isCharging = false;
+        this.preChargeTimer = 0;
         this.chargeDirection = { x: 0, y: 0 };
         this.chargeProgress = 0;
         this.chargeCount = 0;
@@ -180,7 +191,77 @@ class Boss extends Enemy {
             }
         }
 
-        if (this.isCharging) {
+        if (this.machineGunActive) {
+            this.machineGunTimer -= 16;
+            if (this.machineGunTimer <= 0) {
+                this.machineGunTimer = 80;
+
+                const px = playerX + PW / 2, py = playerY + PH / 2;
+                const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
+                // Add slight inaccuracy so it doesn't 100% laser beam
+                const angle = Math.atan2(py - cy, px - cx) + (Math.random() - 0.5) * 0.2;
+
+                scheduledBullets.push({
+                    x: cx, y: cy,
+                    angle: angle,
+                    delay: 0, color: '#ff3333', damage: this.getDamage(10)
+                });
+
+                this.machineGunShotsFired++;
+                if (this.machineGunShotsFired >= this.machineGunMaxShots) {
+                    this.machineGunActive = false;
+                }
+            }
+        }
+
+        if (this.sniperActive) {
+            this.sniperTimer -= 16;
+
+            // Note: Visual telegraph line is drawn in draw() method using sniperTimer
+
+            if (this.sniperTimer <= 0) {
+                // Determine shot count based on phase
+                this.sniperTimer = 800; // wait 0.8s between shots
+
+                const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
+                // Add tiny inaccuracy
+                const priorX = playerX + PW / 2 + (Math.random() - 0.5) * 30;
+                const priorY = playerY + PH / 2 + (Math.random() - 0.5) * 30;
+                const napAngle = Math.atan2(priorY - cy, priorX - cx);
+
+                let b = new Bullet(cx, cy, Math.cos(napAngle), Math.sin(napAngle));
+                b.c = '#ffffff';
+                b.dmg = this.getDamage(25);
+                b.spd = 12 + this.phase * 2;
+                b.isEnemy = true;
+                if (typeof bullets !== 'undefined') bullets.push(b);
+                screenShake = 15;
+
+                this.sniperShotsFired++;
+                if (this.sniperShotsFired >= this.sniperMaxShots) {
+                    this.sniperActive = false;
+                }
+            }
+        }
+
+        if (this.preChargeTimer > 0) {
+            this.preChargeTimer--;
+            // Give visual feedback that a dash is incoming
+            if (this.preChargeTimer % 5 === 0) {
+                this.flash = 0.5;
+                const ang = Math.random() * Math.PI * 2;
+                particles.push(new Particle(
+                    this.x + this.w / 2 + Math.cos(ang) * 40,
+                    this.y + this.h / 2 + Math.sin(ang) * 40,
+                    '#ff0000', 3, 5, 20
+                ));
+            }
+
+            if (this.preChargeTimer <= 0) {
+                this.isCharging = true;
+                screenShake = 12;
+            }
+        } else if (this.isCharging) {
             this.chargeProgress++;
             if (this.chargeProgress <= 35) {
                 const moveX = this.chargeDirection.x * 15;
@@ -213,9 +294,11 @@ class Boss extends Enemy {
                 this.chargeCount--;
                 if (this.chargeCount > 0) {
                     this.chargeProgress = 0;
-                    const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
+                    this.preChargeTimer = 60; // 1s pause between multi-dashes
+                    this.isCharging = false;
                     const px = playerX + PW / 2, py = playerY + PH / 2;
-                    const d = Math.sqrt((px - cx) ** 2 + (py - cy) ** 2) || 1;
+                    const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
+                    const d = Math.sqrt((px - cx) ** 2 + (py - cy) ** 2);
                     this.chargeDirection = { x: (px - cx) / d, y: (py - cy) / d };
                 } else {
                     this.isCharging = false;
@@ -246,7 +329,9 @@ class Boss extends Enemy {
         this.updateTeleport();
 
         // --- FINITE STATE MACHINE (COMBOS & RESTS) ---
-        if (this.state === 'IDLE') {
+        const isBusy = this.preChargeTimer > 0 || this.isCharging || this.machineGunActive || this.sniperActive || this.laserCharging || this.laserFiring || this.teleporting || this.clonesActive;
+
+        if (this.state === 'IDLE' && !isBusy) {
             this.attackCooldownTimer -= 16;
             if (this.attackCooldownTimer <= 0 && !this.shieldActive) {
                 if (this.consecutiveAttacks < this.maxConsecutiveAttacks) {
@@ -273,7 +358,7 @@ class Boss extends Enemy {
         } else if (this.state === 'WAITING_CLEAR_REST') {
             if (this.isScreenClear()) {
                 this.state = 'RESTING';
-                this.restTimer = 2000 + Math.random() * 2000; // Sleep 2 to 4 seconds
+                this.restTimer = 5000 + Math.random() * 5000; // Sleep 5 to 10 seconds
             }
         } else if (this.state === 'RESTING') {
             this.restTimer -= 16;
@@ -301,71 +386,29 @@ class Boss extends Enemy {
         let finalSpd = this.spd;
         if (this.state === 'RESTING') finalSpd *= 0.35; // Slow down during rest
 
-        if (this.bossType === 0) {
-            // DESTROYER: Aggressive but keeps a respectful distance after skills
-            const dx = px - cx, dy = py - cy;
-            const d = Math.sqrt(dx * dx + dy * dy);
+        // FIND FARTHEST CORNER/SIDE FROM PLAYER
+        let targetX = px < W / 2 ? W - 150 : 150;
+        let targetY = py < H / 2 ? H - 150 : 150;
 
-            if (this.phase === 1) {
-                if (d > 100) {
-                    this.x += (dx / d) * finalSpd;
-                    this.y += (dy / d) * finalSpd;
-                }
-            } else if (this.phase === 2) {
-                const t = Date.now() / 1000;
-                if (Math.sin(t * 2) > 0.7) {
-                    this.x += (dx / d) * finalSpd * 3.5;
-                    this.y += (dy / d) * finalSpd * 3.5;
-                } else if (d > 80) {
-                    this.x += (dx / d) * finalSpd * 1.5;
-                    this.y += (dy / d) * finalSpd * 1.5;
-                }
-            } else {
-                this.x += (dx / d) * finalSpd * 1.8 + Math.sin(Date.now() / 80) * finalSpd * 2;
-                this.y += (dy / d) * finalSpd * 1.8 + Math.cos(Date.now() / 60) * finalSpd * 1.5;
-            }
+        // Occasionally switch it up slightly so it forms an arc rather than rigidly snapping to the corner point
+        const t = Date.now() / 2000;
+        targetX += Math.sin(t) * 100;
+        targetY += Math.cos(t) * 100;
 
-            // Anti-Hug logic
-            if (d < 150 && !this.isCharging && this.state !== 'RESTING') {
-                this.x -= (dx / d) * finalSpd * 1.5;
-                this.y -= (dy / d) * finalSpd * 1.5;
-            }
+        const tx = targetX - cx;
+        const ty = targetY - cy;
+        const tDist = Math.sqrt(tx * tx + ty * ty);
 
-        } else if (this.bossType === 1) {
-            // SUMMONER: Constantly evades to ideal distance ring
-            const dx = px - cx, dy = py - cy;
-            const d = Math.sqrt(dx * dx + dy * dy) || 1;
-            const idealDist = 200 + Math.sin(Date.now() / 2000) * 80;
+        if (tDist > 10) {
+            this.x += (tx / tDist) * finalSpd * 1.5;
+            this.y += (ty / tDist) * finalSpd * 1.5;
+        }
 
-            if (d < idealDist - 40) {
-                this.x -= (dx / d) * finalSpd * 1.5;
-                this.y -= (dy / d) * finalSpd * 1.5;
-            } else if (d > idealDist + 40) {
-                this.x += (dx / d) * finalSpd;
-                this.y += (dy / d) * finalSpd;
-            } else {
-                const perpX = -dy / d, perpY = dx / d;
-                this.x += perpX * finalSpd * (this.phase >= 2 ? 1.5 : 1);
-                this.y += perpY * finalSpd * (this.phase >= 2 ? 1.5 : 1);
-            }
-        } else {
-            // OVERLORD: Figure 8 and stays opposite to player Y
-            if (!this.teleporting) {
-                const t = Date.now() / 2500;
-                let targetX = W / 2 + Math.sin(t) * (W * 0.38);
-                let targetY = H / 4 + Math.sin(t * 2) * (H * 0.2);
-
-                if (py < H / 2) {
-                    targetY = H * 0.75 + Math.sin(t * 2) * (H * 0.2);
-                }
-
-                const dx = targetX - cx, dy = targetY - cy;
-                const d = Math.sqrt(dx * dx + dy * dy);
-                if (d > 10) {
-                    this.x += (dx / d) * finalSpd * 1.4;
-                    this.y += (dy / d) * finalSpd * 1.4;
-                }
-            }
+        // Emergency Anti-Hug: if player gets too close, push away even faster
+        const d = Math.sqrt((px - cx) ** 2 + (py - cy) ** 2);
+        if (d < 250 && !this.isCharging) {
+            this.x -= ((px - cx) / d) * finalSpd * 2.5;
+            this.y -= ((py - cy) / d) * finalSpd * 2.5;
         }
 
         this.x = Math.max(10, Math.min(W - this.w - 10, this.x));
@@ -495,6 +538,57 @@ class Boss extends Enemy {
 
         ctx.save();
         const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
+
+        if (this.preChargeTimer > 0) {
+            ctx.save();
+            ctx.strokeStyle = '#ff0000';
+            ctx.globalAlpha = 0.5 + Math.sin(Date.now() * 0.02) * 0.3;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([15, 15]);
+
+            const angle = Math.atan2(this.chargeDirection.y, this.chargeDirection.x);
+            const perpX = Math.cos(angle + Math.PI / 2) * (this.w / 2);
+            const perpY = Math.sin(angle + Math.PI / 2) * (this.w / 2);
+            const lineLength = 2000;
+
+            ctx.beginPath();
+            ctx.moveTo(cx + perpX, cy + perpY);
+            ctx.lineTo(cx + perpX + this.chargeDirection.x * lineLength, cy + perpY + this.chargeDirection.y * lineLength);
+            ctx.moveTo(cx - perpX, cy - perpY);
+            ctx.lineTo(cx - perpX + this.chargeDirection.x * lineLength, cy - perpY + this.chargeDirection.y * lineLength);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        if (this.sniperActive && this.sniperTimer > 0) {
+            ctx.save();
+            ctx.strokeStyle = '#ffff00';
+            ctx.globalAlpha = 0.6 + Math.sin(Date.now() * 0.03) * 0.4;
+            ctx.lineWidth = 1;
+            ctx.setLineDash([10, 10]);
+
+            const px = playerX + PW / 2, py = playerY + PH / 2;
+            const angle = Math.atan2(py - cy, px - cx);
+            const lineLength = 2000;
+
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + Math.cos(angle) * lineLength, cy + Math.sin(angle) * lineLength);
+            ctx.stroke();
+
+            // Draw crosshair at player
+            ctx.globalAlpha = 1;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(px, py, 20, 0, Math.PI * 2);
+            ctx.moveTo(px - 30, py); ctx.lineTo(px - 10, py);
+            ctx.moveTo(px + 10, py); ctx.lineTo(px + 30, py);
+            ctx.moveTo(px, py - 30); ctx.lineTo(px, py - 10);
+            ctx.moveTo(px, py + 10); ctx.lineTo(px, py + 30);
+            ctx.stroke();
+
+            ctx.restore();
+        }
 
         this.chargeTrail.forEach(t => {
             ctx.globalAlpha = t.life / 20 * 0.6;
@@ -691,6 +785,19 @@ class Boss extends Enemy {
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 2;
         ctx.strokeRect(barX, barY, barWidth, barH);
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        // Draw phase lines (0.6 and 0.3)
+        const p2X = barX + barWidth * 0.6;
+        ctx.moveTo(p2X, barY);
+        ctx.lineTo(p2X, barY + barH);
+
+        const p3X = barX + barWidth * 0.3;
+        ctx.moveTo(p3X, barY);
+        ctx.lineTo(p3X, barY + barH);
+        ctx.stroke();
     }
 
     useSkill() {
@@ -706,14 +813,10 @@ class Boss extends Enemy {
 
         // --- DESTROYER SKILLS (Red/Aggressive) ---
         if (attack === 'machineGun') {
-            const count = 10 + this.phase * 5;
-            for (let i = 0; i < count; i++) {
-                scheduledBullets.push({
-                    x: cx, y: cy,
-                    angle: baseAngle + (Math.random() - 0.5) * 0.3,
-                    delay: i * 80, color: '#ff3333', damage: this.getDamage(10)
-                });
-            }
+            this.machineGunMaxShots = 10 + this.phase * 5;
+            this.machineGunShotsFired = 0;
+            this.machineGunTimer = 0; // Fire first shot immediately
+            this.machineGunActive = true;
         } else if (attack === 'shotgunBlast') {
             const waves = this.phase;
             for (let w = 0; w < waves; w++) {
@@ -725,12 +828,11 @@ class Boss extends Enemy {
                 }
             }
         } else if (attack === 'charge') {
-            this.isCharging = true;
+            this.preChargeTimer = 90; // 1.5 seconds warning
             this.chargeProgress = 0;
             this.chargeCount = this.phase;
             this.chargeDirection = { x: Math.cos(baseAngle), y: Math.sin(baseAngle) };
             this.chargeTrail = [];
-            screenShake = 12;
         } else if (attack === 'novaRing') {
             const count = 20 + this.phase * 4;
             const gap = Math.floor(Math.random() * count);
@@ -846,19 +948,10 @@ class Boss extends Enemy {
                 }
             }
         } else if (attack === 'sniperShot') {
-            screenShake = 10;
-            const count = this.phase === 3 ? 3 : (this.phase === 2 ? 2 : 1);
-            for (let i = 0; i < count; i++) {
-                setTimeout(() => {
-                    if (this.hp <= 0) return;
-                    const napAngle = Math.atan2(playerY + PH / 2 - cy, playerX + PW / 2 - cx);
-                    let b = new Bullet(cx, cy, napAngle, false, '#ffffff', this.getDamage(25));
-                    b.spd = 12 + this.phase * 2;
-                    b.isEnemy = true;
-                    if (typeof bullets !== 'undefined') bullets.push(b);
-                    screenShake = 15;
-                }, 600 + i * 500);
-            }
+            this.sniperMaxShots = this.phase === 3 ? 3 : (this.phase === 2 ? 2 : 1);
+            this.sniperShotsFired = 0;
+            this.sniperTimer = 1500; // 1.5 seconds warning for the first shot
+            this.sniperActive = true;
         } else if (attack === 'matrixRings') {
             const rings = this.phase;
             for (let r = 0; r < rings; r++) {
@@ -878,10 +971,16 @@ class Boss extends Enemy {
     telegraphTeleport() {
         this.teleporting = true;
         this.teleportTimer = 500;
-        this.teleportTarget = {
-            x: Math.max(this.w, Math.min(W - this.w, playerX + (Math.random() - 0.5) * 500)),
-            y: Math.max(this.h, Math.min(H - this.h, playerY + (Math.random() - 0.5) * 500))
-        };
+
+        // Ensure distance is maintained away from the player's direct position
+        let tx = playerX + (Math.random() < 0.5 ? -300 : 300);
+        let ty = playerY + (Math.random() < 0.5 ? -300 : 300);
+
+        tx = Math.max(this.w, Math.min(W - this.w, tx));
+        ty = Math.max(this.h, Math.min(H - this.h, ty));
+
+        this.teleportTarget = { x: tx, y: ty };
+
         for (let i = 0; i < 20; i++) {
             const ang = (i / 20) * Math.PI * 2;
             particles.push(new Particle(

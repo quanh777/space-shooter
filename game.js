@@ -466,9 +466,19 @@ class Enemy {
         ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(this.x, by, bw, 5);
     }
 
-    hit(dmg) {
+    hit(dmg, hitX, hitY) {
         this.hp -= dmg; this.flash = 1;
-        for (let i = 0; i < 5; i++) particles.push(new Particle(this.x + Math.random() * this.w, this.y + Math.random() * this.h, '#fff', 2, 3, 10));
+
+        const px = hitX !== undefined ? hitX : (this.x + Math.random() * this.w);
+        const py = hitY !== undefined ? hitY : (this.y + Math.random() * this.h);
+
+        for (let i = 0; i < 5; i++) {
+            particles.push(new Particle(
+                px + (Math.random() - 0.5) * 10,
+                py + (Math.random() - 0.5) * 10,
+                '#fff', 2, 5, 30
+            ));
+        }
     }
 
     drop() {
@@ -486,3 +496,18 @@ class Enemy {
         }
     }
 }
+
+// Ensure the loading screen is dismissed when all resources have finished loading
+window.addEventListener('load', () => {
+    setTimeout(() => {
+        const loadingScreen = document.getElementById('loadingScreen');
+        const mainMenu = document.getElementById('mainMenu');
+
+        if (loadingScreen) loadingScreen.style.display = 'none';
+        if (mainMenu) mainMenu.classList.remove('hidden');
+
+        if (typeof drawMainMenuEffects === 'function') {
+            drawMainMenuEffects();
+        }
+    }, 1000);
+});

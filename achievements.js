@@ -138,11 +138,13 @@ function updateAchievement(id, value, isBest = false) {
     const prevLevel = getAchievementLevel(id);
 
     if (isBest) {
-        if (value > achievementData[id]) {
+        if (value > (achievementData[id] || 0)) {
             achievementData[id] = value;
         }
     } else {
-        achievementData[id] = (achievementData[id] || 0) + value;
+        let currentVal = parseInt(achievementData[id]);
+        if (isNaN(currentVal)) currentVal = 0;
+        achievementData[id] = currentVal + value;
     }
 
     saveAchievements();
