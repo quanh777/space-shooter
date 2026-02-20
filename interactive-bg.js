@@ -187,4 +187,3 @@ class InteractiveBackground {
 window.addEventListener('load', () => {
     new InteractiveBackground();
 });
-
