@@ -9,7 +9,7 @@ class Boss extends Enemy {
 
         this.bossType = Math.floor(Math.random() * 3);
 
-        const baseHp = bossNumber === 1 ? (1750 + Math.random() * 500) : (2500 + Math.random() * 1000);
+        const baseHp = bossNumber === 1 ? (3000 + Math.random() * 1000) : (5000 + Math.random() * 2500);
         this.hp = Math.floor(baseHp * difficultyMultiplier);
         this.maxHp = this.hp;
 
@@ -55,17 +55,13 @@ class Boss extends Enemy {
 
         this.mines = [];
         this.enraged = false;
-        this.rageThreshold = 0.3 // Phase 3
+        this.rageThreshold = 0.3; // Phase 3
 
         this.isCharging = false;
         this.chargeDirection = { x: 0, y: 0 };
         this.chargeProgress = 0;
         this.chargeCount = 0;
         this.chargeTrail = [];
-
-        this.sniping = false;
-        this.snipeCount = 0;
-        this.snipeTimer = 0;
 
         this.entering = true;
         this.entryY = -100;
@@ -249,30 +245,6 @@ class Boss extends Enemy {
         this.updateMines();
         this.updateTeleport();
 
-        // Sniper loop tick
-        if (this.sniping) {
-            this.snipeTimer -= 16;
-            if (this.snipeTimer <= 0) {
-                const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
-                const napAngle = Math.atan2(playerY + PH / 2 - cy, playerX + PW / 2 - cx);
-
-                let b = new Bullet(cx, cy, Math.cos(napAngle), Math.sin(napAngle));
-                b.c = '#ffffff';
-                b.dmg = this.getDamage(25);
-                b.speed = 13 + this.phase * 2;
-                b.isEnemy = true;
-                if (typeof bullets !== 'undefined') bullets.push(b);
-                screenShake = 15;
-
-                this.snipeCount--;
-                if (this.snipeCount > 0) {
-                    this.snipeTimer = 500;
-                } else {
-                    this.sniping = false;
-                }
-            }
-        }
-
         // --- FINITE STATE MACHINE (COMBOS & RESTS) ---
         if (this.state === 'IDLE') {
             this.attackCooldownTimer -= 16;
@@ -288,7 +260,7 @@ class Boss extends Enemy {
             }
         } else if (this.state === 'ATTACKING') {
             // Wait until any active channeling is completely finished
-            if (!this.laserCharging && !this.laserFiring && !this.isCharging && !this.teleporting && !this.clonesActive && !this.sniping) {
+            if (!this.laserCharging && !this.laserFiring && !this.isCharging && !this.teleporting && !this.clonesActive) {
                 this.state = 'WAITING_CLEAR_SKILL';
             }
         } else if (this.state === 'WAITING_CLEAR_SKILL') {
@@ -674,13 +646,15 @@ class Boss extends Enemy {
         ctx.fillStyle = hpColor;
         ctx.fillRect(barX, barY, hpPct * barWidth, barH);
 
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(barX + barWidth * 0.6 - 1, barY, 2, barH);
-        ctx.fillRect(barX + barWidth * 0.3 - 1, barY, 2, barH);
-
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 2;
         ctx.strokeRect(barX, barY, barWidth, barH);
+
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px "Courier New", monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText(`PHASE ${this.phase}`, barX + barWidth, barY + 25);
+        ctx.textAlign = 'left';
     }
 
     useSkill() {
@@ -807,17 +781,13 @@ class Boss extends Enemy {
             }
         }
 
+        // --- OVERLORD SKILLS (Gold/Grid Control) ---
         else if (attack === 'strategicMines') {
             const count = 3 + this.phase * 2;
             for (let i = 0; i < count; i++) {
-                let mx, my;
-                do {
-                    mx = Math.max(50, Math.min(W - 50, px + (Math.random() - 0.5) * 600));
-                    my = Math.max(50, Math.min(H - 50, py + (Math.random() - 0.5) * 600));
-                } while (Math.sqrt((mx - px) ** 2 + (my - py) ** 2) < 200);
-
                 this.mines.push({
-                    x: mx, y: my,
+                    x: Math.max(50, Math.min(W - 50, px + (Math.random() - 0.5) * 400)),
+                    y: Math.max(50, Math.min(H - 50, py + (Math.random() - 0.5) * 400)),
                     timer: 5000, pulse: 0, homing: false, color: '#ffcc00'
                 });
             }
@@ -841,9 +811,18 @@ class Boss extends Enemy {
             }
         } else if (attack === 'sniperShot') {
             screenShake = 10;
-            this.sniping = true;
-            this.snipeCount = this.phase === 3 ? 3 : (this.phase === 2 ? 2 : 1);
-            this.snipeTimer = 600;
+            const count = this.phase === 3 ? 3 : (this.phase === 2 ? 2 : 1);
+            for (let i = 0; i < count; i++) {
+                setTimeout(() => {
+                    if (this.hp <= 0) return;
+                    const napAngle = Math.atan2(playerY + PH / 2 - cy, playerX + PW / 2 - cx);
+                    let b = new Bullet(cx, cy, napAngle, false, '#ffffff', this.getDamage(25));
+                    b.spd = 12 + this.phase * 2;
+                    b.isEnemy = true;
+                    if (typeof bullets !== 'undefined') bullets.push(b);
+                    screenShake = 15;
+                }, 600 + i * 500);
+            }
         } else if (attack === 'matrixRings') {
             const rings = this.phase;
             for (let r = 0; r < rings; r++) {
@@ -863,15 +842,10 @@ class Boss extends Enemy {
     telegraphTeleport() {
         this.teleporting = true;
         this.teleportTimer = 500;
-
-        let tx, ty;
-        do {
-            tx = Math.max(this.w, Math.min(W - this.w, playerX + (Math.random() - 0.5) * 600));
-            ty = Math.max(this.h, Math.min(H - this.h, playerY + (Math.random() - 0.5) * 600));
-        } while (Math.sqrt((tx - playerX) ** 2 + (ty - playerY) ** 2) < 250);
-
-        this.teleportTarget = { x: tx, y: ty };
-
+        this.teleportTarget = {
+            x: Math.max(this.w, Math.min(W - this.w, playerX + (Math.random() - 0.5) * 500)),
+            y: Math.max(this.h, Math.min(H - this.h, playerY + (Math.random() - 0.5) * 500))
+        };
         for (let i = 0; i < 20; i++) {
             const ang = (i / 20) * Math.PI * 2;
             particles.push(new Particle(

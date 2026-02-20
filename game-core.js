@@ -1,4 +1,4 @@
-﻿function drawPlayer() {
+function drawPlayer() {
     const cx = playerX + PW / 2, cy = playerY + PH / 2;
     ctx.save();
 
