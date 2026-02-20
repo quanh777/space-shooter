@@ -1019,6 +1019,8 @@ function startGame() {
     gameRunning = true;
     resetGame();
 
+    if (typeof showMobileControls === 'function') showMobileControls();
+
     if (typeof onGameStart === 'function') onGameStart();
 
     gameLoop();
@@ -1094,6 +1096,7 @@ function resetGame() {
 function gameOver() {
     gameRunning = false;
     canvas.style.display = 'none';
+    if (typeof hideMobileControls === 'function') hideMobileControls();
     document.getElementById('finalScore').textContent = score;
     document.getElementById('finalWave').textContent = wave;
     document.getElementById('gameOverScreen').classList.remove('hidden');
@@ -1130,6 +1133,7 @@ function restartGame() {
 function showMainMenu() {
     document.getElementById('gameOverScreen').classList.add('hidden');
     document.getElementById('mainMenu').classList.remove('hidden');
+    if (typeof hideMobileControls === 'function') hideMobileControls();
 
     const langBtn = document.getElementById('langToggle');
     if (langBtn) langBtn.classList.remove('hidden');
