@@ -224,7 +224,7 @@ class Boss extends Enemy {
                 let b = new Bullet(cx, cy, Math.cos(napAngle), Math.sin(napAngle));
                 b.c = '#ffffff';
                 b.dmg = this.getDamage(25);
-                b.spd = 12 + this.phase * 2;
+                b.spd = 25 + this.phase * 5;
                 b.isEnemy = true;
                 if (typeof bullets !== 'undefined') bullets.push(b);
                 screenShake = 15;
