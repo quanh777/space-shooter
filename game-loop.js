@@ -286,7 +286,7 @@ function generateShopItems() {
     }
 
     const items = available.slice(0, 3);
-    const wantsSkillUp = Math.random() < 0.8; // 80% spawn chance
+    const wantsSkillUp = Math.random() < 0.8;
     const canSkillUp = shopItems['Skill Up'].max === -1 || shopItems['Skill Up'].b < shopItems['Skill Up'].max;
 
     if (wantsSkillUp && canSkillUp) {
@@ -295,7 +295,6 @@ function generateShopItems() {
         items.push(available[3]);
     }
 
-    // Shuffle the final 4 items so Skill Up isn't always last
     for (let i = items.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [items[i], items[j]] = [items[j], items[i]];
@@ -842,7 +841,6 @@ function draw() {
         ctx.globalAlpha = fadeAlpha;
         const t = Date.now();
 
-        // DMC-style rank: D(2-3) C(4-5) B(6-8) A(9-12) S(13-17) SS(18-24) SSS(25+)
         let rank, rankColor, rankGlow, tier;
         if (comboKills >= 25) { rank = 'SSS'; rankColor = `hsl(${(t * 0.3) % 360},100%,70%)`; rankGlow = `hsl(${(t * 0.3) % 360},100%,50%)`; tier = 6; }
         else if (comboKills >= 18) { rank = 'SS'; rankColor = '#ffffff'; rankGlow = '#ffddaa'; tier = 5; }
@@ -852,7 +850,6 @@ function draw() {
         else if (comboKills >= 4) { rank = 'C'; rankColor = '#aa88ff'; rankGlow = '#6644cc'; tier = 1; }
         else { rank = 'D'; rankColor = '#6688cc'; rankGlow = '#334488'; tier = 0; }
 
-        // Screen flash on rank up (screen vignette glow)
         if (tier >= 3) {
             const vigAlpha = 0.06 + Math.sin(t * 0.006) * 0.03;
             ctx.globalAlpha = vigAlpha * fadeAlpha;
@@ -864,27 +861,23 @@ function draw() {
             ctx.globalAlpha = fadeAlpha;
         }
 
-        // === CENTER DISPLAY ===
         const cx = W / 2, cy = 65;
         const scale = 1 + Math.sin(t * 0.012) * 0.06;
 
-        // Rank letter — large, glowing, center
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.shadowColor = rankGlow; ctx.shadowBlur = 25;
         ctx.font = `bold ${Math.floor(48 * scale)}px Arial`;
         ctx.fillStyle = rankColor;
         ctx.fillText(rank, cx, cy);
-        // Double shadow for intensity
+
         ctx.shadowBlur = 40;
         ctx.fillText(rank, cx, cy);
         ctx.shadowBlur = 0;
 
-        // Kill counter below rank
         ctx.font = 'bold 16px Arial';
         ctx.fillStyle = 'rgba(255,255,255,0.8)';
         ctx.fillText(`${comboKills} HITS`, cx, cy + 35);
 
-        // Timer bar
         const timerRatio = comboTimer / 2500;
         const barW = 80, barH = 3;
         const barX = cx - barW / 2, barY = cy + 47;
@@ -895,7 +888,6 @@ function draw() {
         ctx.beginPath(); ctx.roundRect(barX, barY, barW * timerRatio, barH, 1.5); ctx.fill();
         ctx.globalAlpha = fadeAlpha;
 
-        // Multiplier
         if (comboMultiplier > 1) {
             ctx.font = 'bold 13px Arial';
             ctx.fillStyle = '#44ff88'; ctx.shadowColor = '#22cc44'; ctx.shadowBlur = 6;
@@ -911,13 +903,11 @@ function draw() {
         ctx.save();
         ctx.globalAlpha = comboEndDisplay.alpha;
 
-        // Cinematic banner
         const bannerY = comboEndDisplay.y;
         const bannerH = 56;
         ctx.fillStyle = 'rgba(0,0,0,0.55)';
         ctx.fillRect(0, bannerY - bannerH / 2, W, bannerH);
 
-        // Top/bottom gold lines
         const lineGrad = ctx.createLinearGradient(0, 0, W, 0);
         lineGrad.addColorStop(0, 'transparent');
         lineGrad.addColorStop(0.2, '#ffdd44');
@@ -928,19 +918,17 @@ function draw() {
         ctx.beginPath(); ctx.moveTo(0, bannerY + bannerH / 2); ctx.lineTo(W, bannerY + bannerH / 2); ctx.stroke();
 
         ctx.textAlign = 'center';
-        // Combo kills
+
         ctx.shadowColor = '#ffaa00'; ctx.shadowBlur = 15;
         ctx.font = 'bold 26px Arial';
         ctx.fillStyle = '#ffdd44';
         ctx.fillText(`${comboEndDisplay.kills}x COMBO`, W / 2, bannerY - 2);
         ctx.shadowBlur = 0;
 
-        // Score
         ctx.font = 'bold 14px Arial';
         ctx.fillStyle = '#44ff88';
         ctx.fillText(`+${comboEndDisplay.score} pts`, W / 2, bannerY + 18);
 
-        // Breakdown
         const bd = comboEndDisplay.breakdown;
         let parts = [];
         if (bd.small > 0) parts.push(`${bd.small}S`);
@@ -1012,7 +1000,6 @@ function draw() {
         ctx.translate(bomb.x, bomb.y);
         ctx.rotate(bomb.angle);
 
-        // Fins
         ctx.fillStyle = '#cc4400';
         ctx.beginPath();
         ctx.moveTo(-bomb.radius - 12, 0);
@@ -1020,7 +1007,6 @@ function draw() {
         ctx.lineTo(-bomb.radius - 2, 6);
         ctx.closePath(); ctx.fill();
 
-        // Body gradient
         const bombGrad = ctx.createLinearGradient(-bomb.radius, 0, bomb.radius, 0);
         bombGrad.addColorStop(0, '#cc3300');
         bombGrad.addColorStop(0.5, '#ff5500');
@@ -1030,10 +1016,9 @@ function draw() {
         ctx.beginPath(); ctx.ellipse(0, 0, bomb.radius, bomb.radius * 0.55, 0, 0, Math.PI * 2); ctx.fill();
         ctx.shadowBlur = 0;
 
-        // Highlight
         ctx.fillStyle = 'rgba(255,200,100,0.4)';
         ctx.beginPath(); ctx.ellipse(bomb.radius * 0.2, -2, 4, 2, 0, 0, Math.PI * 2); ctx.fill();
-        // Nose tip
+
         ctx.fillStyle = '#fff';
         ctx.beginPath(); ctx.arc(bomb.radius * 0.8, 0, 2.5, 0, Math.PI * 2); ctx.fill();
 
@@ -1048,11 +1033,10 @@ function draw() {
 
     if (isPaused) {
         const t = Date.now();
-        // Dark frosted overlay
+
         ctx.fillStyle = 'rgba(2,2,15,0.88)';
         ctx.fillRect(0, 0, W, H);
 
-        // Subtle animated scanlines
         ctx.globalAlpha = 0.03;
         for (let sy = 0; sy < H; sy += 4) {
             ctx.fillStyle = '#fff';
@@ -1062,7 +1046,6 @@ function draw() {
 
         const lang = typeof getLang === 'function' ? getLang() : { paused: 'PAUSED', resume: 'RESUME', restart: 'RESTART', backToMenu: 'MAIN MENU' };
 
-        // Center panel background
         const panelW = 280, panelH = 310;
         const panelX = W / 2 - panelW / 2, panelY = H / 2 - panelH / 2 - 10;
         ctx.fillStyle = 'rgba(15,15,40,0.6)';
@@ -1070,7 +1053,6 @@ function draw() {
         ctx.strokeStyle = 'rgba(100,140,255,0.15)'; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.roundRect(panelX, panelY, panelW, panelH, 12); ctx.stroke();
 
-        // Corner brackets (rotating slowly)
         const bracketSize = 12;
         ctx.strokeStyle = 'rgba(100,150,255,0.35)'; ctx.lineWidth = 2;
         const corners = [
@@ -1087,7 +1069,6 @@ function draw() {
             ctx.stroke();
         });
 
-        // Pulsing diamond icon
         const diamondY = panelY + 30;
         const dPulse = 0.7 + Math.sin(t * 0.004) * 0.3;
         ctx.save();
@@ -1099,7 +1080,6 @@ function draw() {
         ctx.closePath(); ctx.fill();
         ctx.restore();
 
-        // Title
         ctx.save();
         ctx.shadowColor = '#4466ff'; ctx.shadowBlur = 20;
         ctx.fillStyle = '#ddeeff';
@@ -1110,13 +1090,11 @@ function draw() {
         ctx.shadowBlur = 0;
         ctx.restore();
 
-        // Stats row
         ctx.font = '13px Arial'; ctx.textAlign = 'center';
         ctx.fillStyle = 'rgba(160,180,220,0.5)';
         const statsY = panelY + 100;
         ctx.fillText(`Wave ${wave}  ·  Score ${score}`, W / 2, statsY);
 
-        // Divider line
         const divGrad = ctx.createLinearGradient(panelX + 30, 0, panelX + panelW - 30, 0);
         divGrad.addColorStop(0, 'transparent');
         divGrad.addColorStop(0.5, 'rgba(100,150,255,0.3)');
@@ -1124,7 +1102,6 @@ function draw() {
         ctx.strokeStyle = divGrad; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(panelX + 30, statsY + 12); ctx.lineTo(panelX + panelW - 30, statsY + 12); ctx.stroke();
 
-        // Buttons
         const btnW = 220, btnH = 44;
         const btnX = W / 2 - btnW / 2;
         const buttons = [
@@ -1134,27 +1111,24 @@ function draw() {
         ];
 
         buttons.forEach(btn => {
-            // Solid bright background
+
             ctx.fillStyle = btn.bg;
             ctx.beginPath(); ctx.roundRect(btnX, btn.y, btnW, btnH, 8); ctx.fill();
-            // Bright border
+
             ctx.strokeStyle = btn.border; ctx.lineWidth = 2;
             ctx.beginPath(); ctx.roundRect(btnX, btn.y, btnW, btnH, 8); ctx.stroke();
-            // Text with shadow
+
             ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 4;
             ctx.fillStyle = '#fff'; ctx.font = 'bold 17px Arial'; ctx.textAlign = 'center';
             ctx.fillText(btn.text, W / 2, btn.y + 28);
             ctx.shadowBlur = 0;
         });
 
-        // Key hints
         ctx.font = '11px Arial'; ctx.fillStyle = 'rgba(120,140,180,0.4)'; ctx.textAlign = 'center';
         ctx.fillText('ESC to resume  ·  R to restart  ·  M for menu', W / 2, panelY + panelH - 8);
 
         ctx.textAlign = 'left';
     }
-
-
 
     ctx.restore();
 }
@@ -1398,8 +1372,7 @@ canvas.addEventListener('click', e => {
 
         const btnW = 220, btnH = 44;
         const btnX = W / 2 - btnW / 2;
-        // Must match drawShop pause button positions:
-        // panelY = H/2 - 165, statsY = panelY + 100 = H/2 - 65
+
         const resumeY = H / 2 - 35, restartY = H / 2 + 20, menuY = H / 2 + 75;
 
         if (mx >= btnX && mx <= btnX + btnW && my >= resumeY && my <= resumeY + btnH) {

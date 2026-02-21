@@ -5,7 +5,6 @@ function drawPlayer() {
     const angle = (dirX != 0 || dirY != 0) ? Math.atan2(dirY, dirX) : -Math.PI / 2;
     const isMoving = dirX != 0 || dirY != 0;
 
-    // Exhaust particles
     if (isMoving && Math.random() < 0.6) {
         const ec = isSliding ? '#00eeff' : '#5588ff';
         particles.push(new Particle(
@@ -20,10 +19,9 @@ function drawPlayer() {
     const hw = PW / 2, hh = PH / 2;
     const t = Date.now();
 
-    // === TWIN ENGINE NACELLES ===
     for (const side of [-1, 1]) {
         const nx = side * hw * 0.65;
-        // Nacelle body
+
         ctx.fillStyle = '#1a2844';
         ctx.beginPath();
         ctx.moveTo(nx - 4, -hh * 0.1);
@@ -32,12 +30,12 @@ function drawPlayer() {
         ctx.lineTo(nx - 5, hh * 0.6);
         ctx.closePath(); ctx.fill();
         ctx.strokeStyle = 'rgba(80,140,255,0.3)'; ctx.lineWidth = 0.5; ctx.stroke();
-        // Engine glow
+
         ctx.shadowColor = '#3388ff'; ctx.shadowBlur = 12;
         ctx.fillStyle = '#2266ee';
         ctx.beginPath(); ctx.ellipse(nx, hh * 0.65, 4, 3, 0, 0, Math.PI * 2); ctx.fill();
         ctx.shadowBlur = 0;
-        // Plasma flame
+
         if (isMoving) {
             const fl = 10 + Math.random() * 12;
             const fg = ctx.createLinearGradient(nx, hh * 0.6, nx, hh * 0.6 + fl);
@@ -52,8 +50,6 @@ function drawPlayer() {
         }
     }
 
-    // === SWEPT-BACK WINGS ===
-    // Left wing
     const wingGrad = ctx.createLinearGradient(-hw * 1.3, 0, 0, 0);
     wingGrad.addColorStop(0, '#0a1a3a');
     wingGrad.addColorStop(0.5, '#1a3060');
@@ -65,11 +61,11 @@ function drawPlayer() {
     ctx.lineTo(-hw * 1.1, hh * 0.55);
     ctx.lineTo(-hw * 0.4, hh * 0.3);
     ctx.closePath(); ctx.fill();
-    // Wing tip light
+
     ctx.fillStyle = '#ff3333'; ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 6;
     ctx.beginPath(); ctx.arc(-hw * 1.25, hh * 0.48, 1.5, 0, Math.PI * 2); ctx.fill();
     ctx.shadowBlur = 0;
-    // Right wing
+
     const wingGrad2 = ctx.createLinearGradient(hw * 1.3, 0, 0, 0);
     wingGrad2.addColorStop(0, '#0a1a3a');
     wingGrad2.addColorStop(0.5, '#1a3060');
@@ -85,7 +81,6 @@ function drawPlayer() {
     ctx.beginPath(); ctx.arc(hw * 1.25, hh * 0.48, 1.5, 0, Math.PI * 2); ctx.fill();
     ctx.shadowBlur = 0;
 
-    // === MAIN FUSELAGE ===
     const hullGrad = ctx.createLinearGradient(0, -hh, 0, hh);
     hullGrad.addColorStop(0, '#5599ff');
     hullGrad.addColorStop(0.15, '#3366cc');
@@ -93,7 +88,7 @@ function drawPlayer() {
     hullGrad.addColorStop(1, '#0d1d44');
     ctx.fillStyle = hullGrad;
     ctx.beginPath();
-    ctx.moveTo(0, -hh * 1.1);           // sharp nose
+    ctx.moveTo(0, -hh * 1.1);
     ctx.lineTo(hw * 0.35, -hh * 0.3);
     ctx.lineTo(hw * 0.4, hh * 0.35);
     ctx.lineTo(hw * 0.2, hh * 0.6);
@@ -102,17 +97,15 @@ function drawPlayer() {
     ctx.lineTo(-hw * 0.4, hh * 0.35);
     ctx.lineTo(-hw * 0.35, -hh * 0.3);
     ctx.closePath(); ctx.fill();
-    // Hull edge glow
+
     ctx.shadowColor = '#4488ff'; ctx.shadowBlur = 4;
     ctx.strokeStyle = 'rgba(100,180,255,0.6)'; ctx.lineWidth = 0.8; ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // Panel lines
     ctx.strokeStyle = 'rgba(80,140,255,0.15)'; ctx.lineWidth = 0.5;
     ctx.beginPath(); ctx.moveTo(-hw * 0.15, -hh * 0.5); ctx.lineTo(-hw * 0.18, hh * 0.3); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(hw * 0.15, -hh * 0.5); ctx.lineTo(hw * 0.18, hh * 0.3); ctx.stroke();
 
-    // === COCKPIT ===
     const cpGrad = ctx.createRadialGradient(0, -hh * 0.4, 0, 0, -hh * 0.4, hw * 0.25);
     cpGrad.addColorStop(0, '#ccddff');
     cpGrad.addColorStop(0.4, '#5599dd');
@@ -125,11 +118,10 @@ function drawPlayer() {
     ctx.lineTo(-hw * 0.18, -hh * 0.2);
     ctx.closePath(); ctx.fill();
     ctx.strokeStyle = 'rgba(150,200,255,0.4)'; ctx.lineWidth = 0.5; ctx.stroke();
-    // Cockpit glint
+
     ctx.fillStyle = 'rgba(220,240,255,0.6)';
     ctx.beginPath(); ctx.ellipse(-hw * 0.04, -hh * 0.55, 1.5, 3, -0.4, 0, Math.PI * 2); ctx.fill();
 
-    // Reactor core glow (rear)
     const rPulse = 0.5 + Math.sin(t * 0.01) * 0.3;
     ctx.fillStyle = `rgba(50,150,255,${rPulse})`;
     ctx.shadowColor = '#3388ff'; ctx.shadowBlur = 8;
@@ -138,7 +130,6 @@ function drawPlayer() {
 
     ctx.restore();
 
-    // === DASH AFTERBURNER ===
     if (isSliding) {
         ctx.save();
         ctx.globalAlpha = 0.4;
@@ -158,22 +149,21 @@ function drawPlayer() {
         }
     }
 
-    // === SHIELD — HEX BARRIER ===
     if (invincible) {
         ctx.save();
         const pulse = Math.sin(t * 0.005) * 0.15 + 0.55;
         ctx.globalAlpha = pulse;
         ctx.strokeStyle = '#00ffcc'; ctx.shadowColor = '#00ffcc';
         ctx.shadowBlur = 18; ctx.lineWidth = 2;
-        // Outer ring
+
         ctx.beginPath(); ctx.arc(cx, cy, PW * 0.85 + Math.sin(t * 0.007) * 2, 0, Math.PI * 2); ctx.stroke();
-        // Hex segments
+
         ctx.lineWidth = 2.5;
         for (let i = 0; i < 6; i++) {
             const a = (t * 0.002) + (i / 6) * Math.PI * 2;
             ctx.beginPath(); ctx.arc(cx, cy, PW * 0.95, a, a + 0.35); ctx.stroke();
         }
-        // Shield shimmer particles
+
         if (Math.random() < 0.3) {
             const sa = Math.random() * Math.PI * 2;
             particles.push(new Particle(
@@ -184,7 +174,6 @@ function drawPlayer() {
         ctx.restore();
     }
 }
-
 
 function drawGradientBar(x, y, w, h, val, maxVal, colors, label) {
     ctx.fillStyle = `rgb(${colors.bg.r},${colors.bg.g},${colors.bg.b})`;
@@ -225,7 +214,6 @@ function drawUI() {
         ctx.beginPath(); ctx.roundRect(10, 43, Math.floor(110 * pct), 3, 1.5); ctx.fill();
     }
 
-    // Skill icon — circular with radial cooldown
     const sx = 10, sy = H - 60;
     const skillCx = sx + 20, skillCy = sy + 20;
     const cdPct = (now - skill.lastUse) / skill.cooldown;
@@ -275,7 +263,6 @@ function drawUI() {
     ctx.fillText('E', skillCx, skillCy + (cdPct >= 1 ? 5 : -8));
     ctx.textAlign = 'left';
 
-    // Stats panel
     ctx.save();
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath(); ctx.roundRect(5, H - 170, 130, 95, 8); ctx.fill();
@@ -285,7 +272,6 @@ function drawUI() {
     ctx.fillStyle = '#ffd700'; ctx.fillText(`$ ${playerMoney}`, 15, H - 108);
     ctx.restore();
 
-    // Right-side status
     let py = 50;
     ctx.font = '15px Arial';
     if (doubleShotCount > 0) { ctx.fillStyle = '#88bbff'; ctx.fillText(`Double x${doubleShotCount}`, W - 140, py); py += 22; }
@@ -364,7 +350,6 @@ function drawShop() {
     ctx.fillRect(0, 0, W, H);
     const t = Date.now();
 
-    // Title
     ctx.save();
     ctx.shadowColor = '#4466ff'; ctx.shadowBlur = 15;
     const titleGrad = ctx.createLinearGradient(W / 2 - 80, 0, W / 2 + 80, 0);
@@ -378,7 +363,6 @@ function drawShop() {
     ctx.fillText(`Wave ${wave - 1} Complete`, W / 2, 64);
     ctx.restore();
 
-    // Money
     const flashTime = Date.now() % 600 < 300;
     const canAffordAny = selectedItems.length > 0 && playerMoney >= selectedItems.reduce((sum, item) => sum + getItemPrice(item), 0);
     const moneyColor = selectedItems.length == 0 ? '#ffd700' : (canAffordAny ? '#44ff88' : (flashTime ? '#ff4444' : '#ff6666'));
@@ -403,7 +387,6 @@ function drawShop() {
     const elapsed = Date.now() - shopRevealTime;
     const shuffleDur = 400, dealDur = 300, dealStagger = 80;
 
-    // 2x2 grid layout
     const sl = getShopLayout();
     const deckCX = W / 2, deckCY = sl.gridStartY + sl.cardH + sl.gridGap / 2;
 
@@ -413,7 +396,6 @@ function drawShop() {
         window.shopParticles = [];
     }
 
-    // Phase 1: Shuffling deck pile
     if (elapsed < shuffleDur) {
         const sp = elapsed / shuffleDur;
         const count = Math.min(itemsToSell.length, 4);
@@ -432,7 +414,6 @@ function drawShop() {
         ctx.fillText('?', deckCX, deckCY + 7);
     }
 
-    // Phase 2: Cards burst out from center
     itemsToSell.forEach((item, i) => {
         if (i >= 4) return;
         const itm = shopItems[item];
@@ -446,7 +427,6 @@ function drawShop() {
 
         const target = sl.positions[i];
 
-        // Faster stagger for a quick explosive deal
         const stg = 40;
         const cardStart = shuffleDur + i * stg;
         const ce = elapsed - cardStart;
@@ -454,7 +434,6 @@ function drawShop() {
 
         const p = Math.min(1, ce / dealDur);
 
-        // BackOut ease for a snappy pop effect
         const s = 1.70158;
         const t = p - 1;
         const ease = (t * t * ((s + 1) * t + s) + 1);
@@ -463,13 +442,12 @@ function drawShop() {
 
         const cx = deckCX - sl.cardW / 2 + (target.x - (deckCX - sl.cardW / 2)) * ease;
         const cy = deckCY - sl.cardH / 2 + (target.y - (deckCY - sl.cardH / 2)) * ease;
-        const scl = Math.max(0, ease); // Scales from 0 to >1 then settles at 1
+        const scl = Math.max(0, ease);
 
         ctx.save();
 
-        // Ghostly afterimage trail
         if (!isLanded && ease > 0.1) {
-            const trailEase = Math.max(0, ease - 0.15); // Trailing behind
+            const trailEase = Math.max(0, ease - 0.15);
             const tCx = deckCX - sl.cardW / 2 + (target.x - (deckCX - sl.cardW / 2)) * trailEase;
             const tCy = deckCY - sl.cardH / 2 + (target.y - (deckCY - sl.cardH / 2)) * trailEase;
             const tScl = Math.max(0, trailEase);
@@ -489,15 +467,12 @@ function drawShop() {
         ctx.scale(scl, scl);
         ctx.translate(-(cx + sl.cardW / 2), -(cy + sl.cardH / 2));
 
-        // Particle explosion on impact
         if (isLanded && !window.shopCardFlipped[i]) {
             window.shopCardFlipped[i] = true;
             window.shopParticles = window.shopParticles || [];
 
-            // Shockwave ring
             window.shopParticles.push({ type: 'ring', x: target.x + sl.cardW / 2, y: target.y + sl.cardH / 2, color: accent, life: 25, maxLife: 25 });
 
-            // Spray particles
             for (let k = 0; k < 12; k++) {
                 const ang = Math.random() * Math.PI * 2;
                 const spd = 3 + Math.random() * 6;
@@ -512,7 +487,6 @@ function drawShop() {
 
         ctx.globalAlpha = (canSelect ? 1 : 0.4);
 
-        // Card Front
         const cGrad = ctx.createLinearGradient(cx, cy, cx, cy + sl.cardH);
         if (sel) { cGrad.addColorStop(0, 'rgba(25,80,40,0.65)'); cGrad.addColorStop(1, 'rgba(15,50,25,0.5)'); }
         else { cGrad.addColorStop(0, 'rgba(22,25,45,0.7)'); cGrad.addColorStop(1, 'rgba(12,14,28,0.6)'); }
@@ -522,14 +496,12 @@ function drawShop() {
         ctx.lineWidth = sel ? 1.5 : 0.5;
         ctx.beginPath(); ctx.roundRect(cx, cy, sl.cardW, sl.cardH, 10); ctx.stroke();
 
-        // Top accent stripe
         const prevAlpha = ctx.globalAlpha;
         ctx.globalAlpha = prevAlpha * 0.7;
         ctx.fillStyle = accent;
         ctx.beginPath(); ctx.roundRect(cx + 3, cy + 3, sl.cardW - 6, 3, 1.5); ctx.fill();
         ctx.globalAlpha = prevAlpha;
 
-        // Flash glow on land
         if (ce < dealDur + 200 && isLanded) {
             const fp = Math.max(0, 1 - (ce - dealDur) / 200);
             if (fp > 0) {
@@ -542,7 +514,6 @@ function drawShop() {
             }
         }
 
-        // Content
         ctx.globalAlpha = (canSelect ? 1 : 0.5);
         ctx.fillStyle = accent; ctx.shadowColor = accent; ctx.shadowBlur = 10;
         ctx.beginPath(); ctx.arc(cx + sl.cardW / 2, cy + 26, 9, 0, Math.PI * 2); ctx.fill();
@@ -552,7 +523,6 @@ function drawShop() {
         ctx.font = 'bold 13px Arial'; ctx.fillStyle = '#fff';
         ctx.fillText(item, cx + sl.cardW / 2, cy + 50);
 
-        // Desc Wrap
         ctx.font = '10px Arial'; ctx.fillStyle = 'rgba(170,180,210,0.8)';
         const lang = typeof getLang === 'function' ? getLang() : null;
         const desc = item == 'Skill Up' ? `Upgrade bomb (Lv ${skill.level}/${skill.maxLvl})`
@@ -574,19 +544,16 @@ function drawShop() {
         }
         ctx.fillText(line.trim(), cx + sl.cardW / 2, dY);
 
-        // Price
         const pText = maxed ? 'MAX' : (skillUpLimited ? 'BOUGHT' : `${price}$`);
         ctx.font = 'bold 12px Arial';
         ctx.fillStyle = maxed ? '#888' : (afford ? '#ffd700' : '#ff6666');
         ctx.fillText(pText, cx + sl.cardW / 2, cy + 92);
 
-        // Level
         if (item != 'Skill Up' && itm.max !== -1) {
             ctx.font = '9px Arial'; ctx.fillStyle = 'rgba(140,150,170,0.4)';
             ctx.fillText(`${itm.b}/${itm.max}`, cx + sl.cardW / 2, cy + 106);
         }
 
-        // Hotkey
         ctx.font = 'bold 10px Arial';
         ctx.fillStyle = sel ? '#44ff88' : 'rgba(140,160,200,0.2)';
         ctx.fillText(`[${i + 1}]`, cx + sl.cardW - 14, cy + 14);
@@ -595,7 +562,6 @@ function drawShop() {
         ctx.restore();
     });
 
-    // Draw shop particles
     if (window.shopParticles && window.shopParticles.length > 0) {
         window.shopParticles = window.shopParticles.filter(p => {
             if (p.type === 'dot') {
@@ -624,7 +590,6 @@ function drawShop() {
         ctx.restore();
     }
 
-    // Buttons
     const btnW = sl.btnW, btnH = sl.btnH;
     const buyY = sl.buyY, refY = sl.refY, skipY = sl.skipY;
     ctx.textAlign = 'center';

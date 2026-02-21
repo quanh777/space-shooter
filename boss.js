@@ -213,7 +213,6 @@ class Boss extends Enemy {
         if (this.sniperActive) {
             this.sniperTimer -= 16;
 
-
             if (this.sniperTimer <= 0) {
                 this.sniperTimer = 800;
 
@@ -1017,14 +1016,12 @@ function drawHealthPickup() {
     const t = Date.now();
     const pulse = 0.85 + Math.sin(t * 0.005) * 0.15;
 
-    // Outer energy field
     ctx.save();
     ctx.globalAlpha = 0.08 + Math.sin(t * 0.004) * 0.04;
     ctx.fillStyle = '#00ff66';
     ctx.beginPath(); ctx.arc(hx, hy, 22, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
 
-    // Rotating double-helix bands
     ctx.strokeStyle = 'rgba(100,255,150,0.25)';
     ctx.lineWidth = 1.5;
     for (let band = 0; band < 2; band++) {
@@ -1039,7 +1036,6 @@ function drawHealthPickup() {
         ctx.stroke();
     }
 
-    // Capsule body
     const capGrad = ctx.createRadialGradient(hx - 2, hy - 2, 0, hx, hy, 10);
     capGrad.addColorStop(0, '#ccffcc');
     capGrad.addColorStop(0.3, '#55dd66');
@@ -1054,14 +1050,12 @@ function drawHealthPickup() {
     ctx.roundRect(hx - 8 * pulse, hy - 10 * pulse, 16 * pulse, 20 * pulse, 5 * pulse);
     ctx.stroke();
 
-    // Cross symbol
     ctx.fillStyle = '#ffffff';
     ctx.shadowColor = '#44ff88'; ctx.shadowBlur = 6;
     ctx.fillRect(hx - 4, hy - 1.5, 8, 3);
     ctx.fillRect(hx - 1.5, hy - 4, 3, 8);
     ctx.shadowBlur = 0;
 
-    // Sparkle particles
     if (Math.random() < 0.15) {
         const sa = Math.random() * Math.PI * 2;
         const sr = 8 + Math.random() * 10;
