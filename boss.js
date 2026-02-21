@@ -9,8 +9,8 @@ class Boss extends Enemy {
 
         this.bossType = Math.floor(Math.random() * 3);
 
-        const baseHp = bossNumber === 1 ? (1500 + Math.random() * 500) : (2500 + Math.random() * 1000);
-        this.hp = Math.floor(baseHp * difficultyMultiplier);
+        const baseHp = bossNumber === 1 ? (1500 + Math.random() * 500) : (2500 + (bossNumber * 1000) + Math.random() * 1000);
+        this.hp = Math.floor(baseHp * difficultyMultiplier * (1 + bossNumber * 0.2));
         this.maxHp = this.hp;
 
         this.spd = 0.9 + bossNumber * 0.1;
@@ -214,17 +214,17 @@ class Boss extends Enemy {
             this.sniperTimer -= 16;
 
             if (this.sniperTimer <= 0) {
-                this.sniperTimer = 800;
+                this.sniperTimer = 80;
 
                 const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
-                const priorX = playerX + PW / 2 + (Math.random() - 0.5) * 30;
-                const priorY = playerY + PH / 2 + (Math.random() - 0.5) * 30;
+                const priorX = playerX + PW / 2 + (Math.random() - 0.5) * 10;
+                const priorY = playerY + PH / 2 + (Math.random() - 0.5) * 10;
                 const napAngle = Math.atan2(priorY - cy, priorX - cx);
 
                 let b = new Bullet(cx, cy, Math.cos(napAngle), Math.sin(napAngle));
                 b.c = '#ffffff';
                 b.dmg = this.getDamage(25);
-                b.spd = 250 + this.phase * 3;
+                b.speed = 20 + this.phase * 3;
                 b.isEnemy = true;
                 if (typeof bullets !== 'undefined') bullets.push(b);
                 screenShake = 15;
@@ -238,6 +238,14 @@ class Boss extends Enemy {
 
         if (this.preChargeTimer > 0) {
             this.preChargeTimer--;
+
+            const px = playerX + PW / 2, py = playerY + PH / 2;
+            const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
+            const d = Math.sqrt((px - cx) ** 2 + (py - cy) ** 2);
+            if (d > 0) {
+                this.chargeDirection = { x: (px - cx) / d, y: (py - cy) / d };
+            }
+
             if (this.preChargeTimer % 5 === 0) {
                 this.flash = 0.5;
                 const ang = Math.random() * Math.PI * 2;
@@ -255,8 +263,10 @@ class Boss extends Enemy {
         } else if (this.isCharging) {
             this.chargeProgress++;
             if (this.chargeProgress <= 35) {
-                const moveX = this.chargeDirection.x * 15;
-                const moveY = this.chargeDirection.y * 15;
+                
+                const dashSpd = 18 + this.phase * 2.5;
+                const moveX = this.chargeDirection.x * dashSpd;
+                const moveY = this.chargeDirection.y * dashSpd;
                 this.x += moveX;
                 this.y += moveY;
 
@@ -279,6 +289,7 @@ class Boss extends Enemy {
                 const d = Math.sqrt((cx - px) ** 2 + (cy - py) ** 2);
                 if (d < 40 && !invincible) {
                     playerHealth -= 25;
+                    if (playerHealth <= 0) gameOver();
                 }
 
             } else {
@@ -343,7 +354,7 @@ class Boss extends Enemy {
         } else if (this.state === 'WAITING_CLEAR_REST') {
             if (this.isScreenClear()) {
                 this.state = 'RESTING';
-                this.restTimer = 5000 + Math.random() * 5000;
+                this.restTimer = 2000 + Math.random() * 2000;
             }
         } else if (this.state === 'RESTING') {
             this.restTimer -= 16;
@@ -401,13 +412,32 @@ class Boss extends Enemy {
         if (this.laserCharging) {
             this.laserTimer -= 16;
             const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
-            const targetAngle = Math.atan2(playerY + PH / 2 - cy, playerX + PW / 2 - cx);
-            this.laserAngle += (targetAngle - this.laserAngle) * 0.08;
+
+            if (this.laserTimer > 400) {
+                this.laserLocked = false;
+                const targetAngle = Math.atan2(playerY + PH / 2 - cy, playerX + PW / 2 - cx);
+
+                let diff = targetAngle - this.laserAngle;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+                while (diff < -Math.PI) diff += Math.PI * 2;
+
+                this.laserAngle += diff * 0.2;
+            } else {
+                this.laserLocked = true;
+                if (Math.random() < 0.3) {
+                    particles.push(new Particle(
+                        cx + Math.cos(this.laserAngle) * (this.w / 2 + 10),
+                        cy + Math.sin(this.laserAngle) * (this.w / 2 + 10),
+                        '#ffff00', 3, 4, 15
+                    ));
+                }
+            }
 
             if (this.laserTimer <= 0) {
                 this.laserCharging = false;
+                this.laserLocked = false;
                 this.laserFiring = true;
-                this.laserTimer = this.laserSweep ? 2500 : 800;
+                this.laserTimer = 2500;
                 screenShake = 18;
             }
         }
@@ -415,19 +445,31 @@ class Boss extends Enemy {
         if (this.laserFiring) {
             this.laserTimer -= 16;
 
-            if (this.laserSweep) {
-                this.laserAngle += this.laserSweepSpeed * this.laserSweepDir;
-            }
-
             const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
+            const px = playerX + PW / 2, py = playerY + PH / 2;
+
+            const targetAngle = Math.atan2(py - cy, px - cx);
+            let diff = targetAngle - this.laserAngle;
+            while (diff > Math.PI) diff -= Math.PI * 2;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+
+            const sweepSpeed = 0.001 + this.phase * 0.005;
+            this.laserAngle += Math.sign(diff) * Math.min(Math.abs(diff), sweepSpeed);
+
             const lx = cx + Math.cos(this.laserAngle) * 1500;
             const ly = cy + Math.sin(this.laserAngle) * 1500;
-            const px = playerX + PW / 2, py = playerY + PH / 2;
+
+            this.laserDamageTimer = (this.laserDamageTimer || 0) - 16;
 
             if (!invincible) {
                 const d = distToSegment(px, py, cx, cy, lx, ly);
                 if (d < 35) {
-                    playerHealth -= this.getDamage(15);
+                    if (this.laserDamageTimer <= 0) {
+                        playerHealth -= this.getDamage(2 + this.phase * 0.5);
+                        if (playerHealth <= 0) gameOver();
+                        this.laserDamageTimer = 500;
+                        screenShake = 5;
+                    }
                     if (Math.random() < 0.4) {
                         particles.push(new Particle(px, py, '#f00', 2, 3, 15));
                     }
@@ -468,7 +510,8 @@ class Boss extends Enemy {
                 screenShake = 10;
 
                 if (playerDist < 90 && !invincible) {
-                    playerHealth -= 30;
+                    playerHealth -= 5;
+                    if (playerHealth <= 0) gameOver();
                 }
 
                 for (let i = 0; i < 8; i++) {
@@ -696,12 +739,23 @@ class Boss extends Enemy {
 
         if (this.laserCharging) {
             const prog = 1 - this.laserTimer / 1000;
-            ctx.strokeStyle = `rgba(255, 0, 0, ${Math.max(0, prog)})`;
-            ctx.lineWidth = 2 + prog * 6;
-            ctx.setLineDash([10, 10]);
+
+            if (this.laserLocked) {
+                
+                const pulse = Math.sin(Date.now() * 0.05) * 0.5 + 0.5;
+                ctx.strokeStyle = `rgba(255, ${Math.floor(150 * pulse)}, 0, ${0.6 + 0.4 * pulse})`;
+                ctx.lineWidth = 4 + prog * 8;
+                ctx.setLineDash([]);
+            } else {
+                
+                ctx.strokeStyle = `rgba(255, 0, 0, ${Math.max(0.3, prog)})`;
+                ctx.lineWidth = 2 + prog * 4;
+                ctx.setLineDash([15, 15]);
+            }
+
             ctx.beginPath();
             ctx.moveTo(cx, cy);
-            ctx.lineTo(cx + Math.cos(this.laserAngle) * 900, cy + Math.sin(this.laserAngle) * 900);
+            ctx.lineTo(cx + Math.cos(this.laserAngle) * 1500, cy + Math.sin(this.laserAngle) * 1500);
             ctx.stroke();
             ctx.setLineDash([]);
         }
@@ -836,9 +890,7 @@ class Boss extends Enemy {
                     }
                 }
             }
-        }
-
-        else if (attack === 'minionSwarm') {
+        } else if (attack === 'minionSwarm') {
             const count = 2 + this.phase;
             for (let i = 0; i < count; i++) {
                 const ang = (i / count) * Math.PI * 2;
@@ -850,7 +902,8 @@ class Boss extends Enemy {
                 minion.maxHp = 400 + (this.phase * 150);
                 minion.hp = minion.maxHp;
                 minion.isMinion = true;
-                if (typeof enemies !== 'undefined') enemies.push(minion);
+
+                enemies.push(minion);
 
                 for (let j = 0; j < 15; j++) {
                     particles.push(new Particle(ex, ey, '#9933ff', 2, 4, 30));
@@ -925,9 +978,9 @@ class Boss extends Enemy {
                 }
             }
         } else if (attack === 'sniperShot') {
-            this.sniperMaxShots = this.phase === 3 ? 3 : (this.phase === 2 ? 2 : 1);
+            this.sniperMaxShots = 1 + this.phase; 
             this.sniperShotsFired = 0;
-            this.sniperTimer = 1500;
+            this.sniperTimer = 300;
             this.sniperActive = true;
         } else if (attack === 'matrixRings') {
             const rings = this.phase;

@@ -611,44 +611,49 @@ class Enemy {
 
         if (this.isMinion) {
 
-            ctx.translate(cx, cy); ctx.rotate(this.anim * 0.35); ctx.translate(-cx, -cy);
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(this.anim * 0.35);
+
             const r = this.w / 2;
 
             ctx.globalAlpha = 0.12;
             ctx.fillStyle = '#aa55ff';
-            ctx.beginPath(); ctx.arc(cx, cy, r + 4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(0, 0, r + 4, 0, Math.PI * 2); ctx.fill();
             ctx.globalAlpha = 1;
 
             for (let i = 0; i < 4; i++) {
                 const a = (i / 4) * Math.PI * 2;
-                const bx1 = cx + Math.cos(a) * 2, by1 = cy + Math.sin(a) * 2;
-                const bx2 = cx + Math.cos(a) * r, by2 = cy + Math.sin(a) * r;
-                ctx.strokeStyle = `rgba(187,102,238,${0.6 + Math.sin(this.anim * 0.4 + i) * 0.3})`;
+                const bx1 = Math.cos(a) * 2, by1 = Math.sin(a) * 2;
+                const bx2 = Math.cos(a) * r, by2 = Math.sin(a) * r;
+                ctx.strokeStyle = `rgba(200,100,255,${0.6 + Math.sin(this.anim * 0.4 + i) * 0.3})`;
                 ctx.lineWidth = 2.5;
                 ctx.beginPath(); ctx.moveTo(bx1, by1); ctx.lineTo(bx2, by2); ctx.stroke();
 
                 ctx.fillStyle = '#dd88ff';
-                ctx.beginPath(); ctx.arc(bx2, by2, 1.5, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(bx2, by2, 2.5, 0, Math.PI * 2); ctx.fill();
             }
 
-            const mGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 0.4);
+            const mGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.5);
             mGrad.addColorStop(0, '#ffccff');
             mGrad.addColorStop(0.5, '#aa44dd');
             mGrad.addColorStop(1, '#550088');
             ctx.fillStyle = mGrad;
-            ctx.beginPath(); ctx.arc(cx, cy, r * 0.4, 0, Math.PI * 2); ctx.fill();
-            ctx.strokeStyle = 'rgba(200,120,255,0.4)'; ctx.lineWidth = 0.5;
-            ctx.beginPath(); ctx.arc(cx, cy, r * 0.4, 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(0, 0, r * 0.5, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = 'rgba(200,120,255,0.6)'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.arc(0, 0, r * 0.5, 0, Math.PI * 2); ctx.stroke();
+            ctx.restore();
 
             ctx.save();
-            ctx.translate(cx, cy); ctx.rotate(faceAngle); ctx.translate(-cx, -cy);
-            ctx.fillStyle = '#ff44ff'; ctx.shadowColor = '#ff00ff'; ctx.shadowBlur = 6;
-            ctx.beginPath(); ctx.arc(cx + r * 0.15, cy, 1.5, 0, Math.PI * 2); ctx.fill();
+            ctx.translate(cx, cy); ctx.rotate(faceAngle);
+            ctx.fillStyle = '#ff44ff'; ctx.shadowColor = '#ff00ff'; ctx.shadowBlur = 8;
+            ctx.beginPath(); ctx.arc(r * 0.25, -4, 2, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(r * 0.25, 4, 2, 0, Math.PI * 2); ctx.fill();
             ctx.shadowBlur = 0;
             ctx.restore();
 
-            ctx.strokeStyle = `rgba(200,100,255,${0.2 + Math.sin(this.anim * 0.5) * 0.15})`;
-            ctx.lineWidth = 0.8;
+            ctx.strokeStyle = `rgba(200,100,255,${0.4 + Math.sin(this.anim * 0.5) * 0.2})`;
+            ctx.lineWidth = 1.2;
             ctx.beginPath(); ctx.arc(cx, cy, r + 2, 0, Math.PI * 2); ctx.stroke();
 
         } else if (this.type === 'small') {

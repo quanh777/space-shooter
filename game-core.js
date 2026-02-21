@@ -211,7 +211,7 @@ function drawUI() {
     if (now - lastSlide < 2000) {
         const pct = (now - lastSlide) / 2000;
         ctx.fillStyle = 'rgba(0,200,255,0.3)';
-        ctx.beginPath(); ctx.roundRect(10, 43, Math.floor(110 * pct), 3, 1.5); ctx.fill();
+        ctx.beginPath(); ctx.roundRect(10, 23, Math.floor(110 * pct), 3, 1.5); ctx.fill();
     }
 
     const sx = 10, sy = H - 60;
