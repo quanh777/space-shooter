@@ -21,38 +21,59 @@ function drawWaveTransition() {
 
     const f = waveTransition.frame;
     const isBoss = waveTransition.wave % 5 === 0;
+    const maxF = waveTransition.maxFrames;
 
-    let alpha = 1;
-    if (f < 25) alpha = f / 25;
-    else if (f >= 125) alpha = (150 - f) / 25;
+    let alpha;
+    if (f < 30) alpha = f / 30;
+    else if (f >= maxF - 30) alpha = (maxF - f) / 30;
+    else alpha = 1;
+    alpha = alpha * alpha * (3 - 2 * alpha);
 
-    ctx.fillStyle = `rgba(0,0,0,${alpha * 0.8})`;
+    const barH = 60 * alpha;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, barH);
+    ctx.fillRect(0, H - barH, W, barH);
+
+    ctx.fillStyle = `rgba(0,0,0,${alpha * 0.7})`;
     ctx.fillRect(0, 0, W, H);
+
+    if (isBoss && f < 60 && f % 10 < 5) {
+        ctx.fillStyle = `rgba(255,0,0,${alpha * 0.15})`;
+        ctx.fillRect(0, 0, W, H);
+    }
 
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.textAlign = 'center';
 
-    ctx.fillStyle = isBoss ? 'rgba(255,50,50,0.5)' : 'rgba(200,200,255,0.5)';
-    ctx.font = 'bold 100px Arial';
-    const mainText = isBoss ? `BOSS WAVE ${waveTransition.wave}` : `Wave ${waveTransition.wave}`;
-    ctx.fillText(mainText, W / 2 + 3, H / 2 - 30 + 3);
+    const mainText = isBoss ? `BOSS WAVE ${waveTransition.wave}` : `WAVE ${waveTransition.wave}`;
+    const mainColor = isBoss ? '#ff3333' : '#aabbff';
+    const glowColor = isBoss ? '#ff0000' : '#4466ff';
 
-    ctx.fillStyle = isBoss ? 'rgb(255,50,50)' : 'rgb(200,200,255)';
-    ctx.fillText(mainText, W / 2, H / 2 - 30);
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = 30;
+    ctx.font = 'bold 72px Arial';
+    ctx.fillStyle = mainColor;
+    ctx.fillText(mainText, W / 2, H / 2 - 20);
+    ctx.shadowBlur = 0;
 
-    ctx.font = 'bold 50px Arial';
     const lang = typeof getLang === 'function' ? getLang() : { getReady: 'Sẵn sàng!', prepareForBattle: 'Chuẩn bị chiến đấu!' };
     const subText = isBoss ? lang.prepareForBattle : lang.getReady;
-    ctx.fillStyle = isBoss ? 'rgba(255,100,100,0.5)' : 'rgba(255,255,255,0.5)';
-    ctx.fillText(subText, W / 2 + 3, H / 2 + 30 + 3);
+    ctx.font = 'bold 28px Arial';
+    ctx.fillStyle = isBoss ? 'rgba(255,120,120,0.8)' : 'rgba(200,210,255,0.7)';
+    ctx.fillText(subText, W / 2, H / 2 + 25);
 
-    ctx.fillStyle = isBoss ? 'rgb(255,100,100)' : '#fff';
-    ctx.fillText(subText, W / 2, H / 2 + 30);
+    const lineW = 200 * alpha;
+    ctx.strokeStyle = isBoss ? 'rgba(255,60,60,0.5)' : 'rgba(100,140,255,0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(W / 2 - lineW, H / 2 + 40);
+    ctx.lineTo(W / 2 + lineW, H / 2 + 40);
+    ctx.stroke();
 
-    if (Math.random() < 0.3) {
-        const color = isBoss ? 'rgb(255,50,50)' : 'rgb(200,200,255)';
-        particles.push(new Particle(Math.random() * W, Math.random() * H, color, 1, 3, 30));
+    if (Math.random() < 0.4) {
+        const color = isBoss ? '#ff4444' : '#6688ff';
+        particles.push(new Particle(Math.random() * W, Math.random() * H, color, 1.5, 3, 25));
     }
 
     ctx.restore();

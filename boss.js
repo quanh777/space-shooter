@@ -1013,23 +1013,63 @@ let healthPickup = null;
 function spawnHealthPickup() { healthPickup = { x: Math.random() * (W - 20), y: Math.random() * (H - 20) }; }
 function drawHealthPickup() {
     if (!healthPickup) return;
-    const pulse = Math.sin(Date.now() * 0.003) * 0.2 + 1.0;
-    ctx.globalAlpha = 0.3 * pulse;
-    ctx.fillStyle = '#0f0';
+    const hx = healthPickup.x + 10, hy = healthPickup.y + 10;
+    const t = Date.now();
+    const pulse = 0.85 + Math.sin(t * 0.005) * 0.15;
+
+    // Outer energy field
+    ctx.save();
+    ctx.globalAlpha = 0.08 + Math.sin(t * 0.004) * 0.04;
+    ctx.fillStyle = '#00ff66';
+    ctx.beginPath(); ctx.arc(hx, hy, 22, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    // Rotating double-helix bands
+    ctx.strokeStyle = 'rgba(100,255,150,0.25)';
+    ctx.lineWidth = 1.5;
+    for (let band = 0; band < 2; band++) {
+        ctx.beginPath();
+        for (let s = 0; s <= 20; s++) {
+            const angle = (s / 20) * Math.PI * 2 + t * 0.004 + band * Math.PI;
+            const rx = Math.cos(angle) * 14;
+            const ry = (s / 20 - 0.5) * 24;
+            if (s === 0) ctx.moveTo(hx + rx, hy + ry);
+            else ctx.lineTo(hx + rx, hy + ry);
+        }
+        ctx.stroke();
+    }
+
+    // Capsule body
+    const capGrad = ctx.createRadialGradient(hx - 2, hy - 2, 0, hx, hy, 10);
+    capGrad.addColorStop(0, '#ccffcc');
+    capGrad.addColorStop(0.3, '#55dd66');
+    capGrad.addColorStop(0.7, '#228833');
+    capGrad.addColorStop(1, '#115522');
+    ctx.fillStyle = capGrad;
     ctx.beginPath();
-    ctx.arc(healthPickup.x + 10, healthPickup.y + 10, 30 * pulse, 0, Math.PI * 2);
+    ctx.roundRect(hx - 8 * pulse, hy - 10 * pulse, 16 * pulse, 20 * pulse, 5 * pulse);
     ctx.fill();
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = '#0f0';
+    ctx.strokeStyle = 'rgba(100,255,150,0.4)'; ctx.lineWidth = 0.8;
     ctx.beginPath();
-    ctx.moveTo(healthPickup.x + 10, healthPickup.y + 5);
-    ctx.bezierCurveTo(healthPickup.x + 10, healthPickup.y + 3, healthPickup.x + 7.5, healthPickup.y, healthPickup.x + 5, healthPickup.y + 3);
-    ctx.bezierCurveTo(healthPickup.x + 2.5, healthPickup.y, healthPickup.x, healthPickup.y + 3, healthPickup.x, healthPickup.y + 5);
-    ctx.bezierCurveTo(healthPickup.x, healthPickup.y + 7.5, healthPickup.x, healthPickup.y + 10, healthPickup.x + 10, healthPickup.y + 17.5);
-    ctx.bezierCurveTo(healthPickup.x + 20, healthPickup.y + 10, healthPickup.x + 20, healthPickup.y + 7.5, healthPickup.x + 20, healthPickup.y + 5);
-    ctx.bezierCurveTo(healthPickup.x + 20, healthPickup.y + 3, healthPickup.x + 17.5, healthPickup.y, healthPickup.x + 15, healthPickup.y + 3);
-    ctx.bezierCurveTo(healthPickup.x + 12.5, healthPickup.y, healthPickup.x + 10, healthPickup.y + 3, healthPickup.x + 10, healthPickup.y + 5);
-    ctx.fill();
+    ctx.roundRect(hx - 8 * pulse, hy - 10 * pulse, 16 * pulse, 20 * pulse, 5 * pulse);
+    ctx.stroke();
+
+    // Cross symbol
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = '#44ff88'; ctx.shadowBlur = 6;
+    ctx.fillRect(hx - 4, hy - 1.5, 8, 3);
+    ctx.fillRect(hx - 1.5, hy - 4, 3, 8);
+    ctx.shadowBlur = 0;
+
+    // Sparkle particles
+    if (Math.random() < 0.15) {
+        const sa = Math.random() * Math.PI * 2;
+        const sr = 8 + Math.random() * 10;
+        particles.push(new Particle(
+            hx + Math.cos(sa) * sr, hy + Math.sin(sa) * sr,
+            '#88ffaa', 0.8, 1.5, 12
+        ));
+    }
 }
 function distToSegment(px, py, x1, y1, x2, y2) {
     const dx = x2 - x1, dy = y2 - y1;
