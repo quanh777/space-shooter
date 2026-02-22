@@ -176,9 +176,10 @@ function aimEnemy() {
     });
     if (target) {
         const dx = target.x - playerX, dy = target.y - playerY, d = Math.sqrt(dx * dx + dy * dy);
+        playerTargetAngle = Math.atan2(dy, dx);
         return { x: dx / d, y: dy / d };
     }
-    return dirX || dirY ? { x: dirX, y: dirY } : { x: 0, y: -1 };
+    return dirX || dirY ? { x: dirX, y: dirY } : { x: Math.cos(playerFacingAngle), y: Math.sin(playerFacingAngle) };
 }
 
 function shoot() {
@@ -453,9 +454,10 @@ function update() {
 
         dirX = normalizedX;
         dirY = normalizedY;
+        playerTargetAngle = Math.atan2(normalizedY, normalizedX);
+        playerMoving = true;
     } else if (!isSliding) {
-        dirX = 0;
-        dirY = 0;
+        playerMoving = false;
     }
 
     playerX += moveX;

@@ -1,5 +1,5 @@
-const canvas = _offscreenCanvas; 
-const ctx = _offscreenCtx;       
+const canvas = _offscreenCanvas;
+const ctx = _offscreenCtx;
 const W = 800, H = 600;
 
 let gameRunning = false;
@@ -38,6 +38,9 @@ let waveBonusEarned = 0;
 const PW = 50, PH = 50;
 let playerX = 375, playerY = 275, playerSpeed = 2.5;
 let dirX = 0, dirY = 0, isSliding = false, lastSlide = 0;
+let playerFacingAngle = -Math.PI / 2;
+let playerTargetAngle = -Math.PI / 2;
+let playerMoving = false;
 
 let bullets = [], bulletSpeed = 5, bulletCooldown = 400;
 let bulletDamage = 25, canShoot = true, lastShot = 0;

@@ -2,8 +2,13 @@ function drawPlayer() {
     const cx = playerX + PW / 2, cy = playerY + PH / 2;
     ctx.save();
 
-    const angle = (dirX != 0 || dirY != 0) ? Math.atan2(dirY, dirX) : -Math.PI / 2;
-    const isMoving = dirX != 0 || dirY != 0;
+    let diff = playerTargetAngle - playerFacingAngle;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    playerFacingAngle += diff * 0.15;
+
+    const angle = playerFacingAngle;
+    const isMoving = playerMoving || isSliding;
     const t = Date.now();
     const hw = PW / 2, hh = PH / 2;
 
