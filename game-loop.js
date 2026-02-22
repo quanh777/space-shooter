@@ -590,6 +590,32 @@ function update() {
         particles = particles.slice(-500);
     }
 
+    goldPickups = goldPickups.filter(g => {
+        const targetX = 15;
+        const targetY = H - 108;
+        const dx = targetX - g.x;
+        const dy = targetY - g.y;
+        const dist = Math.max(1, Math.hypot(dx, dy));
+
+        const accel = 0.5 + (g.life * 0.05);
+
+        g.vx *= 0.92;
+        g.vy *= 0.92;
+
+        g.vx += (dx / dist) * accel;
+        g.vy += (dy / dist) * accel;
+
+        g.x += g.vx;
+        g.y += g.vy;
+        g.life++;
+
+        if (dist < 20) {
+            window.moneyFlash = 1;
+            return false;
+        }
+        return true;
+    });
+
     scheduledBullets = scheduledBullets.filter(sb => {
         sb.delay -= 16;
         if (sb.delay <= 0) {
@@ -708,7 +734,9 @@ function update() {
         waveBonusEarned = calculateWaveBonus();
         if (waveBonusEarned > 0) {
             score += waveBonusEarned;
-            buffTexts.push({ text: `FAST CLEAR +${waveBonusEarned}`, y: H / 2 - 80, alpha: 1, color: '#0ff' });
+            const lang = typeof getLang === 'function' ? getLang() : null;
+            const fastClearTxt = lang && lang.fastClear ? lang.fastClear : 'FAST CLEAR';
+            buffTexts.push({ text: `${fastClearTxt} +${waveBonusEarned}`, y: H / 2 - 80, alpha: 1, color: '#0ff' });
         }
 
         spawnHealthPickup();
@@ -1045,6 +1073,23 @@ function draw() {
         ctx.textAlign = 'center';
         ctx.fillStyle = t.color;
         ctx.fillText(t.text, W / 2, t.y);
+        ctx.restore();
+    });
+
+    goldPickups.forEach(g => {
+        ctx.save();
+        ctx.fillStyle = '#ffd700';
+        ctx.shadowColor = '#ff8800';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(g.x, g.y, g.size, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.arc(g.x, g.y, g.size * 0.4, 0, Math.PI * 2);
+        ctx.fill();
         ctx.restore();
     });
 

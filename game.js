@@ -47,6 +47,7 @@ let bulletDamage = 25, canShoot = true, lastShot = 0;
 
 let enemies = [], particles = [];
 let bombProjectiles = [];
+let goldPickups = [];
 
 const skill = { level: 1, maxLvl: 999, cooldown: 6000, lastUse: 0, radius: 100, damage: 100, cost: 20 };
 
@@ -718,9 +719,23 @@ class Enemy {
                 const py = cy + hoverY;
 
                 const pGrad = ctx.createLinearGradient(px, py - hh, px + side * hw, py + hh);
-                pGrad.addColorStop(0, '#ff9933');
-                pGrad.addColorStop(0.5, '#ff5500');
-                pGrad.addColorStop(1, '#aa3300');
+
+                if (this.canDrop) {
+                    const cycle = ((Date.now() + cx) % 1500) / 1500;
+                    pGrad.addColorStop(0, '#ffcc00');
+                    if (cycle > 0.1 && cycle < 0.9) {
+                        pGrad.addColorStop(Math.max(0, cycle - 0.1), '#ffaa00');
+                        pGrad.addColorStop(cycle, '#ffffff'); 
+                        pGrad.addColorStop(Math.min(1, cycle + 0.1), '#aa7700');
+                    } else {
+                        pGrad.addColorStop(0.5, '#ffaa00');
+                    }
+                    pGrad.addColorStop(1, '#aa7700');
+                } else {
+                    pGrad.addColorStop(0, '#ff9933');
+                    pGrad.addColorStop(0.5, '#ff5500');
+                    pGrad.addColorStop(1, '#aa3300');
+                }
 
                 ctx.fillStyle = pGrad;
                 ctx.strokeStyle = '#332211';
@@ -781,8 +796,8 @@ class Enemy {
             ctx.fill();
             ctx.stroke();
 
-            ctx.fillStyle = '#00ffff';
-            ctx.shadowColor = '#00ffff';
+            ctx.fillStyle = this.canDrop ? '#ffee00' : '#00ffff';
+            ctx.shadowColor = ctx.fillStyle;
             ctx.shadowBlur = 6;
             ctx.beginPath();
             ctx.arc(cx - hw * 0.1, cy - hh * 0.6 + hoverY, 1.5, 0, Math.PI * 2);
@@ -791,7 +806,7 @@ class Enemy {
             ctx.fill();
             ctx.shadowBlur = 0;
 
-            ctx.fillStyle = '#3a4046';
+            ctx.fillStyle = this.canDrop ? '#665500' : '#3a4046';
             ctx.beginPath();
             ctx.moveTo(cx - hw * 0.4, cy + hh + hoverY);
             ctx.lineTo(cx + hw * 0.4, cy + hh + hoverY);
@@ -801,7 +816,7 @@ class Enemy {
             ctx.fill();
             ctx.stroke();
 
-            ctx.fillStyle = `rgba(0, 255, 255, ${0.4 + Math.random() * 0.3})`;
+            ctx.fillStyle = this.canDrop ? `rgba(255, 200, 0, ${0.4 + Math.random() * 0.3})` : `rgba(0, 255, 255, ${0.4 + Math.random() * 0.3})`;
             ctx.beginPath();
             ctx.ellipse(cx, cy + hh + 2 + hoverY, hw * 0.3, 3 + chargeRatio * 2, 0, 0, Math.PI * 2);
             ctx.fill();
@@ -840,11 +855,24 @@ class Enemy {
                 }
             }
 
-            const cGrad = ctx.createLinearGradient(cx, cy - hh, cx, cy + hh);
-            cGrad.addColorStop(0, isDashing ? '#ff88ff' : '#dd55dd');
-            cGrad.addColorStop(0.3, '#aa22aa');
-            cGrad.addColorStop(0.7, '#771177');
-            cGrad.addColorStop(1, '#440044');
+            const cGrad = ctx.createLinearGradient(cx - hw, cy - hh, cx + hw, cy + hh);
+            if (this.canDrop) {
+                const cycle = ((Date.now() + cx) % 2000) / 2000;
+                cGrad.addColorStop(0, isDashing ? '#ffee88' : '#ffcc33');
+                if (cycle > 0.1 && cycle < 0.9) {
+                    cGrad.addColorStop(Math.max(0, cycle - 0.1), '#ddaa11');
+                    cGrad.addColorStop(cycle, '#ffffff');
+                    cGrad.addColorStop(Math.min(1, cycle + 0.1), '#aa7700');
+                } else {
+                    cGrad.addColorStop(0.5, '#ddaa11');
+                }
+                cGrad.addColorStop(1, '#664400');
+            } else {
+                cGrad.addColorStop(0, isDashing ? '#ff88ff' : '#dd55dd');
+                cGrad.addColorStop(0.3, '#aa22aa');
+                cGrad.addColorStop(0.7, '#771177');
+                cGrad.addColorStop(1, '#440044');
+            }
             ctx.fillStyle = cGrad;
 
             ctx.beginPath();
@@ -867,7 +895,7 @@ class Enemy {
             ctx.quadraticCurveTo(cx - hw * 0.15, cy, cx, cy + hh * 0.5);
             ctx.stroke();
 
-            ctx.strokeStyle = '#993399'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+            ctx.strokeStyle = this.canDrop ? '#cc8800' : '#993399'; ctx.lineWidth = 2; ctx.lineCap = 'round';
             for (const s of [-1, 1]) {
                 const legSway = isDashing ? (-hh * 0.2) : Math.sin(this.anim * 0.2 + s) * 4;
 
@@ -883,7 +911,7 @@ class Enemy {
             }
             ctx.lineCap = 'butt';
 
-            ctx.fillStyle = isDashing ? '#ffaaff' : '#cc66cc';
+            ctx.fillStyle = this.canDrop ? (isDashing ? '#ffee88' : '#ccaa00') : (isDashing ? '#ffaaff' : '#cc66cc');
             ctx.beginPath();
             ctx.moveTo(cx - hw * 0.15, cy - hh * 0.7);
             ctx.quadraticCurveTo(cx - hw * 0.25, cy - hh * 1.0, cx - hw * 0.05, cy - hh * 0.95);
@@ -893,15 +921,16 @@ class Enemy {
             ctx.quadraticCurveTo(cx + hw * 0.25, cy - hh * 1.0, cx + hw * 0.05, cy - hh * 0.95);
             ctx.lineTo(cx, cy - hh * 0.8); ctx.closePath(); ctx.fill();
 
-            ctx.fillStyle = '#ffbbee'; ctx.shadowColor = '#ff44cc'; ctx.shadowBlur = 4;
+            ctx.fillStyle = this.canDrop ? '#ffffff' : '#ffbbee'; ctx.shadowColor = this.canDrop ? '#ffcc00' : '#ff44cc'; ctx.shadowBlur = 4;
             ctx.beginPath(); ctx.arc(cx - hw * 0.18, cy - hh * 0.55, 2.5, 0, Math.PI * 2); ctx.fill();
             ctx.beginPath(); ctx.arc(cx + hw * 0.18, cy - hh * 0.55, 2.5, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = '#220022';
+
+            ctx.fillStyle = this.canDrop ? '#663300' : '#220022';
             ctx.beginPath(); ctx.arc(cx - hw * 0.18, cy - hh * 0.55, 1, 0, Math.PI * 2); ctx.fill();
             ctx.beginPath(); ctx.arc(cx + hw * 0.18, cy - hh * 0.55, 1, 0, Math.PI * 2); ctx.fill();
             ctx.shadowBlur = 0;
 
-            ctx.fillStyle = '#ff66ff'; ctx.shadowColor = '#ff00ff'; ctx.shadowBlur = 8;
+            ctx.fillStyle = this.canDrop ? '#ffeeaa' : '#ff66ff'; ctx.shadowColor = this.canDrop ? '#ffaa00' : '#ff00ff'; ctx.shadowBlur = 8;
             ctx.beginPath(); ctx.ellipse(cx, cy + hh * 0.65, hw * 0.2, 3, 0, 0, Math.PI * 2); ctx.fill();
             ctx.shadowBlur = 0;
 
@@ -917,9 +946,10 @@ class Enemy {
             const warmupRatio = isWarmingUp ? (30 - this.warpWarmupTimer) / 30 : 0;
             const activeRatio = Math.max(attackRatio, warmupRatio);
 
-            const rCol = Math.floor(255 * (1 - activeRatio));
-            const gCol = Math.floor(255 * activeRatio);
-            const themeColor = `rgb(${rCol}, ${gCol}, 255)`;
+            const rCol = this.canDrop ? 255 : Math.floor(255 * (1 - activeRatio));
+            const gCol = this.canDrop ? 215 : Math.floor(255 * activeRatio);
+            const bCol = this.canDrop ? 0 : 255;
+            const themeColor = `rgb(${rCol}, ${gCol}, ${bCol})`;
 
             if (this.warpTimer > 0) {
                 this.warpTimer--;
@@ -992,14 +1022,26 @@ class Enemy {
             const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 0.6);
             coreGrad.addColorStop(0, '#ffffff');
 
-            const mR = Math.floor(255 * (1 - activeRatio));
-            const mG = Math.floor(85 + 170 * activeRatio);
-            coreGrad.addColorStop(0.2, `rgb(${mR}, ${mG}, 255)`);
+            if (this.canDrop) {
+                const cycle = ((Date.now() + cx) % 2500) / 2500;
+                if (cycle > 0.1 && cycle < 0.9) {
+                    coreGrad.addColorStop(0.2, '#ffcc00');
+                    coreGrad.addColorStop(cycle, '#ffffff');
+                    coreGrad.addColorStop(0.8, '#aa7700');
+                } else {
+                    coreGrad.addColorStop(0.2, '#ffcc00');
+                    coreGrad.addColorStop(0.6, '#aa7700');
+                }
+            } else {
+                const mR = Math.floor(255 * (1 - activeRatio));
+                const mG = Math.floor(85 + 170 * activeRatio);
+                coreGrad.addColorStop(0.2, `rgb(${mR}, ${mG}, 255)`);
 
-            const oR = Math.floor(85 * (1 - activeRatio));
-            const oG = Math.floor(85 * activeRatio);
-            const oB = Math.floor(170 + 85 * activeRatio);
-            coreGrad.addColorStop(0.6, `rgb(${oR}, ${oG}, ${oB})`);
+                const oR = Math.floor(85 * (1 - activeRatio));
+                const oG = Math.floor(85 * activeRatio);
+                const oB = Math.floor(170 + 85 * activeRatio);
+                coreGrad.addColorStop(0.6, `rgb(${oR}, ${oG}, ${oB})`);
+            }
 
             coreGrad.addColorStop(1, 'rgba(0,0,0,0)');
 
@@ -1064,7 +1106,11 @@ class Enemy {
 
                 ctx.rotate(Math.atan2(lerpY, lerpX));
 
-                ctx.fillStyle = `rgb(${Math.floor(204 + 51 * activeRatio)}, ${Math.floor(119 + 136 * activeRatio)}, 255)`;
+                if (this.canDrop) {
+                    ctx.fillStyle = '#ffaa00';
+                } else {
+                    ctx.fillStyle = `rgb(${Math.floor(204 + 51 * activeRatio)}, ${Math.floor(119 + 136 * activeRatio)}, 255)`;
+                }
                 ctx.shadowColor = themeColor;
                 ctx.shadowBlur = 10 + 10 * activeRatio;
 
@@ -1101,15 +1147,6 @@ class Enemy {
             ctx.shadowBlur = 0; ctx.globalAlpha = 1;
         }
         ctx.restore();
-
-        if (this.canDrop) {
-            ctx.save();
-            ctx.globalAlpha = 0.25 + Math.sin(this.pulse * 3) * 0.15;
-            ctx.shadowColor = '#ffdd00'; ctx.shadowBlur = 15;
-            ctx.strokeStyle = '#ffdd00'; ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.arc(cx, cy, this.w / 2 + 6 + this.pulse, 0, Math.PI * 2); ctx.stroke();
-            ctx.restore();
-        }
 
         const bw = this.w + 4, bx = this.x - 2, by = this.y - 12;
         const hp = this.hp / this.maxHp;
@@ -1148,7 +1185,53 @@ class Enemy {
 
             if (typeof onMoneyEarned === 'function') onMoneyEarned(finalMoney);
 
-            for (let i = 0; i < 10; i++) particles.push(new Particle(this.x + Math.random() * this.w, this.y + Math.random() * this.h, '#ff0', 1, 3, 30));
+            let numCoins = 0;
+            let coinSize = 0;
+
+            if (finalMoney < 50) {
+                numCoins = Math.min(finalMoney / 10, 7);
+                coinSize = 4;
+            } else if (finalMoney < 200) {
+                numCoins = Math.min(finalMoney / 30, 7);
+                coinSize = 6;
+            } else if (finalMoney < 500) {
+                numCoins = Math.min(finalMoney / 70, 7);
+                coinSize = 8;
+            } else if (finalMoney < 2000) {
+                numCoins = Math.min(finalMoney / 250, 7);
+                coinSize = 10;
+            } else {
+                numCoins = 7;
+                coinSize = 12;
+            }
+            numCoins = Math.max(1, Math.floor(numCoins));
+
+            for (let i = 0; i < numCoins; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 2 + Math.random() * 6;
+
+                goldPickups.push({
+                    x: this.x + this.w / 2,
+                    y: this.y + this.h / 2,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed - 2,
+                    size: coinSize,
+                    life: 0
+                });
+            }
+
+            for (let i = 0; i < 8; i++) {
+                const ang = (i / 8) * Math.PI * 2;
+                const spd = 1.5 + Math.random();
+                const p = new Particle(
+                    this.x + this.w / 2 + Math.cos(ang) * 5,
+                    this.y + this.h / 2 + Math.sin(ang) * 5,
+                    '#ffffff', 0, 3, 15 + Math.random() * 10
+                );
+                p.vx = Math.cos(ang) * spd;
+                p.vy = Math.sin(ang) * spd;
+                particles.push(p);
+            }
         }
     }
 }

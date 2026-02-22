@@ -483,13 +483,40 @@ function drawUI() {
     ctx.font = '15px Arial';
     ctx.fillStyle = '#ccc'; ctx.fillText(`Wave ${wave}`, 15, H - 148);
     ctx.fillStyle = '#fff'; ctx.fillText(`Score: ${score}`, 15, H - 128);
-    ctx.fillStyle = '#ffd700'; ctx.fillText(`$ ${playerMoney}`, 15, H - 108);
+
+    if (window.moneyFlash > 0) {
+        window.moneyFlash -= 0.05;
+        const flashIntensity = Math.max(0, window.moneyFlash);
+        ctx.fillStyle = `rgb(255, ${215 + Math.floor(40 * flashIntensity)}, ${Math.floor(255 * flashIntensity)})`;
+        ctx.shadowColor = '#ffff00';
+        ctx.shadowBlur = 10 * flashIntensity;
+        const bounce = Math.sin(flashIntensity * Math.PI) * 4;
+        ctx.font = `bold 16px Arial`;
+        ctx.fillText(`$ ${playerMoney}`, 15, H - 108 - bounce);
+        ctx.shadowBlur = 0;
+    } else {
+        ctx.fillStyle = '#ffd700';
+        ctx.fillText(`$ ${playerMoney}`, 15, H - 108);
+    }
+
     ctx.restore();
 
     let py = 50;
     ctx.font = '15px Arial';
-    if (doubleShotCount > 0) { ctx.fillStyle = '#88bbff'; ctx.fillText(`Double x${doubleShotCount}`, W - 140, py); py += 22; }
-    if (tripleShotCount > 0) { ctx.fillStyle = '#88bbff'; ctx.fillText(`Triple x${tripleShotCount}`, W - 140, py); py += 22; }
+    const lang = typeof getLang === 'function' ? getLang() : null;
+
+    if (doubleShotCount > 0) {
+        ctx.fillStyle = '#88bbff';
+        const txt = lang && lang.doubleShot ? lang.doubleShot : 'Double';
+        ctx.fillText(`${txt} x${doubleShotCount}`, W - 140, py);
+        py += 22;
+    }
+    if (tripleShotCount > 0) {
+        ctx.fillStyle = '#88bbff';
+        const txt = lang && lang.tripleShot ? lang.tripleShot : 'Triple';
+        ctx.fillText(`${txt} x${tripleShotCount}`, W - 140, py);
+        py += 22;
+    }
 
     if (invincible) {
         const shieldDuration = 1250 + (shopItems["Shield"].b * 750);
@@ -502,17 +529,62 @@ function drawUI() {
     if (shieldCooldown > 0) {
         const cdRemaining = Math.ceil(shieldCooldown / 1000);
         ctx.fillStyle = 'rgba(255, 100, 100, 0.8)';
-        ctx.fillText(`Shield CD: ${cdRemaining}s`, W - 160, py);
+        const cdTxt = lang && lang.shieldCd ? lang.shieldCd : 'Shield CD';
+        ctx.fillText(`${cdTxt}: ${cdRemaining}s`, W - 160, py);
         py += 22;
     } else if (!invincible) {
         ctx.fillStyle = '#44ff88';
-        ctx.fillText('Shield: Ready', W - 150, py);
+        const rdTxt = lang && lang.shieldReady ? lang.shieldReady : 'Shield: Ready';
+        ctx.fillText(rdTxt, W - 150, py);
         py += 22;
     }
 
     if (wave === 0 && tutorialCircle) {
         const tc = tutorialCircle;
         const pulseSize = Math.sin(tc.pulse) * 10;
+
+        if (typeof playerX !== 'undefined') {
+            const px = playerX + PW / 2;
+            const py = playerY + PH / 2;
+            const dx = tc.x - px;
+            const dy = tc.y - py;
+            const dist = Math.hypot(dx, dy);
+            const angle = Math.atan2(dy, dx);
+
+            ctx.save();
+            ctx.strokeStyle = `rgba(0, 255, 200, ${0.4 + 0.2 * Math.sin(now * 0.005)})`;
+            ctx.lineWidth = 2;
+
+            ctx.globalAlpha = 0.3;
+            ctx.beginPath();
+            ctx.moveTo(px, py);
+            ctx.lineTo(tc.x, tc.y);
+            ctx.stroke();
+
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = `rgba(0, 255, 200, 0.9)`;
+            const arrowSpacing = 40;
+            const speed = 0.05;
+            const offset = (now * speed) % arrowSpacing;
+
+            for (let d = offset; d < dist - tc.radius; d += arrowSpacing) {
+                if (d < 20) continue; 
+                const ax = px + Math.cos(angle) * d;
+                const ay = py + Math.sin(angle) * d;
+                ctx.save();
+                ctx.translate(ax, ay);
+                ctx.rotate(angle);
+                ctx.beginPath();
+                ctx.moveTo(-6, -6);
+                ctx.lineTo(6, 0);
+                ctx.lineTo(-6, 6);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+            ctx.restore();
+        }
+
         ctx.save();
         ctx.strokeStyle = `rgba(100, 255, 100, ${0.5 + Math.sin(tc.pulse) * 0.3})`;
         ctx.shadowColor = '#44ff66'; ctx.shadowBlur = 15;
@@ -533,33 +605,87 @@ function drawUI() {
         }
 
         ctx.fillStyle = '#fff'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center';
-        ctx.fillText('Enter to Start', tc.x, tc.y - 10);
+        const enterText = lang && lang.enterToStart ? lang.enterToStart : 'Enter to Start';
+        ctx.fillText(enterText, tc.x, tc.y - 10);
         const remaining = Math.ceil((2000 - tutorialProgress) / 1000);
         ctx.font = '16px Arial'; ctx.fillStyle = 'rgba(255,255,255,0.7)';
-        ctx.fillText(`Hold: ${remaining}s`, tc.x, tc.y + 15);
+        const holdText = lang && lang.holdToStart ? lang.holdToStart : 'Hold';
+        ctx.fillText(`${holdText}: ${remaining}s`, tc.x, tc.y + 15);
         ctx.textAlign = 'left';
         ctx.restore();
     }
 
     if (isResting && wave >= 0 && !isShop) {
         const duration = wave === 0 ? 15000 : 5000;
-        const remain = Math.ceil((duration - (now - restStart)) / 1000);
+        const elapsed = now - restStart;
+        const remain = Math.ceil((duration - elapsed) / 1000);
+
+        let animProgress = 1;
+        const slideTime = 400; 
+        if (elapsed < slideTime) {
+            
+            animProgress = elapsed / slideTime;
+        } else if (duration - elapsed < slideTime) {
+            
+            animProgress = (duration - elapsed) / slideTime;
+        }
+        
+        const ease = 1 - Math.pow(1 - animProgress, 3);
+
         ctx.save();
-        ctx.fillStyle = 'rgba(0,0,0,0.3)';
-        ctx.beginPath(); ctx.roundRect(W - 230, 5, 220, wave === 0 ? 50 : 28, 8); ctx.fill();
-        ctx.fillStyle = 'rgb(180,200,255)'; ctx.font = '15px Arial';
+        const cx = W / 2;
+        
+        ctx.translate(cx, -60 * (1 - ease) + 10);
+        ctx.globalAlpha = Math.max(0, Math.min(1, ease));
+
+        ctx.fillStyle = 'rgba(10, 15, 30, 0.4)';
+        ctx.strokeStyle = 'rgba(0, 150, 255, 0.3)';
+        ctx.lineWidth = 1.5;
+
+        ctx.beginPath();
+        const r = 12; 
         if (wave === 0) {
-            ctx.fillText(`Tutorial - Wave 1 in: ${remain}s`, W - 220, 24);
-            ctx.font = '12px Arial'; ctx.fillStyle = 'rgba(180,200,255,0.6)';
-            ctx.fillText('Practice your movement!', W - 200, 44);
+            ctx.moveTo(-160 + r, 0);
+            ctx.arcTo(160, 0, 135, 60, r);
+            ctx.arcTo(135, 60, -135, 60, r);
+            ctx.arcTo(-135, 60, -160, 0, r);
+            ctx.arcTo(-160, 0, 160, 0, r);
         } else {
-            ctx.fillText(`Next wave in: ${remain}s`, W - 210, 24);
+            ctx.moveTo(-130 + r, 0);
+            ctx.arcTo(130, 0, 105, 40, r);
+            ctx.arcTo(105, 40, -105, 40, r);
+            ctx.arcTo(-105, 40, -130, 0, r);
+            ctx.arcTo(-130, 0, 130, 0, r);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(0, 220, 255, 0.9)';
+        ctx.shadowColor = 'rgba(0, 200, 255, 0.4)';
+        ctx.shadowBlur = 5;
+        ctx.textAlign = 'center';
+
+        if (wave === 0) {
+            ctx.font = 'bold 18px "Courier New", monospace';
+            const w1Text = lang && lang.tutorialWave1In ? lang.tutorialWave1In : 'Tutorial - Wave 1 in';
+            ctx.fillText(`${w1Text}: ${remain}s`, 0, 25);
+            ctx.font = '14px "Courier New", monospace';
+            ctx.fillStyle = 'rgba(180,200,255,0.7)';
+            ctx.shadowBlur = 0;
+            const pracText = lang && lang.practiceMovement ? lang.practiceMovement : 'Practice your movement!';
+            ctx.fillText(pracText, 0, 48);
+        } else {
+            ctx.font = 'bold 18px "Courier New", monospace';
+            const nwText = lang && lang.nextWaveIn ? lang.nextWaveIn : 'Next wave in';
+            ctx.fillText(`${nwText}: ${remain}s`, 0, 25);
         }
         ctx.restore();
     }
 }
 
 function drawShop() {
+    const lang = typeof getLang === 'function' ? getLang() : null;
     ctx.fillStyle = 'rgba(5,5,15,0.95)';
     ctx.fillRect(0, 0, W, H);
     const t = Date.now();
@@ -571,10 +697,12 @@ function drawShop() {
     titleGrad.addColorStop(0.5, '#ffffff');
     titleGrad.addColorStop(1, '#ff6688');
     ctx.fillStyle = titleGrad; ctx.font = 'bold 36px Arial'; ctx.textAlign = 'center';
-    ctx.fillText('SHOP', W / 2, 42);
+    const shopTitleTxt = lang && lang.shopTitle ? lang.shopTitle : 'SHOP';
+    ctx.fillText(shopTitleTxt, W / 2, 42);
     ctx.shadowBlur = 0;
     ctx.font = '14px Arial'; ctx.fillStyle = 'rgba(180,200,255,0.4)';
-    ctx.fillText(`Wave ${wave - 1} Complete`, W / 2, 64);
+    const wcText = lang && lang.waveCompleted ? lang.waveCompleted : 'Wave Complete';
+    ctx.fillText(`${wcText} ${wave - 1}`, W / 2, 64);
     ctx.restore();
 
     const flashTime = Date.now() % 600 < 300;
@@ -588,7 +716,9 @@ function drawShop() {
         const remaining = playerMoney - total;
         ctx.font = '13px Arial';
         ctx.fillStyle = remaining >= 0 ? '#44ff88' : '#ff4444';
-        ctx.fillText(`Cost: ${total}  |  After: ${remaining}`, W / 2, 112);
+        const costTxt = lang && lang.shopCost ? lang.shopCost : 'Cost';
+        const afterTxt = lang && lang.shopAfter ? lang.shopAfter : 'After';
+        ctx.fillText(`${costTxt}: ${total}  |  ${afterTxt}: ${remaining}`, W / 2, 112);
     }
 
     const itemColors = {
@@ -815,7 +945,8 @@ function drawShop() {
     ctx.fillStyle = buyGrad;
     ctx.beginPath(); ctx.roundRect(W / 2 - btnW / 2, buyY, btnW, btnH, 6); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.font = 'bold 15px Arial';
-    ctx.fillText('BUY (Enter)', W / 2, buyY + 24);
+    const buyTxt = lang && lang.buySelected ? lang.buySelected : 'Buy Selected';
+    ctx.fillText(`${buyTxt} (Enter)`, W / 2, buyY + 24);
 
     const refreshCost = 20 + shopRefreshCount * 15;
     const canRefresh = playerMoney >= refreshCost;
@@ -827,7 +958,8 @@ function drawShop() {
     ctx.beginPath(); ctx.roundRect(W / 2 - btnW / 2, refY, btnW, btnH, 6); ctx.fill();
     ctx.globalAlpha = 1;
     ctx.fillStyle = canRefresh ? '#fff' : '#888'; ctx.font = 'bold 13px Arial';
-    ctx.fillText(`REFRESH (${refreshCost}$)`, W / 2, refY + 23);
+    const refreshTxt = lang && lang.refresh ? lang.refresh : 'REFRESH';
+    ctx.fillText(`${refreshTxt} (${refreshCost}$)`, W / 2, refY + 23);
 
     const skipGrad = ctx.createLinearGradient(W / 2 - btnW / 2, skipY, W / 2 + btnW / 2, skipY);
     skipGrad.addColorStop(0, '#551a1a');
@@ -835,7 +967,8 @@ function drawShop() {
     ctx.fillStyle = skipGrad;
     ctx.beginPath(); ctx.roundRect(W / 2 - btnW / 2, skipY, btnW, btnH, 6); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.font = 'bold 13px Arial';
-    ctx.fillText('SKIP (Esc)', W / 2, skipY + 23);
+    const skipTxt = lang && lang.skipShopBtn ? lang.skipShopBtn : 'SKIP (Esc)';
+    ctx.fillText(skipTxt, W / 2, skipY + 23);
 
     ctx.textAlign = 'left';
 }

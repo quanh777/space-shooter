@@ -1,7 +1,7 @@
-﻿let waveTransition = { active: false, frame: 0, maxFrames: 150, wave: 0 };
+﻿let waveTransition = { active: false, frame: 0, maxFrames: 180, wave: 0 };
 
 function showWaveTransition(waveNum) {
-    waveTransition = { active: true, frame: 0, maxFrames: 150, wave: waveNum };
+    waveTransition = { active: true, frame: 0, maxFrames: 180, wave: waveNum };
 }
 
 function isTransitionActive() {
@@ -20,61 +20,163 @@ function drawWaveTransition() {
     if (!waveTransition.active) return;
 
     const f = waveTransition.frame;
-    const isBoss = waveTransition.wave % 5 === 0;
+    const isBoss = waveTransition.wave > 0 && waveTransition.wave % 5 === 0;
     const maxF = waveTransition.maxFrames;
+    const cx = W / 2;
+    const cy = H / 2;
 
-    let alpha;
-    if (f < 30) alpha = f / 30;
-    else if (f >= maxF - 30) alpha = (maxF - f) / 30;
-    else alpha = 1;
-    alpha = alpha * alpha * (3 - 2 * alpha);
+    let barSlide = 0;
+    if (f < 20) barSlide = f / 20;
+    else if (f > maxF - 20) barSlide = (maxF - f) / 20;
+    else barSlide = 1;
 
-    const barH = 60 * alpha;
-    ctx.fillStyle = '#000';
+    const easeSlide = 1 - Math.pow(1 - barSlide, 3);
+    const barH = 100 * easeSlide;
+
+    ctx.fillStyle = '#050510';
     ctx.fillRect(0, 0, W, barH);
     ctx.fillRect(0, H - barH, W, barH);
 
-    ctx.fillStyle = `rgba(0,0,0,${alpha * 0.7})`;
+    ctx.fillStyle = `rgba(0,0,0,${easeSlide * 0.65})`;
     ctx.fillRect(0, 0, W, H);
 
-    if (isBoss && f < 60 && f % 10 < 5) {
-        ctx.fillStyle = `rgba(255,0,0,${alpha * 0.15})`;
-        ctx.fillRect(0, 0, W, H);
+    if (isBoss && f > 20 && f < maxF - 20) {
+        ctx.fillStyle = `rgba(255, 0, 0, ${0.1 + Math.sin(f * 0.5) * 0.1})`;
+        ctx.fillRect(0, barH, W, H - barH * 2);
     }
 
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.textAlign = 'center';
+    const impactFrame = 35;
 
-    const mainText = isBoss ? `BOSS WAVE ${waveTransition.wave}` : `WAVE ${waveTransition.wave}`;
-    const mainColor = isBoss ? '#ff3333' : '#aabbff';
-    const glowColor = isBoss ? '#ff0000' : '#4466ff';
+    let textScale = 1;
+    let textAlpha = 1;
+    let xWAVE = cx - 70;
+    let xNum = cx + 90;
 
-    ctx.shadowColor = glowColor;
-    ctx.shadowBlur = 30;
-    ctx.font = 'bold 72px Arial';
-    ctx.fillStyle = mainColor;
-    ctx.fillText(mainText, W / 2, H / 2 - 20);
-    ctx.shadowBlur = 0;
-
-    const lang = typeof getLang === 'function' ? getLang() : { getReady: 'Sẵn sàng!', prepareForBattle: 'Chuẩn bị chiến đấu!' };
-    const subText = isBoss ? lang.prepareForBattle : lang.getReady;
-    ctx.font = 'bold 28px Arial';
-    ctx.fillStyle = isBoss ? 'rgba(255,120,120,0.8)' : 'rgba(200,210,255,0.7)';
-    ctx.fillText(subText, W / 2, H / 2 + 25);
-
-    const lineW = 200 * alpha;
-    ctx.strokeStyle = isBoss ? 'rgba(255,60,60,0.5)' : 'rgba(100,140,255,0.4)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(W / 2 - lineW, H / 2 + 40);
-    ctx.lineTo(W / 2 + lineW, H / 2 + 40);
-    ctx.stroke();
-
-    if (Math.random() < 0.4) {
-        const color = isBoss ? '#ff4444' : '#6688ff';
-        particles.push(new Particle(Math.random() * W, Math.random() * H, color, 1.5, 3, 25));
+    if (isBoss) {
+        xWAVE = cx;
+        xNum = cx;
     }
 
-    ctx.restore();
+    if (f < impactFrame) {
+        const flyIn = Math.max(0, (f - 10) / 25);
+        const easeFly = flyIn * flyIn * flyIn; 
+
+        if (!isBoss) {
+            xWAVE = cx - 70 - W * (1 - easeFly);
+            xNum = cx + 90 + W * (1 - easeFly);
+        } else {
+            textScale = 1 + 5 * (1 - easeFly);
+            textAlpha = easeFly;
+        }
+    } else if (f >= impactFrame && f <= maxF - 20) {
+        const afterImpact = f - impactFrame;
+
+        textScale = 1.2 - (afterImpact / (maxF - 20 - impactFrame)) * 0.2;
+
+        if (afterImpact < 20) {
+            ctx.save();
+            ctx.strokeStyle = isBoss ? '#ff0000' : '#00aaff';
+            ctx.lineWidth = 15 * (1 - afterImpact / 20);
+            ctx.beginPath();
+            ctx.arc(cx, cy, 60 + afterImpact * 20, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.fillStyle = isBoss ? `rgba(255,0,0,${0.6 * (1 - afterImpact / 20)})` : `rgba(255,255,255,${0.8 * (1 - afterImpact / 20)})`;
+            ctx.fillRect(0, barH, W, H - barH * 2);
+            ctx.restore();
+
+            for (let i = 0; i < 3; i++) {
+                const color = isBoss ? '#ff4444' : '#6688ff';
+                particles.push(new Particle(cx + (Math.random() - 0.5) * 150, cy + (Math.random() - 0.5) * 50, color, 1.5, 3, 20 + Math.random() * 20));
+            }
+        }
+    } else if (f > maxF - 20) {
+        const fadeOut = (maxF - f) / 20;
+        textAlpha = fadeOut;
+        textScale = 1 + (1 - fadeOut) * 0.5;
+    }
+
+    if (f >= 10 && textAlpha > 0) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, textAlpha);
+
+        const mainColor = isBoss ? '#ff2222' : '#00e5ff';
+        const glowColor = isBoss ? '#ff0000' : '#00aaff';
+
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = 20 + Math.sin(f * 0.2) * 10;
+        ctx.fillStyle = mainColor;
+        ctx.textAlign = isBoss ? 'center' : 'right';
+        ctx.font = '900 75px "Segoe UI", Arial, sans-serif';
+
+        if (!isBoss) {
+            ctx.save();
+            ctx.translate(xWAVE, cy - 10);
+            ctx.scale(textScale, textScale);
+            ctx.fillText('WAVE', 0, 0);
+            ctx.restore();
+
+            ctx.save();
+            ctx.globalAlpha = textAlpha;
+            ctx.shadowColor = glowColor;
+            ctx.shadowBlur = 20 + Math.sin(f * 0.2) * 10;
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'left';
+            ctx.font = '900 80px "Segoe UI", Arial, sans-serif';
+            ctx.translate(xNum - 140, cy - 10);
+            ctx.scale(textScale, textScale);
+            ctx.fillText(waveTransition.wave, 0, 0);
+            ctx.restore();
+        } else {
+            ctx.save();
+            ctx.translate(cx, cy - 10);
+            ctx.scale(textScale, textScale);
+
+            if (Math.random() < 0.3) {
+                const shiftX = (Math.random() - 0.5) * 15;
+                const shiftY = (Math.random() - 0.5) * 15;
+                ctx.fillStyle = '#00ffff';
+                ctx.fillText(`BOSS WAVE ${waveTransition.wave}`, shiftX, shiftY);
+            }
+            ctx.fillStyle = mainColor;
+            ctx.fillText(`BOSS WAVE ${waveTransition.wave}`, 0, 0);
+            ctx.restore();
+        }
+
+        if (f >= impactFrame) {
+            const afterImpact = f - impactFrame;
+            const subAlpha = Math.min(1, afterImpact / 20) * textAlpha;
+
+            const lang = typeof getLang === 'function' ? getLang() : { getReady: 'Sẵn sàng!', prepareForBattle: 'CẢNH BÁO TỐI ĐA' };
+            let subText = isBoss ? lang.prepareForBattle : lang.getReady;
+            if (waveTransition.wave === 1) subText = lang.tutorialStart || 'Bắt đầu hướng dẫn';
+
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, subAlpha);
+            ctx.textAlign = 'center';
+            ctx.font = 'bold 24px Arial';
+            ctx.fillStyle = isBoss ? '#ffaaaa' : '#ccffff';
+
+            let currentX = cx - (subText.length * 9);
+            for (let i = 0; i < subText.length; i++) {
+                ctx.fillText(subText.charAt(i).toUpperCase(), currentX, cy + 50);
+                currentX += 18; 
+            }
+
+            const lineExt = Math.min(280, afterImpact * 18);
+            ctx.strokeStyle = isBoss ? '#ff5555' : '#55aaff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(cx - lineExt, cy + 70);
+            ctx.lineTo(cx + lineExt, cy + 70);
+            ctx.stroke();
+
+            ctx.fillStyle = ctx.strokeStyle;
+            ctx.fillRect(cx - lineExt - 4, cy + 68, 4, 4);
+            ctx.fillRect(cx + lineExt, cy + 68, 4, 4);
+
+            ctx.restore();
+        }
+        ctx.restore();
+    }
 }

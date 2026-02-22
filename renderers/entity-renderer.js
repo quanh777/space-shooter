@@ -111,7 +111,7 @@ function drawEnemy(e, ctx) {
     ctx.restore();
 
     if (!usesOriginal) {
-        
+
         if (e.flash > 0) {
             ctx.globalCompositeOperation = 'lighter';
             ctx.fillStyle = `rgba(255,255,255,${e.flash * 0.4})`;
@@ -142,39 +142,64 @@ function drawMinion(e, ctx, cx, cy, t, faceAngle) {
     ctx.rotate(e.anim * 0.35);
 
     ctx.globalAlpha = 0.12;
-    ctx.fillStyle = '#aa55ff';
+    ctx.fillStyle = e.canDrop ? '#ffee55' : '#aa55ff';
     ctx.beginPath(); ctx.arc(0, 0, r + 4, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 1;
 
     for (let i = 0; i < 4; i++) {
         const a = (i / 4) * Math.PI * 2;
         const bx2 = Math.cos(a) * r, by2 = Math.sin(a) * r;
-        ctx.strokeStyle = `rgba(200,100,255,${0.6 + Math.sin(e.anim * 0.4 + i) * 0.3})`;
+        ctx.strokeStyle = e.canDrop
+            ? `rgba(255,200,0,${0.6 + Math.sin(e.anim * 0.4 + i) * 0.3})`
+            : `rgba(200,100,255,${0.6 + Math.sin(e.anim * 0.4 + i) * 0.3})`;
         ctx.lineWidth = 2.5;
         ctx.beginPath(); ctx.moveTo(Math.cos(a) * 2, Math.sin(a) * 2); ctx.lineTo(bx2, by2); ctx.stroke();
-        ctx.fillStyle = '#dd88ff';
+        ctx.fillStyle = e.canDrop ? '#ffdd55' : '#dd88ff';
         ctx.beginPath(); ctx.arc(bx2, by2, 2.5, 0, Math.PI * 2); ctx.fill();
     }
 
-    const mGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.5);
-    mGrad.addColorStop(0, '#ffccff');
-    mGrad.addColorStop(0.5, '#aa44dd');
-    mGrad.addColorStop(1, '#550088');
+    const mGrad = e.canDrop
+        ? ctx.createLinearGradient(-r * 0.5, 0, r * 0.5, 0)
+        : ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.5);
+
+    if (e.canDrop) {
+        const cycle = ((Date.now() + cx) % 1500) / 1500;
+        mGrad.addColorStop(0, '#ffcc00');
+        if (cycle > 0.1 && cycle < 0.9) {
+            mGrad.addColorStop(Math.max(0, cycle - 0.1), '#ffaa00');
+            mGrad.addColorStop(cycle, '#ffffff'); 
+            mGrad.addColorStop(Math.min(1, cycle + 0.1), '#aa6600');
+        } else {
+            mGrad.addColorStop(0.5, '#ffaa00');
+        }
+        mGrad.addColorStop(1, '#aa6600');
+    } else {
+        mGrad.addColorStop(0, '#ffccff');
+        mGrad.addColorStop(0.5, '#aa44dd');
+        mGrad.addColorStop(1, '#550088');
+    }
     ctx.fillStyle = mGrad;
     ctx.beginPath(); ctx.arc(0, 0, r * 0.5, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = 'rgba(200,120,255,0.6)'; ctx.lineWidth = 1;
+    ctx.strokeStyle = e.canDrop ? 'rgba(255,200,50,0.6)' : 'rgba(200,120,255,0.6)';
+    ctx.lineWidth = 1;
     ctx.beginPath(); ctx.arc(0, 0, r * 0.5, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
 
     ctx.save();
     ctx.translate(cx, cy); ctx.rotate(faceAngle);
-    ctx.fillStyle = '#ff44ff'; ctx.shadowColor = '#ff00ff'; ctx.shadowBlur = 8;
+    if (e.canDrop) {
+        ctx.fillStyle = '#ffaa00'; ctx.shadowColor = '#ffff00'; ctx.shadowBlur = 8;
+    } else {
+        ctx.fillStyle = '#ff44ff'; ctx.shadowColor = '#ff00ff'; ctx.shadowBlur = 8;
+    }
     ctx.beginPath(); ctx.arc(r * 0.25, -4, 2, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(r * 0.25, 4, 2, 0, Math.PI * 2); ctx.fill();
     ctx.shadowBlur = 0;
     ctx.restore();
 
-    ctx.strokeStyle = `rgba(200,100,255,${0.4 + Math.sin(e.anim * 0.5) * 0.2})`;
+    ctx.strokeStyle = e.canDrop
+        ? `rgba(255,200,50,${0.4 + Math.sin(e.anim * 0.5) * 0.2})`
+        : `rgba(200,100,255,${0.4 + Math.sin(e.anim * 0.5) * 0.2})`;
     ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.arc(cx, cy, r + 2, 0, Math.PI * 2); ctx.stroke();
 }
@@ -186,7 +211,7 @@ function drawSmallEnemy(e, ctx, cx, cy, t, faceAngle) {
     const flap = Math.sin(e.anim * 1.5) * hh * 0.3;
 
     ctx.globalAlpha = 0.08;
-    ctx.fillStyle = '#ff3322';
+    ctx.fillStyle = e.canDrop ? '#ffee55' : '#ff3322';
     ctx.beginPath();
     ctx.moveTo(cx, cy - hh * 0.7);
     ctx.lineTo(cx - hw * 0.5, cy + hh * 1.5);
@@ -194,19 +219,51 @@ function drawSmallEnemy(e, ctx, cx, cy, t, faceAngle) {
     ctx.closePath(); ctx.fill();
     ctx.globalAlpha = 1;
 
-    const abdGrad = ctx.createRadialGradient(cx, cy + hh * 0.15, 0, cx, cy + hh * 0.15, hh * 0.35);
-    abdGrad.addColorStop(0, '#ff6655');
-    abdGrad.addColorStop(1, '#881100');
+    const abdGrad = e.canDrop
+        ? ctx.createLinearGradient(cx - hw * 0.3, cy + hh * 0.15, cx + hw * 0.3, cy + hh * 0.15)
+        : ctx.createRadialGradient(cx, cy + hh * 0.15, 0, cx, cy + hh * 0.15, hh * 0.35);
+
+    if (e.canDrop) {
+        const cycle = ((Date.now() + cx) % 1500) / 1500;
+        abdGrad.addColorStop(0, '#ffcc00');
+        if (cycle > 0.1 && cycle < 0.9) {
+            abdGrad.addColorStop(Math.max(0, cycle - 0.1), '#ffaa00');
+            abdGrad.addColorStop(cycle, '#ffffff');
+            abdGrad.addColorStop(Math.min(1, cycle + 0.1), '#aa6600');
+        } else {
+            abdGrad.addColorStop(0.5, '#ffaa00');
+        }
+        abdGrad.addColorStop(1, '#aa6600');
+    } else {
+        abdGrad.addColorStop(0, '#ff6655');
+        abdGrad.addColorStop(1, '#881100');
+    }
     ctx.fillStyle = abdGrad;
     ctx.beginPath(); ctx.ellipse(cx, cy + hh * 0.15, hw * 0.3, hh * 0.3, 0, 0, Math.PI * 2); ctx.fill();
 
-    const thxGrad = ctx.createRadialGradient(cx, cy - hh * 0.1, 0, cx, cy - hh * 0.1, hw * 0.25);
-    thxGrad.addColorStop(0, '#ff8877');
-    thxGrad.addColorStop(1, '#992200');
+    const thxGrad = e.canDrop
+        ? ctx.createLinearGradient(cx - hw * 0.25, cy - hh * 0.1, cx + hw * 0.25, cy - hh * 0.1)
+        : ctx.createRadialGradient(cx, cy - hh * 0.1, 0, cx, cy - hh * 0.1, hw * 0.25);
+
+    if (e.canDrop) {
+        const cycle = ((Date.now() + cx) % 1500) / 1500;
+        thxGrad.addColorStop(0, '#ffee00');
+        if (cycle > 0.1 && cycle < 0.9) {
+            thxGrad.addColorStop(Math.max(0, cycle - 0.1), '#ffcc00');
+            thxGrad.addColorStop(cycle, '#ffffff');
+            thxGrad.addColorStop(Math.min(1, cycle + 0.1), '#cc8800');
+        } else {
+            thxGrad.addColorStop(0.5, '#ffcc00');
+        }
+        thxGrad.addColorStop(1, '#cc8800');
+    } else {
+        thxGrad.addColorStop(0, '#ff8877');
+        thxGrad.addColorStop(1, '#992200');
+    }
     ctx.fillStyle = thxGrad;
     ctx.beginPath(); ctx.ellipse(cx, cy - hh * 0.1, hw * 0.25, hh * 0.2, 0, 0, Math.PI * 2); ctx.fill();
 
-    ctx.fillStyle = '#cc3322';
+    ctx.fillStyle = e.canDrop ? '#ccaa00' : '#cc3322';
     ctx.beginPath(); ctx.ellipse(cx, cy - hh * 0.4, hw * 0.2, hh * 0.15, 0, 0, Math.PI * 2); ctx.fill();
 
     ctx.fillStyle = 'rgba(255,100,80,0.18)';

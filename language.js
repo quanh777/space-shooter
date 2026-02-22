@@ -96,7 +96,27 @@ const LANGUAGES = {
         buySelected: 'Mua Đã Chọn',
         skipShopBtn: 'Bỏ Qua (ESC)',
         shieldReady: 'Khiên: Sẵn sàng',
-        shieldCd: 'Khiên CD'
+        shieldCd: 'Khiên CD',
+
+        tutPcMove: 'WASD / Mũi tên: Di chuyển',
+        tutPcDash: 'SPACE: Lướt (Tốn NL)',
+        tutPcShoot: 'Chuột trái/Tự động: Bắn thẳng',
+        tutPcBomb: 'Q / Phải chuột: Kỹ năng Bomb',
+        tutMobMove: 'Joystick: Di chuyển',
+        tutMobDash: 'Nút Lướt: Lướt (Tốn NL)',
+        tutMobShoot: 'Tự động ngắm bắn',
+        tutMobBomb: 'Nút Bomb: Kỹ năng dọn dẹp',
+
+        enterToStart: 'Vào Điểm',
+        tutorialStart: 'BẮT ĐẦU HƯỚNG DẪN',
+        tutorialWave1In: 'Hướng dẫn - Wave 1 trong',
+        practiceMovement: 'Hãy di chuyển đến điểm đánh dấu!',
+        shopCost: 'Giá',
+        shopAfter: 'Sau khi mua',
+        refresh: 'LÀM MỚI',
+        fastClear: 'DỌN NHANH',
+        doubleShot: 'Đạn Đôi',
+        tripleShot: 'Đạn Ba'
     },
     en: {
         loading: 'Loading...',
@@ -195,7 +215,27 @@ const LANGUAGES = {
         buySelected: 'Buy Selected',
         skipShopBtn: 'Skip (ESC)',
         shieldReady: 'Shield: Ready',
-        shieldCd: 'Shield CD'
+        shieldCd: 'Shield CD',
+
+        tutPcMove: 'WASD / Arrows: Move',
+        tutPcDash: 'SPACE: Dash (Costs EN)',
+        tutPcShoot: 'Left Click/Auto: Shoot',
+        tutPcBomb: 'Q / Right Click: Bomb Skill',
+        tutMobMove: 'Joystick: Move',
+        tutMobDash: 'Dash Button: Dash (Costs EN)',
+        tutMobShoot: 'Auto aim & shoot',
+        tutMobBomb: 'Bomb Button: Clear area',
+
+        enterToStart: 'Enter',
+        tutorialStart: 'START TUTORIAL',
+        tutorialWave1In: 'Tutorial - Wave 1 in',
+        practiceMovement: 'Follow the guiding line!',
+        shopCost: 'Cost',
+        shopAfter: 'After',
+        refresh: 'REFRESH',
+        fastClear: 'FAST CLEAR',
+        doubleShot: 'Double Shot',
+        tripleShot: 'Triple Shot'
     }
 };
 
