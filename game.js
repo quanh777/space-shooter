@@ -1,5 +1,5 @@
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+const canvas = _offscreenCanvas; // Offscreen Canvas2D buffer (pixi-setup.js)
+const ctx = _offscreenCtx;       // Offscreen 2D context (pixi-setup.js)
 const W = 800, H = 600;
 
 let gameRunning = false;
@@ -260,21 +260,7 @@ class Particle {
         this.sz = Math.max(0, this.maxSz * (this.lt / this.maxLt));
     }
     draw() {
-        if (this.lt <= 0 || this.sz <= 0.2) return;
-        const alpha = Math.min(1, this.lt / this.maxLt);
-        ctx.save();
-        ctx.globalAlpha = alpha;
-
-        ctx.shadowColor = this.c;
-        ctx.shadowBlur = this.sz * 3;
-        ctx.fillStyle = this.c;
-        ctx.beginPath(); ctx.arc(this.x, this.y, this.sz, 0, Math.PI * 2); ctx.fill();
-
-        ctx.shadowBlur = 0;
-        ctx.globalAlpha = alpha * 0.7;
-        ctx.fillStyle = '#fff';
-        ctx.beginPath(); ctx.arc(this.x, this.y, this.sz * 0.4, 0, Math.PI * 2); ctx.fill();
-        ctx.restore();
+        drawParticle(this, ctx);
     }
 }
 
@@ -320,75 +306,7 @@ class Bullet {
         if (Math.random() < 0.3) particles.push(new Particle(this.x, this.y, this.c, 0.5, 2, 10));
     }
     draw() {
-        ctx.save();
-
-        this.trail.forEach((p, i) => {
-            if (this.trail.length > 1) {
-                const t = i / this.trail.length;
-                const s = this.r * t * 0.8;
-                if (s > 0.3) {
-                    ctx.globalAlpha = t * 0.6;
-                    ctx.shadowColor = this.c;
-                    ctx.shadowBlur = s * 2;
-                    ctx.fillStyle = this.c;
-                    ctx.beginPath(); ctx.arc(p.x, p.y, s, 0, Math.PI * 2); ctx.fill();
-                }
-            }
-        });
-        ctx.shadowBlur = 0;
-        ctx.globalAlpha = 1;
-
-        ctx.globalAlpha = 0.25;
-        ctx.shadowColor = this.c;
-        ctx.shadowBlur = 15;
-        ctx.fillStyle = this.c;
-        ctx.beginPath(); ctx.arc(this.x, this.y, this.r * 2.5, 0, Math.PI * 2); ctx.fill();
-        ctx.shadowBlur = 0;
-
-        ctx.globalAlpha = 1;
-        if (!this.isEnemy) {
-
-            const angle = Math.atan2(this.dy, this.dx);
-            ctx.save();
-            ctx.translate(this.x, this.y);
-            ctx.rotate(angle);
-            ctx.fillStyle = '#88bbff';
-            ctx.shadowColor = '#4488ff';
-            ctx.shadowBlur = 10;
-            ctx.beginPath();
-            ctx.moveTo(this.r * 1.5, 0);
-            ctx.lineTo(0, -this.r * 0.6);
-            ctx.lineTo(-this.r, 0);
-            ctx.lineTo(0, this.r * 0.6);
-            ctx.closePath();
-            ctx.fill();
-
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#ddeeff';
-            ctx.beginPath();
-            ctx.moveTo(this.r * 0.8, 0);
-            ctx.lineTo(0, -this.r * 0.25);
-            ctx.lineTo(-this.r * 0.3, 0);
-            ctx.lineTo(0, this.r * 0.25);
-            ctx.closePath();
-            ctx.fill();
-            ctx.restore();
-        } else {
-
-            ctx.shadowColor = this.c;
-            ctx.shadowBlur = 8;
-            ctx.fillStyle = this.c;
-            ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2); ctx.fill();
-            ctx.shadowBlur = 0;
-
-            ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-            ctx.lineWidth = 0.8;
-            ctx.beginPath(); ctx.arc(this.x, this.y, this.r * 0.6, 0, Math.PI * 2); ctx.stroke();
-
-            ctx.fillStyle = 'rgba(255,255,255,0.7)';
-            ctx.beginPath(); ctx.arc(this.x, this.y, this.r * 0.35, 0, Math.PI * 2); ctx.fill();
-        }
-        ctx.restore();
+        drawBullet(this, ctx);
     }
 }
 
@@ -556,26 +474,26 @@ class Enemy {
         if (this.warpWarmupTimer > 0) {
             this.warpWarmupTimer--;
             if (this.warpWarmupTimer <= 0) {
-                
+
                 this.warpStartX = this.x;
                 this.warpStartY = this.y;
-                this.warpTimer = 40; 
+                this.warpTimer = 40;
 
                 this.x = Math.random() * (W - this.w);
                 this.y = Math.random() * (H / 2);
                 this.teleportCooldown = 180;
 
                 for (let i = 0; i < 20; i++) {
-                    particles.push(new Particle(this.x + this.w / 2, this.y + this.h / 2, '#00ffff', 3, 5, 25)); 
+                    particles.push(new Particle(this.x + this.w / 2, this.y + this.h / 2, '#00ffff', 3, 5, 25));
                 }
             }
-            return; 
+            return;
         }
 
         const hpRatio = this.hp / this.maxHp;
 
         if (hpRatio < 0.4 && this.teleportCooldown <= 0 && Math.random() < 0.03 && !this.warpWarmupTimer) {
-            this.warpWarmupTimer = 30; 
+            this.warpWarmupTimer = 30;
             return;
         }
 
@@ -615,13 +533,11 @@ class Enemy {
     }
 
     draw() {
+        drawEnemy(this, ctx);
+    }
+
+    _drawOriginal(ctx, cx, cy, t, faceAngle) {
         ctx.save();
-        const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
-        const t = Date.now();
-
-        const dx = playerX - cx, dy = playerY - cy;
-        const faceAngle = Math.atan2(dy, dx);
-
         if (this.isMinion) {
 
             ctx.save();
@@ -746,8 +662,8 @@ class Enemy {
 
             ctx.save();
             ctx.translate(cx, cy);
-            ctx.rotate(faceAngle + Math.PI / 2); 
-            ctx.scale(0.7, 0.7); 
+            ctx.rotate(faceAngle + Math.PI / 2);
+            ctx.scale(0.7, 0.7);
             ctx.translate(-cx, -cy);
 
             const hw = this.w / 2, hh = this.h / 2;
@@ -759,7 +675,7 @@ class Enemy {
 
             ctx.shadowColor = 'rgba(255, 100, 0, 0.3)';
             ctx.shadowBlur = 10;
-            ctx.fillStyle = '#1a1c1e'; 
+            ctx.fillStyle = '#1a1c1e';
             ctx.beginPath();
             ctx.moveTo(cx - hw * 0.4, cy - hh + hoverY);
             ctx.lineTo(cx + hw * 0.4, cy - hh + hoverY);
@@ -799,22 +715,22 @@ class Enemy {
                 const py = cy + hoverY;
 
                 const pGrad = ctx.createLinearGradient(px, py - hh, px + side * hw, py + hh);
-                pGrad.addColorStop(0, '#ff9933'); 
-                pGrad.addColorStop(0.5, '#ff5500'); 
-                pGrad.addColorStop(1, '#aa3300'); 
+                pGrad.addColorStop(0, '#ff9933');
+                pGrad.addColorStop(0.5, '#ff5500');
+                pGrad.addColorStop(1, '#aa3300');
 
                 ctx.fillStyle = pGrad;
                 ctx.strokeStyle = '#332211';
                 ctx.lineWidth = 1.5;
 
                 ctx.beginPath();
-                
+
                 ctx.moveTo(px, py - hh * 0.8);
                 ctx.lineTo(px + side * hw * 0.3, py - hh * 0.4);
                 ctx.lineTo(px + side * hw * 0.1, py);
                 ctx.lineTo(px + side * hw * 0.4, py + hh * 0.4);
                 ctx.lineTo(px, py + hh * 0.8);
-                
+
                 ctx.lineTo(px + side * hw * 0.8, py + hh * 0.8);
                 ctx.lineTo(px + side * hw, py);
                 ctx.lineTo(px + side * hw * 0.8, py - hh * 0.8);
@@ -988,7 +904,7 @@ class Enemy {
 
             ctx.restore();
 
-        } else {            
+        } else {
             const r = this.w / 2;
             const justTeleported = this.teleportCooldown > 165;
             const timeToShoot = Math.max(0, 1800 - (Date.now() - this.lastShot));
@@ -1004,7 +920,7 @@ class Enemy {
 
             if (this.warpTimer > 0) {
                 this.warpTimer--;
-                const trailRatio = this.warpTimer / 40; 
+                const trailRatio = this.warpTimer / 40;
 
                 ctx.save();
                 ctx.globalAlpha = trailRatio * 0.35;
@@ -1169,7 +1085,7 @@ class Enemy {
 
             if (justTeleported) {
                 ctx.globalAlpha = 1;
-                
+
                 ctx.setTransform(1, 0, 0, 1, 0, 0);
             }
         }

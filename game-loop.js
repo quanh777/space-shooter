@@ -231,7 +231,7 @@ function explodeBomb(bomb) {
         const dy = (enemy.y + enemy.h / 2) - bomb.y;
         const d = Math.sqrt(dx * dx + dy * dy);
 
-        if (d <= skill.radius) {
+        if (!enemy.entering && !enemy.dying && d <= skill.radius) {
             const falloff = 1 - (d / skill.radius) * 0.5;
             enemy.hit(skill.damage * falloff);
 
@@ -518,7 +518,7 @@ function update() {
         bullets = bullets.filter(b => {
             if (b.isEnemy) return true;
 
-            if (b.x >= e.x && b.x <= e.x + e.w && b.y >= e.y && b.y <= e.y + e.h) {
+            if (!e.entering && !e.dying && b.x >= e.x && b.x <= e.x + e.w && b.y >= e.y && b.y <= e.y + e.h) {
                 if (!b.hitEnemies) b.hitEnemies = new Set();
                 if (b.hitEnemies.has(e)) return true;
                 b.hitEnemies.add(e);
@@ -555,7 +555,7 @@ function update() {
             return true;
         });
 
-        if (!invincible && playerX < e.x + e.w && playerX + PW > e.x && playerY < e.y + e.h && playerY + PH > e.y) {
+        if (!e.entering && !e.dying && !invincible && playerX < e.x + e.w && playerX + PW > e.x && playerY < e.y + e.h && playerY + PH > e.y) {
             const collisionDamage = e.contactDamage || (e.type == 'boss' ? 50 : (e.type == 'elite' ? 35 : (e.type == 'large' ? 30 : (e.type == 'medium' ? 20 : 10))));
 
             if (shieldCooldown <= 0 && collisionDamage > 10) {
@@ -580,7 +580,7 @@ function update() {
             }
         }
 
-        return e.hp > 0;
+        return e.type === 'boss' ? e.hp !== -999 : e.hp > 0;
     });
 
     particles = particles.filter(p => { p.update(); return p.lt > 0 });
@@ -1228,12 +1228,13 @@ let animationFrameId = null;
 
 function gameLoop() {
     update(); draw();
+    updatePixiFrame();
     animationFrameId = requestAnimationFrame(gameLoop);
 }
 
 function startGame() {
     document.getElementById('mainMenu').classList.add('hidden');
-    canvas.style.display = 'block';
+    if (visibleCanvas) visibleCanvas.style.display = 'block';
 
     const langBtn = document.getElementById('langToggle');
     if (langBtn) langBtn.classList.add('hidden');
@@ -1326,7 +1327,7 @@ function resetGame() {
 
 function gameOver() {
     gameRunning = false;
-    canvas.style.display = 'none';
+    if (visibleCanvas) visibleCanvas.style.display = 'none';
     if (typeof hideMobileControls === 'function') hideMobileControls();
     document.getElementById('finalScore').textContent = score;
     document.getElementById('finalWave').textContent = wave;
@@ -1408,7 +1409,7 @@ document.addEventListener('keydown', e => {
     if (isPaused && (e.key === 'm' || e.key === 'M')) {
         isPaused = false;
         gameRunning = false;
-        canvas.style.display = 'none';
+        if (visibleCanvas) visibleCanvas.style.display = 'none';
         document.getElementById('mainMenu').classList.remove('hidden');
 
         const langBtn = document.getElementById('langToggle');
@@ -1453,13 +1454,20 @@ document.addEventListener('keydown', e => {
 
 document.addEventListener('keyup', e => { keys[e.key] = false });
 
-canvas.addEventListener('click', e => {
+let _lastTouchTime = 0;
+
+document.addEventListener('click', e => {
+    if (Date.now() - _lastTouchTime < 500) return;
+    const vc = visibleCanvas || document.getElementById('gameCanvas');
+    if (!vc) return;
+
+    const rect = vc.getBoundingClientRect();
+    const scaleX = W / rect.width;
+    const scaleY = H / rect.height;
+    const mx = (e.clientX - rect.left) * scaleX;
+    const my = (e.clientY - rect.top) * scaleY;
+
     if (isPaused) {
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        const mx = (e.clientX - rect.left) * scaleX;
-        const my = (e.clientY - rect.top) * scaleY;
 
         const btnW = 220, btnH = 44;
         const btnX = W / 2 - btnW / 2;
@@ -1481,11 +1489,6 @@ canvas.addEventListener('click', e => {
 
     if (!isShop) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const mx = (e.clientX - rect.left) * scaleX;
-    const my = (e.clientY - rect.top) * scaleY;
 
     const sl = getShopLayout();
     itemsToSell.forEach((item, i) => {
@@ -1538,17 +1541,20 @@ canvas.addEventListener('click', e => {
     }
 });
 
-canvas.addEventListener('touchstart', e => {
+document.addEventListener('touchstart', e => {
+    _lastTouchTime = Date.now();
+    const vc = visibleCanvas || document.getElementById('gameCanvas');
+    if (!vc) return;
+
+    const rect = vc.getBoundingClientRect();
+    const touch = e.touches[0];
+    const scaleX = W / rect.width;
+    const scaleY = H / rect.height;
+    const mx = (touch.clientX - rect.left) * scaleX;
+    const my = (touch.clientY - rect.top) * scaleY;
+
     if (isPaused) {
         e.preventDefault();
-        const rect = canvas.getBoundingClientRect();
-        const touch = e.touches[0];
-
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-
-        const mx = (touch.clientX - rect.left) * scaleX;
-        const my = (touch.clientY - rect.top) * scaleY;
 
         const btnW = 220, btnH = 44;
         const btnX = W / 2 - btnW / 2;
@@ -1569,14 +1575,6 @@ canvas.addEventListener('touchstart', e => {
 
     if (isShop) {
         e.preventDefault();
-        const rect = canvas.getBoundingClientRect();
-        const touch = e.touches[0];
-
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-
-        const mx = (touch.clientX - rect.left) * scaleX;
-        const my = (touch.clientY - rect.top) * scaleY;
 
         const sl = getShopLayout();
         itemsToSell.forEach((item, i) => {
@@ -1626,9 +1624,10 @@ canvas.addEventListener('touchstart', e => {
         }
         return;
     }
-});
+}, { passive: false });
 
 window.addEventListener('load', () => {
+    initPixiRenderer();
     setTimeout(() => {
         document.getElementById('loadingScreen').style.display = 'none';
         document.getElementById('mainMenu').classList.remove('hidden');
