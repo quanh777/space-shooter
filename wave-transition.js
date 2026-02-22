@@ -1,7 +1,7 @@
-﻿let waveTransition = { active: false, frame: 0, maxFrames: 180, wave: 0 };
+﻿let waveTransition = { active: false, frame: 0, maxFrames: 90, wave: 0 };
 
 function showWaveTransition(waveNum) {
-    waveTransition = { active: true, frame: 0, maxFrames: 180, wave: waveNum };
+    waveTransition = { active: true, frame: 0, maxFrames: 90, wave: waveNum };
 }
 
 function isTransitionActive() {
@@ -26,8 +26,8 @@ function drawWaveTransition() {
     const cy = H / 2;
 
     let barSlide = 0;
-    if (f < 20) barSlide = f / 20;
-    else if (f > maxF - 20) barSlide = (maxF - f) / 20;
+    if (f < 10) barSlide = f / 10;
+    else if (f > maxF - 10) barSlide = (maxF - f) / 10;
     else barSlide = 1;
 
     const easeSlide = 1 - Math.pow(1 - barSlide, 3);
@@ -40,12 +40,12 @@ function drawWaveTransition() {
     ctx.fillStyle = `rgba(0,0,0,${easeSlide * 0.65})`;
     ctx.fillRect(0, 0, W, H);
 
-    if (isBoss && f > 20 && f < maxF - 20) {
+    if (isBoss && f > 10 && f < maxF - 10) {
         ctx.fillStyle = `rgba(255, 0, 0, ${0.1 + Math.sin(f * 0.5) * 0.1})`;
         ctx.fillRect(0, barH, W, H - barH * 2);
     }
 
-    const impactFrame = 35;
+    const impactFrame = 17;
 
     let textScale = 1;
     let textAlpha = 1;
@@ -58,8 +58,8 @@ function drawWaveTransition() {
     }
 
     if (f < impactFrame) {
-        const flyIn = Math.max(0, (f - 10) / 25);
-        const easeFly = flyIn * flyIn * flyIn; 
+        const flyIn = Math.max(0, (f - 5) / 12);
+        const easeFly = flyIn * flyIn * flyIn;
 
         if (!isBoss) {
             xWAVE = cx - 70 - W * (1 - easeFly);
@@ -68,20 +68,20 @@ function drawWaveTransition() {
             textScale = 1 + 5 * (1 - easeFly);
             textAlpha = easeFly;
         }
-    } else if (f >= impactFrame && f <= maxF - 20) {
+    } else if (f >= impactFrame && f <= maxF - 10) {
         const afterImpact = f - impactFrame;
 
-        textScale = 1.2 - (afterImpact / (maxF - 20 - impactFrame)) * 0.2;
+        textScale = 1.2 - (afterImpact / (maxF - 10 - impactFrame)) * 0.2;
 
-        if (afterImpact < 20) {
+        if (afterImpact < 10) {
             ctx.save();
             ctx.strokeStyle = isBoss ? '#ff0000' : '#00aaff';
-            ctx.lineWidth = 15 * (1 - afterImpact / 20);
+            ctx.lineWidth = 15 * (1 - afterImpact / 10);
             ctx.beginPath();
-            ctx.arc(cx, cy, 60 + afterImpact * 20, 0, Math.PI * 2);
+            ctx.arc(cx, cy, 60 + afterImpact * 40, 0, Math.PI * 2);
             ctx.stroke();
 
-            ctx.fillStyle = isBoss ? `rgba(255,0,0,${0.6 * (1 - afterImpact / 20)})` : `rgba(255,255,255,${0.8 * (1 - afterImpact / 20)})`;
+            ctx.fillStyle = isBoss ? `rgba(255,0,0,${0.6 * (1 - afterImpact / 10)})` : `rgba(255,255,255,${0.8 * (1 - afterImpact / 10)})`;
             ctx.fillRect(0, barH, W, H - barH * 2);
             ctx.restore();
 
@@ -90,13 +90,13 @@ function drawWaveTransition() {
                 particles.push(new Particle(cx + (Math.random() - 0.5) * 150, cy + (Math.random() - 0.5) * 50, color, 1.5, 3, 20 + Math.random() * 20));
             }
         }
-    } else if (f > maxF - 20) {
-        const fadeOut = (maxF - f) / 20;
+    } else if (f > maxF - 10) {
+        const fadeOut = (maxF - f) / 10;
         textAlpha = fadeOut;
         textScale = 1 + (1 - fadeOut) * 0.5;
     }
 
-    if (f >= 10 && textAlpha > 0) {
+    if (f >= 5 && textAlpha > 0) {
         ctx.save();
         ctx.globalAlpha = Math.max(0, textAlpha);
 
@@ -145,7 +145,7 @@ function drawWaveTransition() {
 
         if (f >= impactFrame) {
             const afterImpact = f - impactFrame;
-            const subAlpha = Math.min(1, afterImpact / 20) * textAlpha;
+            const subAlpha = Math.min(1, afterImpact / 10) * textAlpha;
 
             const lang = typeof getLang === 'function' ? getLang() : { getReady: 'Sẵn sàng!', prepareForBattle: 'CẢNH BÁO TỐI ĐA' };
             let subText = isBoss ? lang.prepareForBattle : lang.getReady;
@@ -160,10 +160,10 @@ function drawWaveTransition() {
             let currentX = cx - (subText.length * 9);
             for (let i = 0; i < subText.length; i++) {
                 ctx.fillText(subText.charAt(i).toUpperCase(), currentX, cy + 50);
-                currentX += 18; 
+                currentX += 18;
             }
 
-            const lineExt = Math.min(280, afterImpact * 18);
+            const lineExt = Math.min(280, afterImpact * 36);
             ctx.strokeStyle = isBoss ? '#ff5555' : '#55aaff';
             ctx.lineWidth = 2;
             ctx.beginPath();
