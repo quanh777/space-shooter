@@ -1,11 +1,8 @@
-// ============================================================
-// BOSS RENDERER — Separated graphics for all boss types
-// Replaces Boss.draw() with ultra-detailed, expressive designs
-// ============================================================
+
 
 function drawBoss(boss, ctx) {
     if (boss.teleporting && boss.teleportTimer < 200) return;
-    if (boss.dying && boss.deathState >= 2) return; // Completely hidden during final cinematic flash
+    if (boss.dying && boss.deathState >= 2) return; 
 
     ctx.save();
     const cx = boss.x + boss.w / 2, cy = boss.y + boss.h / 2;
@@ -19,7 +16,6 @@ function drawBoss(boss, ctx) {
     const ce = boss.coreEnergy;
     const wu = boss.attackWindup;
 
-    // ====== CHARGE TELEGRAPH ======
     if (boss.preChargeTimer > 0 && boss.chargeDirection) {
         ctx.save();
         const chargeRatio = 1 - boss.preChargeTimer / 90;
@@ -48,7 +44,6 @@ function drawBoss(boss, ctx) {
         ctx.restore();
     }
 
-    // ====== SNIPER TELEGRAPH ======
     if (boss.sniperActive && boss.sniperTimer > 0) {
         ctx.save();
         const px = playerX + PW / 2, py = playerY + PH / 2;
@@ -69,7 +64,6 @@ function drawBoss(boss, ctx) {
         ctx.restore();
     }
 
-    // ====== CHARGE TRAIL ======
     boss.chargeTrail.forEach(tr => {
         const ratio = tr.life / 20;
         ctx.globalAlpha = ratio * 0.5;
@@ -78,7 +72,6 @@ function drawBoss(boss, ctx) {
     });
     ctx.globalAlpha = 1;
 
-    // ====== SHIELD VISUAL ======
     if (boss.shieldActive) {
         const sr = r * 1.5 + Math.sin(t * 0.008) * 4;
         const shieldG = ctx.createRadialGradient(cx, cy, r * 0.8, cx, cy, sr);
@@ -101,7 +94,6 @@ function drawBoss(boss, ctx) {
         }
     }
 
-    // ====== AURA GLOW ======
     const glowAmt = 12 + boss.pulse + (boss.enraged ? 15 : 0) + ce * 20;
     const auraGrad = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r + glowAmt);
     let auraColor;
@@ -119,7 +111,6 @@ function drawBoss(boss, ctx) {
     ctx.fillStyle = auraGrad;
     ctx.beginPath(); ctx.arc(cx, cy, r + glowAmt, 0, Math.PI * 2); ctx.fill();
 
-    // ====== CLONE PHANTOM ======
     if (boss.clonesActive && boss.cloneTimer > 0) {
         ctx.globalAlpha = 0.3 + Math.sin(t * 0.012) * 0.12;
         boss.clonePositions.forEach(pos => {
@@ -133,7 +124,6 @@ function drawBoss(boss, ctx) {
         ctx.globalAlpha = 1; ctx.restore(); return;
     }
 
-    // ====== TRANSITION FLASH ======
     if (boss.transitioning) {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
@@ -143,10 +133,8 @@ function drawBoss(boss, ctx) {
         ctx.restore();
     }
 
-    // ====== CINEMATICS BACKGROUND ======
     if (typeof drawBossCinematics_Under === 'function') drawBossCinematics_Under(boss, ctx, cx, cy);
 
-    // ====== MAIN BODY ======
     ctx.save();
     if (typeof applyBossCinematicTransforms === 'function') applyBossCinematicTransforms(boss, ctx, cx, cy);
     ctx.translate(cx + recoilX, cy + recoilY);
@@ -168,10 +156,8 @@ function drawBoss(boss, ctx) {
 
     ctx.restore();
 
-    // ====== CINEMATICS FOREGROUND ======
     if (typeof drawBossCinematics_Over === 'function') drawBossCinematics_Over(boss, ctx, cx, cy);
 
-    // ====== LASER CHARGE/FIRE ======
     if (boss.laserCharging) {
         ctx.save();
         const chargePct = 1 - boss.laserTimer / 1000;
@@ -184,7 +170,7 @@ function drawBoss(boss, ctx) {
             ctx.lineTo(cx + Math.cos(boss.laserAngle) * 250, cy + Math.sin(boss.laserAngle) * 250);
             ctx.stroke();
         }
-        // Charge orb at muzzle
+        
         ctx.globalCompositeOperation = 'lighter';
         ctx.fillStyle = `rgba(255,200,50,${chargePct * 0.8})`;
         ctx.shadowColor = '#ff8800'; ctx.shadowBlur = 20 * chargePct;
@@ -208,17 +194,14 @@ function drawBoss(boss, ctx) {
         ctx.shadowBlur = 0; ctx.restore();
     }
 
-    // ====== MINES ======
     drawMines(boss, ctx, t);
 
-    // ====== RESTING PARTICLES ======
     if (isResting && boss.ambientTimer % 40 === 0) {
         particles.push(new Particle(cx + (Math.random() - 0.5) * r, cy - r * 0.3, '#55ff88', 0.5, 2, 60));
     }
 
     ctx.restore();
 
-    // ====== HEALTH BAR + NAME ======
     boss.drawHealthBar();
     ctx.save();
     ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center';
@@ -227,13 +210,9 @@ function drawBoss(boss, ctx) {
     ctx.shadowBlur = 0; ctx.restore();
 }
 
-// ============================================================
-// DESTROYER (Type 0) — Armored War Machine
-// ============================================================
 function drawDestroyer(boss, ctx, r, t, ce, wu, phase, isResting) {
     const rot = boss.rotation;
 
-    // === OUTER ARMORED HULL (8-sided with beveled edges) ===
     ctx.save(); ctx.rotate(rot);
     const hullG = ctx.createRadialGradient(0, 0, r * 0.2, 0, 0, r);
     hullG.addColorStop(0, '#3a2020');
@@ -252,7 +231,6 @@ function drawDestroyer(boss, ctx, r, t, ce, wu, phase, isResting) {
     }
     ctx.closePath(); ctx.fill(); ctx.stroke();
 
-    // Panel lines
     ctx.strokeStyle = 'rgba(255,50,20,0.12)';
     ctx.lineWidth = 0.8;
     for (let i = 0; i < 8; i++) {
@@ -263,7 +241,6 @@ function drawDestroyer(boss, ctx, r, t, ce, wu, phase, isResting) {
         ctx.stroke();
     }
 
-    // Rivets
     for (let i = 0; i < 8; i++) {
         const a = (i / 8) * Math.PI * 2;
         const rx = Math.cos(a) * r * 0.7, ry = Math.sin(a) * r * 0.7;
@@ -272,7 +249,6 @@ function drawDestroyer(boss, ctx, r, t, ce, wu, phase, isResting) {
     }
     ctx.restore();
 
-    // === REACTOR VENTS (Phase 2+: cracked hull reveals inner fire) ===
     if (boss.currentPhaseLevel > 0) {
         ctx.save(); ctx.rotate(rot * 1.1);
         ctx.globalCompositeOperation = 'lighter';
@@ -295,7 +271,6 @@ function drawDestroyer(boss, ctx, r, t, ce, wu, phase, isResting) {
         ctx.restore();
     }
 
-    // === 8 DIAMOND-TIPPED SPIKES ===
     const spikeRetract = boss.restProgress * r * 0.3;
     const spikeExtend = wu * r * 0.2 * (1 - boss.restProgress);
     const sLen = r * 0.5 + spikeExtend - spikeRetract + (boss.enraged ? r * 0.15 : 0);
@@ -308,7 +283,6 @@ function drawDestroyer(boss, ctx, r, t, ce, wu, phase, isResting) {
         const perpAng = ang + Math.PI / 2;
         const w = 6 + wu * 3;
 
-        // Spike body gradient
         const sg = ctx.createLinearGradient(bx, by, tx, ty);
         sg.addColorStop(0, '#551111');
         sg.addColorStop(0.3, '#aa2222');
@@ -324,7 +298,6 @@ function drawDestroyer(boss, ctx, r, t, ce, wu, phase, isResting) {
         ctx.lineTo(bx - Math.cos(perpAng) * w, by - Math.sin(perpAng) * w);
         ctx.closePath(); ctx.fill(); ctx.stroke();
 
-        // Hot conduit on spike
         if (!isResting) {
             ctx.globalCompositeOperation = 'lighter';
             ctx.strokeStyle = `rgba(255,200,100,${0.3 + ce * 0.5})`;
@@ -337,7 +310,6 @@ function drawDestroyer(boss, ctx, r, t, ce, wu, phase, isResting) {
         }
     }
 
-    // === ATTACK FLASH VENTS ===
     if (boss.attackFlash > 0.1) {
         ctx.globalCompositeOperation = 'lighter';
         for (let i = 0; i < 4; i++) {
@@ -351,7 +323,6 @@ function drawDestroyer(boss, ctx, r, t, ce, wu, phase, isResting) {
         ctx.globalCompositeOperation = 'source-over';
     }
 
-    // === VOLCANIC CORE ===
     const coreR = r * 0.38;
     const cg = ctx.createRadialGradient(0, 0, 0, 0, 0, coreR);
     cg.addColorStop(0, `rgba(255,255,255,${0.5 + ce * 0.5})`);
@@ -361,15 +332,12 @@ function drawDestroyer(boss, ctx, r, t, ce, wu, phase, isResting) {
     ctx.fillStyle = cg;
     ctx.beginPath(); ctx.arc(0, 0, coreR, 0, Math.PI * 2); ctx.fill();
 
-    // Inner ring
     ctx.strokeStyle = `rgba(255,100,0,${0.2 + ce * 0.4})`;
     ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.arc(0, 0, coreR * 0.7, 0, Math.PI * 2); ctx.stroke();
 
-    // === EYE / EXPRESSION ===
     ctx.save();
 
-    // Sleeping slit
     if (boss.eyeOpenness < 1) {
         ctx.strokeStyle = '#333'; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.moveTo(-8, 2); ctx.lineTo(8, 2); ctx.stroke();
@@ -377,24 +345,22 @@ function drawDestroyer(boss, ctx, r, t, ce, wu, phase, isResting) {
 
     if (boss.eyeOpenness > 0.05) {
         ctx.scale(1, boss.eyeOpenness);
-        // Active eye that tracks player
-        // Since the whole body rotates to face the player, the player is always at Math.PI / 2 locally.
+
         const ea = Math.PI / 2;
         const eyeOff = 4;
-        // Eye housing
+        
         ctx.fillStyle = '#0a0a0a';
         ctx.beginPath(); ctx.arc(0, 0, coreR * 0.5, 0, Math.PI * 2); ctx.fill();
-        // Pupil
+        
         ctx.fillStyle = boss.enraged ? '#ff0000' : '#cc2200';
         ctx.shadowColor = boss.enraged ? '#ff0000' : '#cc2200';
         ctx.shadowBlur = 10;
         ctx.beginPath(); ctx.arc(Math.cos(ea) * eyeOff, Math.sin(ea) * eyeOff, coreR * 0.2, 0, Math.PI * 2); ctx.fill();
-        // Highlight
+        
         ctx.fillStyle = '#fff';
         ctx.beginPath(); ctx.arc(Math.cos(ea) * eyeOff - 2, Math.sin(ea) * eyeOff - 2, coreR * 0.06, 0, Math.PI * 2); ctx.fill();
         ctx.shadowBlur = 0;
 
-        // Angry brow when enraged
         if (boss.enraged) {
             ctx.strokeStyle = '#ff2200'; ctx.lineWidth = 3;
             ctx.beginPath();
@@ -413,7 +379,6 @@ function drawDestroyer(boss, ctx, r, t, ce, wu, phase, isResting) {
         ctx.fillText('Z', r * 0.35, -r * 0.35);
     }
 
-    // Hit flash overlay
     if (boss.hitFlash > 0.1) {
         ctx.globalCompositeOperation = 'lighter';
         ctx.fillStyle = `rgba(255,255,255,${boss.hitFlash * 0.5})`;
@@ -422,13 +387,9 @@ function drawDestroyer(boss, ctx, r, t, ce, wu, phase, isResting) {
     }
 }
 
-// ============================================================
-// SUMMONER (Type 1) — Eldritch Crystal Entity
-// ============================================================
 function drawSummoner(boss, ctx, r, t, ce, wu, phase, isResting) {
     const rot = boss.rotation;
 
-    // === DIAMOND HULL ===
     ctx.save(); ctx.rotate(rot);
     const vertices = [
         { x: 0, y: -r * 1.15 }, { x: r * 0.95, y: 0 },
@@ -447,13 +408,12 @@ function drawSummoner(boss, ctx, r, t, ce, wu, phase, isResting) {
         ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(v1.x, v1.y); ctx.lineTo(v2.x, v2.y);
         ctx.closePath(); ctx.fill();
     }
-    // Edge highlight
+    
     ctx.strokeStyle = '#aa44ff'; ctx.lineWidth = 2;
     ctx.beginPath();
     vertices.forEach((v, i) => { if (i === 0) ctx.moveTo(v.x, v.y); else ctx.lineTo(v.x, v.y); });
     ctx.closePath(); ctx.stroke();
 
-    // Inner energy lines
     ctx.strokeStyle = `rgba(180,80,255,${0.15 + ce * 0.3})`;
     ctx.lineWidth = 1;
     for (let i = 0; i < 4; i++) {
@@ -464,7 +424,6 @@ function drawSummoner(boss, ctx, r, t, ce, wu, phase, isResting) {
     }
     ctx.restore();
 
-    // === 4 ORGANIC TENTACLE CLAWS ===
     const clawRetract = boss.restProgress * 0.4;
     for (let i = 0; i < 4; i++) {
         const ca = rot * 0.7 + (i / 4) * Math.PI * 2 + Math.sin(t * 0.003 + i) * 0.15;
@@ -474,7 +433,6 @@ function drawSummoner(boss, ctx, r, t, ce, wu, phase, isResting) {
         ctx.rotate(ca);
         ctx.translate(r * 0.6, 0);
 
-        // Tentacle segments
         const segG = ctx.createLinearGradient(0, 0, clawLen, 0);
         segG.addColorStop(0, '#330055');
         segG.addColorStop(0.5, '#6600aa');
@@ -492,7 +450,6 @@ function drawSummoner(boss, ctx, r, t, ce, wu, phase, isResting) {
         ctx.quadraticCurveTo(clawLen * 0.5, 6 - wave, 0, 5);
         ctx.closePath(); ctx.fill(); ctx.stroke();
 
-        // Claw tip glow
         if (!isResting) {
             ctx.globalCompositeOperation = 'lighter';
             ctx.fillStyle = `rgba(200,100,255,${0.3 + ce * 0.4})`;
@@ -505,12 +462,11 @@ function drawSummoner(boss, ctx, r, t, ce, wu, phase, isResting) {
         ctx.restore();
     }
 
-    // === Phase 2+: Orbiting crystal shards ===
     if (boss.currentPhaseLevel > 0) {
         ctx.globalCompositeOperation = 'lighter';
         const shardCount = 8;
         for (let i = 0; i < shardCount; i++) {
-            if (i >= 5 && boss.currentPhaseLevel <= 1) continue; // Show extra shards only in phase 3 smoothly
+            if (i >= 5 && boss.currentPhaseLevel <= 1) continue; 
             const sa = t * 0.004 + (i / shardCount) * Math.PI * 2;
             const phaseScale = i >= 5 ? boss.currentPhaseLevel - 1 : Math.min(1, boss.currentPhaseLevel);
             const sd = r * (1.1 + Math.sin(t * 0.002 + i) * 0.15) * Math.max(0.1, phaseScale);
@@ -525,7 +481,6 @@ function drawSummoner(boss, ctx, r, t, ce, wu, phase, isResting) {
         ctx.globalCompositeOperation = 'source-over';
     }
 
-    // === VOID CENTER ===
     const voidR = r * 0.32;
     const vg = ctx.createRadialGradient(0, 0, 0, 0, 0, voidR);
     vg.addColorStop(0, `rgba(220,150,255,${0.4 + ce * 0.5})`);
@@ -535,18 +490,17 @@ function drawSummoner(boss, ctx, r, t, ce, wu, phase, isResting) {
     ctx.fillStyle = vg;
     ctx.beginPath(); ctx.arc(0, 0, voidR, 0, Math.PI * 2); ctx.fill();
 
-    // === EXPRESSION ===
     ctx.save();
 
     if (boss.eyeOpenness < 1) {
-        // Dormant: small dim dot
+        
         ctx.fillStyle = `rgba(150,80,200,${(1 - boss.eyeOpenness) * (0.3 + Math.sin(t * 0.002) * 0.15)})`;
         ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
     }
 
     if (boss.eyeOpenness > 0.05) {
         ctx.scale(1, boss.eyeOpenness);
-        // Active: pulsing void pupil
+        
         ctx.fillStyle = boss.enraged ? '#ff00ff' : '#cc88ff';
         ctx.shadowColor = boss.enraged ? '#ff00ff' : '#aa44ff';
         ctx.shadowBlur = 12;
@@ -557,7 +511,7 @@ function drawSummoner(boss, ctx, r, t, ce, wu, phase, isResting) {
         ctx.shadowBlur = 0;
 
         if (boss.enraged) {
-            // Angry: spiky iris rays
+            
             ctx.strokeStyle = '#ff44ff'; ctx.lineWidth = 2;
             for (let i = 0; i < 6; i++) {
                 const a = (i / 6) * Math.PI * 2 + t * 0.01;
@@ -577,7 +531,6 @@ function drawSummoner(boss, ctx, r, t, ce, wu, phase, isResting) {
         ctx.fillText('Z', r * 0.3, -r * 0.35);
     }
 
-    // Hit flash
     if (boss.hitFlash > 0.1) {
         ctx.globalCompositeOperation = 'lighter';
         ctx.fillStyle = `rgba(220,150,255,${boss.hitFlash * 0.5})`;
@@ -586,13 +539,9 @@ function drawSummoner(boss, ctx, r, t, ce, wu, phase, isResting) {
     }
 }
 
-// ============================================================
-// OVERLORD (Type 2) — Mechanical Sun Emperor
-// ============================================================
 function drawOverlord(boss, ctx, r, t, ce, wu, phase, isResting) {
     const rot = boss.rotation;
 
-    // === GEAR BODY ===
     ctx.save(); ctx.rotate(rot);
     const teeth = 12;
     const toothH = r * 0.18 + (-boss.restProgress * r * -0.05 + (1 - boss.restProgress) * wu * r * 0.05);
@@ -613,13 +562,11 @@ function drawOverlord(boss, ctx, r, t, ce, wu, phase, isResting) {
     ctx.closePath(); ctx.fill();
     ctx.strokeStyle = '#665520'; ctx.lineWidth = 2; ctx.stroke();
 
-    // Hub ring
     ctx.strokeStyle = `rgba(255,200,50,${0.2 + ce * 0.3})`;
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(0, 0, r * 0.55, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
 
-    // === 4 ARTICULATED ARMS ===
     const armRetract = boss.restProgress * 0.3;
     for (let i = 0; i < 4; i++) {
         const aa = rot * 0.6 + (i / 4) * Math.PI * 2;
@@ -627,7 +574,6 @@ function drawOverlord(boss, ctx, r, t, ce, wu, phase, isResting) {
 
         ctx.save(); ctx.rotate(aa); ctx.translate(r * 0.5, 0);
 
-        // Upper arm
         const armG = ctx.createLinearGradient(0, 0, armLen * 0.6, 0);
         armG.addColorStop(0, '#333');
         armG.addColorStop(1, '#111');
@@ -636,19 +582,16 @@ function drawOverlord(boss, ctx, r, t, ce, wu, phase, isResting) {
         ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
         ctx.strokeRect(0, -4, armLen * 0.6, 8);
 
-        // Joint
         ctx.fillStyle = '#444';
         ctx.beginPath(); ctx.arc(armLen * 0.6, 0, 5, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = '#666'; ctx.lineWidth = 1; ctx.stroke();
 
-        // Forearm + weapon pod
         const foreG = ctx.createLinearGradient(armLen * 0.6, 0, armLen, 0);
         foreG.addColorStop(0, '#222');
         foreG.addColorStop(1, '#0a0a0a');
         ctx.fillStyle = foreG;
         ctx.fillRect(armLen * 0.55, -3, armLen * 0.45, 6);
 
-        // Weapon pod glow
         if (!isResting) {
             ctx.globalCompositeOperation = 'lighter';
             ctx.fillStyle = `rgba(255,200,50,${0.2 + ce * 0.3})`;
@@ -661,7 +604,6 @@ function drawOverlord(boss, ctx, r, t, ce, wu, phase, isResting) {
         ctx.restore();
     }
 
-    // === Phase 2+: Energy conduits between arms ===
     if (boss.currentPhaseLevel > 0) {
         ctx.globalCompositeOperation = 'lighter';
         for (let i = 0; i < 4; i++) {
@@ -680,7 +622,6 @@ function drawOverlord(boss, ctx, r, t, ce, wu, phase, isResting) {
         ctx.globalCompositeOperation = 'source-over';
     }
 
-    // === SUN CORE ===
     const sunR = r * 0.35;
     const sg = ctx.createRadialGradient(0, 0, 0, 0, 0, sunR);
     sg.addColorStop(0, `rgba(255,255,200,${0.5 + ce * 0.5})`);
@@ -690,7 +631,6 @@ function drawOverlord(boss, ctx, r, t, ce, wu, phase, isResting) {
     ctx.fillStyle = sg;
     ctx.beginPath(); ctx.arc(0, 0, sunR, 0, Math.PI * 2); ctx.fill();
 
-    // Solar flares (Phase 3)
     if (boss.currentPhaseLevel > 1) {
         const flareAlpha = boss.currentPhaseLevel - 1;
         ctx.globalCompositeOperation = 'lighter';
@@ -707,11 +647,10 @@ function drawOverlord(boss, ctx, r, t, ce, wu, phase, isResting) {
         ctx.globalCompositeOperation = 'source-over';
     }
 
-    // === VISOR EXPRESSION ===
     ctx.save();
 
     if (boss.eyeOpenness < 1) {
-        // Sleeping visor: dim horizontal lines
+        
         ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(-10, -2); ctx.lineTo(-4, -2); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(4, -2); ctx.lineTo(10, -2); ctx.stroke();
@@ -719,7 +658,7 @@ function drawOverlord(boss, ctx, r, t, ce, wu, phase, isResting) {
 
     if (boss.eyeOpenness > 0.05) {
         ctx.scale(1, boss.eyeOpenness);
-        // LED visor
+        
         const visorG = ctx.createLinearGradient(-12, 0, 12, 0);
         visorG.addColorStop(0, '#000');
         visorG.addColorStop(0.2, boss.enraged ? '#ff4400' : '#ffcc00');
@@ -729,13 +668,12 @@ function drawOverlord(boss, ctx, r, t, ce, wu, phase, isResting) {
         ctx.fillStyle = visorG;
         ctx.shadowColor = boss.enraged ? '#ff4400' : '#ffcc00';
         ctx.shadowBlur = 8;
-        // Visor shape
+        
         ctx.beginPath();
         ctx.moveTo(-12, -4); ctx.lineTo(-8, -6); ctx.lineTo(8, -6); ctx.lineTo(12, -4);
         ctx.lineTo(12, 0); ctx.lineTo(8, 2); ctx.lineTo(-8, 2); ctx.lineTo(-12, 0);
         ctx.closePath(); ctx.fill();
 
-        // Eye dots
         ctx.fillStyle = boss.enraged ? '#ffffff' : '#ffffcc';
         ctx.beginPath(); ctx.arc(-5, -2, 2, 0, Math.PI * 2); ctx.fill();
         ctx.beginPath(); ctx.arc(5, -2, 2, 0, Math.PI * 2); ctx.fill();
@@ -756,7 +694,6 @@ function drawOverlord(boss, ctx, r, t, ce, wu, phase, isResting) {
         ctx.fillText('Z', r * 0.35, -r * 0.35);
     }
 
-    // Hit flash
     if (boss.hitFlash > 0.1) {
         ctx.globalCompositeOperation = 'lighter';
         ctx.fillStyle = `rgba(255,220,100,${boss.hitFlash * 0.5})`;
@@ -764,7 +701,6 @@ function drawOverlord(boss, ctx, r, t, ce, wu, phase, isResting) {
         ctx.globalCompositeOperation = 'source-over';
     }
 
-    // Attack flash vents
     if (boss.attackFlash > 0.1) {
         ctx.globalCompositeOperation = 'lighter';
         for (let i = 0; i < 4; i++) {
@@ -779,9 +715,6 @@ function drawOverlord(boss, ctx, r, t, ce, wu, phase, isResting) {
     }
 }
 
-// ============================================================
-// MINES — Tactical Bombs with Radar Countdown
-// ============================================================
 function drawMines(boss, ctx, t) {
     boss.mines.forEach(m => {
         const danger = m.timer < 1000;
@@ -789,7 +722,6 @@ function drawMines(boss, ctx, t) {
         const mr = m.homing ? 18 : 14;
         ctx.save(); ctx.translate(m.x, m.y);
 
-        // Metallic shell
         const shellG = ctx.createRadialGradient(-mr * 0.3, -mr * 0.3, 0, 0, 0, mr);
         shellG.addColorStop(0, '#666');
         shellG.addColorStop(0.4, '#333');
@@ -800,7 +732,6 @@ function drawMines(boss, ctx, t) {
         ctx.strokeStyle = '#555'; ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.arc(0, 0, mr, 0, Math.PI * 2); ctx.stroke();
 
-        // Inner core
         ctx.globalCompositeOperation = 'lighter';
         const coreColor = danger ? `rgba(255,50,0,${pulse})` : `rgba(${m.color === '#ffcc00' ? '255,200,0' : '170,0,255'},${0.5 + pulse * 0.3})`;
         ctx.fillStyle = coreColor;
@@ -810,12 +741,10 @@ function drawMines(boss, ctx, t) {
         ctx.shadowBlur = 0;
         ctx.globalCompositeOperation = 'source-over';
 
-        // Cross bolts
         ctx.fillStyle = '#444';
         ctx.fillRect(-mr * 0.5, -1.5, mr, 3);
         ctx.fillRect(-1.5, -mr * 0.5, 3, mr);
 
-        // Countdown arc
         const tr = m.timer / 5000;
         const sweepAngle = -Math.PI / 2 + Math.PI * 2 * tr;
         ctx.lineWidth = 3; ctx.lineCap = 'round';
@@ -828,7 +757,6 @@ function drawMines(boss, ctx, t) {
         ctx.beginPath(); ctx.arc(0, 0, mr + 5, -Math.PI / 2, sweepAngle); ctx.stroke();
         ctx.shadowBlur = 0;
 
-        // Sweep tip
         ctx.fillStyle = danger ? '#ff4400' : '#ffff88';
         ctx.beginPath();
         ctx.arc(Math.cos(sweepAngle) * (mr + 5), Math.sin(sweepAngle) * (mr + 5), 3, 0, Math.PI * 2);

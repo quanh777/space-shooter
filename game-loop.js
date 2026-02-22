@@ -1489,7 +1489,6 @@ document.addEventListener('click', e => {
 
     if (!isShop) return;
 
-
     const sl = getShopLayout();
     itemsToSell.forEach((item, i) => {
         if (i >= 4) return;

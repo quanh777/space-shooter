@@ -1,5 +1,5 @@
-const canvas = _offscreenCanvas; // Offscreen Canvas2D buffer (pixi-setup.js)
-const ctx = _offscreenCtx;       // Offscreen 2D context (pixi-setup.js)
+const canvas = _offscreenCanvas; 
+const ctx = _offscreenCtx;       
 const W = 800, H = 600;
 
 let gameRunning = false;

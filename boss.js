@@ -140,14 +140,13 @@
         }
 
         const wasHp = this.displayHp;
-        this.displayHp += (this.hp - this.displayHp) * 0.05; // Smooth HP drop catch-up
-        this.eyeOpenness += ((this.state === 'RESTING' ? 0 : 1) - this.eyeOpenness) * 0.15; // Smooth eye blink
-        this.restProgress += ((this.state === 'RESTING' ? 1 : 0) - this.restProgress) * 0.03; // Smooth retract
+        this.displayHp += (this.hp - this.displayHp) * 0.05; 
+        this.eyeOpenness += ((this.state === 'RESTING' ? 0 : 1) - this.eyeOpenness) * 0.15; 
+        this.restProgress += ((this.state === 'RESTING' ? 1 : 0) - this.restProgress) * 0.03; 
 
         const targetPhaseLevel = Math.max(0, this.phase - 1);
-        this.currentPhaseLevel += (targetPhaseLevel - this.currentPhaseLevel) * 0.005; // Slower physical transformation
+        this.currentPhaseLevel += (targetPhaseLevel - this.currentPhaseLevel) * 0.005; 
 
-        // HP bar drop particles (Bleeding effect) - sync with white hit flash duration
         if (this.hitFlash > 0.1 && wasHp - this.hp > 1 && Math.random() < 0.6) {
             const barWidth = Math.min(320, W - 80);
             const barX = (W - barWidth) / 2;
@@ -163,13 +162,12 @@
             });
         }
 
-        // Update bleeding particles
         if (this.hpDrops.length > 0) {
             this.hpDrops = this.hpDrops.filter(p => {
                 p.x += p.vx;
                 p.y += p.vy;
-                p.vy += 0.15; // Gravity
-                p.vx *= 0.95; // Horizontal friction
+                p.vy += 0.15; 
+                p.vx *= 0.95; 
                 p.life--;
                 return p.life > 0;
             });
@@ -600,7 +598,6 @@
         drawBoss(this, ctx);
     }
 
-
     drawHealthBar() {
         const barWidth = Math.min(320, W - 80);
         const barX = (W - barWidth) / 2;
@@ -617,7 +614,6 @@
         const hpPct = Math.max(0, this.hp / this.maxHp);
         const displayPct = Math.max(0, this.displayHp / this.maxHp);
 
-        // Catch-up background bar (White/Red)
         ctx.fillStyle = this.hitFlash > 0.1 ? '#ffffff' : '#cc0000';
         ctx.beginPath();
         ctx.roundRect(barX, barY, barWidth * displayPct, barH, 3);
@@ -648,7 +644,6 @@
         ctx.roundRect(barX - 1, barY - 1, barWidth + 2, barH + 2, 4);
         ctx.stroke();
 
-        // Draw bleeding particles
         if (this.hpDrops.length > 0) {
             this.hpDrops.forEach(p => {
                 ctx.fillStyle = p.color;
@@ -896,7 +891,7 @@
         this.hitFlash = 1;
 
         if (this.hp <= 0 && !this.dying) {
-            this.hp = 1; // Keep alive for death cinematic
+            this.hp = 1; 
             this.dying = true;
             this.deathTimer = 0;
             this.deathState = 0;

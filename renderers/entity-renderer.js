@@ -1,9 +1,5 @@
-// ============================================================
-// ENTITY RENDERER — Separated graphics for Particles, Bullets, Enemies
-// Replaces draw() methods in game.js classes
-// ============================================================
 
-// ====== PARTICLE DRAWING ======
+
 function drawParticle(p, ctx) {
     if (p.lt <= 0 || p.sz <= 0.2) return;
     const alpha = Math.min(1, p.lt / p.maxLt);
@@ -20,7 +16,6 @@ function drawParticle(p, ctx) {
     ctx.restore();
 }
 
-// ====== BULLET DRAWING ======
 function drawBullet(b, ctx) {
     ctx.save();
 
@@ -89,7 +84,6 @@ function drawBullet(b, ctx) {
     ctx.restore();
 }
 
-// ====== ENEMY DRAWING ======
 function drawEnemy(e, ctx) {
     ctx.save();
     const cx = e.x + e.w / 2, cy = e.y + e.h / 2;
@@ -117,7 +111,7 @@ function drawEnemy(e, ctx) {
     ctx.restore();
 
     if (!usesOriginal) {
-        // Hit flash overlay
+        
         if (e.flash > 0) {
             ctx.globalCompositeOperation = 'lighter';
             ctx.fillStyle = `rgba(255,255,255,${e.flash * 0.4})`;
@@ -125,7 +119,6 @@ function drawEnemy(e, ctx) {
             ctx.globalCompositeOperation = 'source-over';
         }
 
-        // HP bar
         if (e.hp < e.maxHp) {
             const barW = e.w + 4;
             const barH = 3;
@@ -142,7 +135,6 @@ function drawEnemy(e, ctx) {
     ctx.restore();
 }
 
-// --- Minion ---
 function drawMinion(e, ctx, cx, cy, t, faceAngle) {
     const r = e.w / 2;
     ctx.save();
@@ -187,14 +179,12 @@ function drawMinion(e, ctx, cx, cy, t, faceAngle) {
     ctx.beginPath(); ctx.arc(cx, cy, r + 2, 0, Math.PI * 2); ctx.stroke();
 }
 
-// --- Small enemy (insect/moth) ---
 function drawSmallEnemy(e, ctx, cx, cy, t, faceAngle) {
     const hw = e.w / 2, hh = e.h / 2;
     const banking = e.zigzagDir * Math.PI / 8;
     ctx.translate(cx, cy); ctx.rotate(faceAngle + Math.PI / 2 + banking); ctx.translate(-cx, -cy);
     const flap = Math.sin(e.anim * 1.5) * hh * 0.3;
 
-    // Engine trail
     ctx.globalAlpha = 0.08;
     ctx.fillStyle = '#ff3322';
     ctx.beginPath();
@@ -204,25 +194,21 @@ function drawSmallEnemy(e, ctx, cx, cy, t, faceAngle) {
     ctx.closePath(); ctx.fill();
     ctx.globalAlpha = 1;
 
-    // Abdomen
     const abdGrad = ctx.createRadialGradient(cx, cy + hh * 0.15, 0, cx, cy + hh * 0.15, hh * 0.35);
     abdGrad.addColorStop(0, '#ff6655');
     abdGrad.addColorStop(1, '#881100');
     ctx.fillStyle = abdGrad;
     ctx.beginPath(); ctx.ellipse(cx, cy + hh * 0.15, hw * 0.3, hh * 0.3, 0, 0, Math.PI * 2); ctx.fill();
 
-    // Thorax
     const thxGrad = ctx.createRadialGradient(cx, cy - hh * 0.1, 0, cx, cy - hh * 0.1, hw * 0.25);
     thxGrad.addColorStop(0, '#ff8877');
     thxGrad.addColorStop(1, '#992200');
     ctx.fillStyle = thxGrad;
     ctx.beginPath(); ctx.ellipse(cx, cy - hh * 0.1, hw * 0.25, hh * 0.2, 0, 0, Math.PI * 2); ctx.fill();
 
-    // Head
     ctx.fillStyle = '#cc3322';
     ctx.beginPath(); ctx.ellipse(cx, cy - hh * 0.4, hw * 0.2, hh * 0.15, 0, 0, Math.PI * 2); ctx.fill();
 
-    // Wings
     ctx.fillStyle = 'rgba(255,100,80,0.18)';
     ctx.strokeStyle = 'rgba(255,120,100,0.3)'; ctx.lineWidth = 0.5;
     for (const s of [-1, 1]) {
@@ -239,22 +225,18 @@ function drawSmallEnemy(e, ctx, cx, cy, t, faceAngle) {
         ctx.fill(); ctx.stroke();
     }
 
-    // Antennae
     ctx.strokeStyle = '#dd4433'; ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.moveTo(cx - hw * 0.08, cy - hh * 0.5);
     ctx.quadraticCurveTo(cx - hw * 0.15, cy - hh * 0.7, cx - hw * 0.05, cy - hh * 0.72); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(cx + hw * 0.08, cy - hh * 0.5);
     ctx.quadraticCurveTo(cx + hw * 0.15, cy - hh * 0.7, cx + hw * 0.05, cy - hh * 0.72); ctx.stroke();
 
-    // Eyes
     ctx.fillStyle = '#ffaa88'; ctx.shadowColor = '#ff4422'; ctx.shadowBlur = 3;
     ctx.beginPath(); ctx.arc(cx - hw * 0.1, cy - hh * 0.42, 2, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(cx + hw * 0.1, cy - hh * 0.42, 2, 0, Math.PI * 2); ctx.fill();
     ctx.shadowBlur = 0;
 }
 
-// Stub functions for medium, large, elite - delegate to original Enemy.draw logic
-// These will be filled with the actual detailed drawing code from game.js
 function drawMediumEnemy(e, ctx, cx, cy, t, faceAngle) {
     e._drawOriginal(ctx, cx, cy, t, faceAngle);
 }
