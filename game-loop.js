@@ -35,13 +35,28 @@ function updateCombo() {
         comboTimer -= 16.67;
         if (comboTimer <= 0) {
             if (comboKills >= 3) {
+                const t = Date.now();
+                let rank, rankColor;
+                if (comboKills >= 25) { rank = 'SSS'; rankColor = '#ff6666'; }
+                else if (comboKills >= 18) { rank = 'SS'; rankColor = '#ffffff'; }
+                else if (comboKills >= 13) { rank = 'S'; rankColor = '#ffdd44'; }
+                else if (comboKills >= 9) { rank = 'A'; rankColor = '#ff8822'; }
+                else if (comboKills >= 6) { rank = 'B'; rankColor = '#ff5533'; }
+                else if (comboKills >= 4) { rank = 'C'; rankColor = '#aa88ff'; }
+                else { rank = 'D'; rankColor = '#6688cc'; }
+
                 comboEndDisplay = {
                     kills: comboKills,
                     score: comboScoreEarned,
                     breakdown: { ...comboEnemyBreakdown },
-                    alpha: 1,
-                    timer: 240,
-                    y: H / 2 - 60
+                    multiplier: comboMultiplier,
+                    rank: rank,
+                    rankColor: rankColor,
+                    timer: 150,
+                    alpha: 0,
+                    scale: 4.0,
+                    impactY: H / 4,
+                    hasImpacted: false
                 };
             }
             comboKills = 0;
@@ -53,10 +68,48 @@ function updateCombo() {
 
     if (comboEndDisplay) {
         comboEndDisplay.timer--;
-        if (comboEndDisplay.timer <= 60) {
-            comboEndDisplay.alpha = comboEndDisplay.timer / 60;
+
+        if (comboEndDisplay.timer > 135) {
+            let p = (150 - comboEndDisplay.timer) / 15;
+
+            const s = 1.70158;
+            const easeOutBack = (p -= 1) * p * ((s + 1) * p + s) + 1;
+
+            comboEndDisplay.scale = 4.0 - 3.0 * easeOutBack;
+            comboEndDisplay.alpha = p * 2;
+            if (comboEndDisplay.alpha > 1) comboEndDisplay.alpha = 1;
+
+            if (comboEndDisplay.scale <= 1.05 && !comboEndDisplay.hasImpacted) {
+                comboEndDisplay.hasImpacted = true;
+                comboEndDisplay.scale = 1.0;
+                screenShake = 15;
+
+                for (let i = 0; i < 30; i++) {
+                    const ang = Math.random() * Math.PI * 2;
+                    const spd = 5 + Math.random() * 8;
+                    particles.push(new Particle(
+                        W / 2, comboEndDisplay.impactY,
+                        comboEndDisplay.rankColor,
+                        2 + Math.random() * 4, spd, 40
+                    ));
+                }
+            }
         }
-        comboEndDisplay.y -= 0.15;
+
+        else if (comboEndDisplay.timer <= 20) {
+            const p = comboEndDisplay.timer / 20;
+            comboEndDisplay.alpha = p;
+            comboEndDisplay.scaleX = 1 + (1 - p) * 3;
+            comboEndDisplay.scaleY = p;
+        }
+
+        else {
+            comboEndDisplay.scale = 1;
+            comboEndDisplay.scaleX = 1;
+            comboEndDisplay.scaleY = 1;
+            comboEndDisplay.alpha = 1;
+        }
+
         if (comboEndDisplay.timer <= 0) {
             comboEndDisplay = null;
         }
@@ -903,43 +956,81 @@ function draw() {
         ctx.save();
         ctx.globalAlpha = comboEndDisplay.alpha;
 
-        const bannerY = comboEndDisplay.y;
-        const bannerH = 56;
-        ctx.fillStyle = 'rgba(0,0,0,0.55)';
-        ctx.fillRect(0, bannerY - bannerH / 2, W, bannerH);
+        const cx = W / 2;
+        const cy = comboEndDisplay.impactY;
+        const scale = comboEndDisplay.scale;
 
-        const lineGrad = ctx.createLinearGradient(0, 0, W, 0);
-        lineGrad.addColorStop(0, 'transparent');
-        lineGrad.addColorStop(0.2, '#ffdd44');
-        lineGrad.addColorStop(0.8, '#ffdd44');
-        lineGrad.addColorStop(1, 'transparent');
-        ctx.strokeStyle = lineGrad; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(0, bannerY - bannerH / 2); ctx.lineTo(W, bannerY - bannerH / 2); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0, bannerY + bannerH / 2); ctx.lineTo(W, bannerY + bannerH / 2); ctx.stroke();
+        ctx.translate(cx, cy);
+
+        if (comboEndDisplay.scaleX) {
+            ctx.scale(comboEndDisplay.scaleX, comboEndDisplay.scaleY);
+        } else {
+            ctx.scale(scale, Math.max(0.1, scale));
+        }
 
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = 'italic 120px "Arial Black", Impact, sans-serif';
 
-        ctx.shadowColor = '#ffaa00'; ctx.shadowBlur = 15;
-        ctx.font = 'bold 26px Arial';
-        ctx.fillStyle = '#ffdd44';
-        ctx.fillText(`${comboEndDisplay.kills}x COMBO`, W / 2, bannerY - 2);
+        ctx.globalCompositeOperation = 'screen';
+
+        const shakeR = (Math.random() - 0.5) * 6 * (1 - comboEndDisplay.alpha);
+
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.4)';
+        ctx.fillText(comboEndDisplay.rank, -4 + shakeR, 0);
+
+        ctx.fillStyle = 'rgba(0, 0, 255, 0.4)';
+        ctx.fillText(comboEndDisplay.rank, 4 - shakeR, 0);
+
+        ctx.fillStyle = comboEndDisplay.rankColor;
+        ctx.shadowColor = comboEndDisplay.rankColor;
+        ctx.shadowBlur = 40;
+        ctx.fillText(comboEndDisplay.rank, 0, 0);
+
         ctx.shadowBlur = 0;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(comboEndDisplay.rank, 0, 0);
 
-        ctx.font = 'bold 14px Arial';
-        ctx.fillStyle = '#44ff88';
-        ctx.fillText(`+${comboEndDisplay.score} pts`, W / 2, bannerY + 18);
+        ctx.globalCompositeOperation = 'source-over';
 
-        const bd = comboEndDisplay.breakdown;
-        let parts = [];
-        if (bd.small > 0) parts.push(`${bd.small}S`);
-        if (bd.medium > 0) parts.push(`${bd.medium}M`);
-        if (bd.large > 0) parts.push(`${bd.large}L`);
-        if (bd.elite > 0) parts.push(`${bd.elite}E`);
-        if (bd.boss > 0) parts.push(`${bd.boss}B`);
-        if (parts.length > 0) {
-            ctx.font = '11px Arial';
-            ctx.fillStyle = 'rgba(180,190,220,0.5)';
-            ctx.fillText(parts.join(' · '), W / 2, bannerY + 33);
+        if (comboEndDisplay.hasImpacted) {
+
+            const activeTime = 135 - comboEndDisplay.timer;
+            const slideInPct = Math.min(1, activeTime / 10);
+
+            const slideLeftX = -120 + (1 - slideInPct) * -200;
+            ctx.textAlign = 'right';
+            ctx.font = 'bold italic 36px Arial';
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = '#000000'; ctx.shadowBlur = 10;
+            ctx.fillText(`${comboEndDisplay.kills} HITS`, slideLeftX, -10);
+
+            ctx.font = 'bold 20px Arial';
+            ctx.fillStyle = '#44ff88';
+            ctx.shadowColor = '#22cc44'; ctx.shadowBlur = 8;
+            ctx.fillText(`+${comboEndDisplay.score} PTS ` + (comboEndDisplay.multiplier > 1 ? `(x${comboEndDisplay.multiplier})` : ''), slideLeftX, 22);
+
+            const slideRightX = 120 + (1 - slideInPct) * 200;
+            ctx.textAlign = 'left';
+
+            const bd = comboEndDisplay.breakdown;
+            let parts = [];
+            if (bd.small > 0) parts.push(`${bd.small} S`);
+            if (bd.medium > 0) parts.push(`${bd.medium} M`);
+            if (bd.large > 0) parts.push(`${bd.large} L`);
+            if (bd.elite > 0) parts.push(`${bd.elite} E`);
+            if (bd.boss > 0) parts.push(`${bd.boss} B`);
+
+            if (parts.length > 0) {
+                ctx.font = 'bold 16px Arial';
+                ctx.fillStyle = '#aaaaff';
+                ctx.shadowColor = '#5555ff'; ctx.shadowBlur = 5;
+                ctx.fillText("ENEMIES SLASHED:", slideRightX, -8);
+
+                ctx.font = 'bold 16px Arial';
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText(parts.join('  ·  '), slideRightX, 16);
+            }
         }
 
         ctx.restore();

@@ -553,17 +553,30 @@ class Enemy {
     updateEliteAI(dirX, dirY, d) {
         if (this.teleportCooldown > 0) this.teleportCooldown--;
 
+        if (this.warpWarmupTimer > 0) {
+            this.warpWarmupTimer--;
+            if (this.warpWarmupTimer <= 0) {
+                
+                this.warpStartX = this.x;
+                this.warpStartY = this.y;
+                this.warpTimer = 40; 
+
+                this.x = Math.random() * (W - this.w);
+                this.y = Math.random() * (H / 2);
+                this.teleportCooldown = 180;
+
+                for (let i = 0; i < 20; i++) {
+                    particles.push(new Particle(this.x + this.w / 2, this.y + this.h / 2, '#00ffff', 3, 5, 25)); 
+                }
+            }
+            return; 
+        }
+
         const hpRatio = this.hp / this.maxHp;
-        if (hpRatio < 0.4 && this.teleportCooldown <= 0 && Math.random() < 0.03) {
-            for (let i = 0; i < 15; i++) {
-                particles.push(new Particle(this.x + this.w / 2, this.y + this.h / 2, '#ffd700', 2, 4, 20));
-            }
-            this.x = Math.random() * (W - this.w);
-            this.y = Math.random() * (H / 2);
-            this.teleportCooldown = 180;
-            for (let i = 0; i < 15; i++) {
-                particles.push(new Particle(this.x + this.w / 2, this.y + this.h / 2, '#ffd700', 2, 4, 20));
-            }
+
+        if (hpRatio < 0.4 && this.teleportCooldown <= 0 && Math.random() < 0.03 && !this.warpWarmupTimer) {
+            this.warpWarmupTimer = 30; 
+            return;
         }
 
         this.orbitAngle += 0.025;
@@ -658,8 +671,10 @@ class Enemy {
 
         } else if (this.type === 'small') {
 
-            ctx.translate(cx, cy); ctx.rotate(faceAngle + Math.PI / 2); ctx.translate(-cx, -cy);
+            const banking = this.zigzagDir * Math.PI / 8;
+            ctx.translate(cx, cy); ctx.rotate(faceAngle + Math.PI / 2 + banking); ctx.translate(-cx, -cy);
             const hw = this.w / 2, hh = this.h / 2;
+            const flap = Math.sin(this.anim * 1.5) * hh * 0.3;
 
             ctx.globalAlpha = 0.08;
             ctx.fillStyle = '#ff3322';
@@ -691,13 +706,13 @@ class Enemy {
             for (const s of [-1, 1]) {
                 ctx.beginPath();
                 ctx.moveTo(cx + s * hw * 0.15, cy - hh * 0.2);
-                ctx.quadraticCurveTo(cx + s * hw * 0.9, cy - hh * 0.4, cx + s * hw * 0.7, cy + hh * 0.1);
+                ctx.quadraticCurveTo(cx + s * hw * 0.9, cy - hh * 0.4 + flap, cx + s * hw * 0.7, cy + hh * 0.1 + flap);
                 ctx.lineTo(cx + s * hw * 0.15, cy); ctx.closePath();
                 ctx.fill(); ctx.stroke();
 
                 ctx.beginPath();
                 ctx.moveTo(cx + s * hw * 0.12, cy + hh * 0.05);
-                ctx.quadraticCurveTo(cx + s * hw * 0.6, cy, cx + s * hw * 0.45, cy + hh * 0.25);
+                ctx.quadraticCurveTo(cx + s * hw * 0.6, cy + flap * 0.5, cx + s * hw * 0.45, cy + hh * 0.25 + flap * 0.5);
                 ctx.lineTo(cx + s * hw * 0.12, cy + hh * 0.2); ctx.closePath();
                 ctx.fill(); ctx.stroke();
             }
@@ -726,70 +741,153 @@ class Enemy {
 
         } else if (this.type === 'medium') {
 
-            const r = this.w / 2;
-
-            ctx.fillStyle = 'rgba(0,0,0,0.15)';
-            ctx.beginPath(); ctx.arc(cx + 2, cy + 2, r * 0.85, 0, Math.PI * 2); ctx.fill();
-
-            const armorGrad = ctx.createRadialGradient(cx, cy, r * 0.5, cx, cy, r);
-            armorGrad.addColorStop(0, '#cc8833');
-            armorGrad.addColorStop(1, '#553300');
-            ctx.fillStyle = armorGrad;
-            ctx.beginPath(); ctx.arc(cx, cy, r * 0.9, 0, Math.PI * 2); ctx.fill();
-
-            ctx.strokeStyle = 'rgba(255,200,100,0.15)'; ctx.lineWidth = 0.5;
-            for (let i = 0; i < 6; i++) {
-                const pa = (i / 6) * Math.PI * 2;
-                ctx.beginPath();
-                ctx.moveTo(cx + Math.cos(pa) * r * 0.4, cy + Math.sin(pa) * r * 0.4);
-                ctx.lineTo(cx + Math.cos(pa) * r * 0.85, cy + Math.sin(pa) * r * 0.85);
-                ctx.stroke();
-            }
-
-            const hullGrad = ctx.createRadialGradient(cx - r * 0.15, cy - r * 0.15, 0, cx, cy, r * 0.55);
-            hullGrad.addColorStop(0, '#ffdd88');
-            hullGrad.addColorStop(0.5, '#cc9944');
-            hullGrad.addColorStop(1, '#775522');
-            ctx.fillStyle = hullGrad;
-            ctx.beginPath(); ctx.arc(cx, cy, r * 0.5, 0, Math.PI * 2); ctx.fill();
-            ctx.strokeStyle = 'rgba(255,220,130,0.3)'; ctx.lineWidth = 0.8;
-            ctx.beginPath(); ctx.arc(cx, cy, r * 0.5, 0, Math.PI * 2); ctx.stroke();
+            const timeToShoot = Math.max(0, 2500 - (Date.now() - this.lastShot));
+            const chargeRatio = timeToShoot < 1000 ? 1 - timeToShoot / 1000 : 0;
 
             ctx.save();
-            ctx.translate(cx, cy); ctx.rotate(faceAngle); ctx.translate(-cx, -cy);
+            ctx.translate(cx, cy);
+            ctx.rotate(faceAngle + Math.PI / 2); 
+            ctx.scale(0.7, 0.7); 
+            ctx.translate(-cx, -cy);
 
-            ctx.fillStyle = '#886622';
-            ctx.fillRect(cx + r * 0.2, cy - 2.5, r * 0.8, 5);
-            ctx.strokeStyle = 'rgba(200,160,80,0.3)'; ctx.lineWidth = 0.5;
-            ctx.strokeRect(cx + r * 0.2, cy - 2.5, r * 0.8, 5);
+            const hw = this.w / 2, hh = this.h / 2;
 
-            ctx.fillStyle = '#aa8833';
-            ctx.fillRect(cx + r * 0.9, cy - 4, 4, 8);
+            const hoverY = Math.sin(t * 0.005) * 3;
 
-            const muzzlePulse = 0.5 + Math.sin(t * 0.01) * 0.3;
-            ctx.fillStyle = `rgba(255,180,60,${muzzlePulse * 0.6})`;
-            ctx.shadowColor = '#ff8800'; ctx.shadowBlur = 6;
-            ctx.beginPath(); ctx.arc(cx + r + 2, cy, 3.5, 0, Math.PI * 2); ctx.fill();
+            const chargeOffset = chargeRatio * hw * 0.4;
+            const coreGlow = chargeRatio * 0.8 + 0.2 + hoverY * 0.1;
+
+            ctx.shadowColor = 'rgba(255, 100, 0, 0.3)';
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = '#1a1c1e'; 
+            ctx.beginPath();
+            ctx.moveTo(cx - hw * 0.4, cy - hh + hoverY);
+            ctx.lineTo(cx + hw * 0.4, cy - hh + hoverY);
+            ctx.lineTo(cx + hw, cy + hoverY);
+            ctx.lineTo(cx + hw * 0.6, cy + hh + hoverY);
+            ctx.lineTo(cx - hw * 0.6, cy + hh + hoverY);
+            ctx.lineTo(cx - hw, cy + hoverY);
+            ctx.closePath();
+            ctx.fill();
             ctx.shadowBlur = 0;
-            ctx.restore();
 
-            const exhaustAngle = faceAngle + Math.PI;
-            for (let ei = -1; ei <= 1; ei++) {
-                const ea = exhaustAngle + ei * 0.3;
-                const ex = cx + Math.cos(ea) * r * 0.7;
-                const ey = cy + Math.sin(ea) * r * 0.7;
-                ctx.fillStyle = '#ff8844'; ctx.shadowColor = '#ff4400'; ctx.shadowBlur = 3;
-                ctx.beginPath(); ctx.arc(ex, ey, 2, 0, Math.PI * 2); ctx.fill();
+            if (chargeRatio > 0.1) {
+                const corePulse = Math.sin(t * 0.1) * 0.5 + 0.5;
+                const coreGrad = ctx.createRadialGradient(cx, cy + hoverY, 0, cx, cy + hoverY, hw * 0.6);
+                coreGrad.addColorStop(0, '#ffffff');
+                coreGrad.addColorStop(0.3, `rgba(255, 200, 100, ${corePulse})`);
+                coreGrad.addColorStop(1, 'rgba(255, 100, 0, 0)');
+                ctx.fillStyle = coreGrad;
+                ctx.beginPath();
+                ctx.arc(cx, cy + hoverY, hw * 0.6, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = `rgba(255, 150, 50, ${chargeRatio})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(cx, cy + hoverY, hw * 0.3, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.fillStyle = '#ffccaa';
+                ctx.beginPath();
+                ctx.arc(cx, cy + hoverY, 4, 0, Math.PI * 2);
+                ctx.fill();
             }
+
+            for (const side of [-1, 1]) {
+                const px = cx + side * chargeOffset;
+                const py = cy + hoverY;
+
+                const pGrad = ctx.createLinearGradient(px, py - hh, px + side * hw, py + hh);
+                pGrad.addColorStop(0, '#ff9933'); 
+                pGrad.addColorStop(0.5, '#ff5500'); 
+                pGrad.addColorStop(1, '#aa3300'); 
+
+                ctx.fillStyle = pGrad;
+                ctx.strokeStyle = '#332211';
+                ctx.lineWidth = 1.5;
+
+                ctx.beginPath();
+                
+                ctx.moveTo(px, py - hh * 0.8);
+                ctx.lineTo(px + side * hw * 0.3, py - hh * 0.4);
+                ctx.lineTo(px + side * hw * 0.1, py);
+                ctx.lineTo(px + side * hw * 0.4, py + hh * 0.4);
+                ctx.lineTo(px, py + hh * 0.8);
+                
+                ctx.lineTo(px + side * hw * 0.8, py + hh * 0.8);
+                ctx.lineTo(px + side * hw, py);
+                ctx.lineTo(px + side * hw * 0.8, py - hh * 0.8);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = '#4a5056';
+                ctx.beginPath();
+                ctx.moveTo(px + side * hw * 0.4, py - hh * 0.6);
+                ctx.lineTo(px + side * hw * 0.7, py - hh * 0.6);
+                ctx.lineTo(px + side * hw * 0.8, py - hh * 0.2);
+                ctx.lineTo(px + side * hw * 0.5, py - hh * 0.2);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.strokeStyle = '#1a1c1e';
+                ctx.lineWidth = 1;
+                for (let i = 0; i < 3; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(px + side * hw * 0.45 + i * 3, py - hh * 0.55);
+                    ctx.lineTo(px + side * hw * 0.55 + i * 3, py - hh * 0.25);
+                    ctx.stroke();
+                }
+
+                ctx.fillStyle = chargeRatio > 0 ? '#ff3300' : '#00ffff';
+                ctx.shadowColor = ctx.fillStyle;
+                ctx.shadowBlur = 5;
+                ctx.beginPath();
+                ctx.arc(px + side * hw * 0.85, py + hh * 0.4, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+
+            ctx.fillStyle = '#6a7076';
+            ctx.strokeStyle = '#2a3036';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(cx - hw * 0.3, cy - hh + hoverY);
+            ctx.lineTo(cx + hw * 0.3, cy - hh + hoverY);
+            ctx.lineTo(cx + hw * 0.2, cy - hh * 0.4 + hoverY);
+            ctx.lineTo(cx - hw * 0.2, cy - hh * 0.4 + hoverY);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#00ffff';
+            ctx.shadowColor = '#00ffff';
+            ctx.shadowBlur = 6;
+            ctx.beginPath();
+            ctx.arc(cx - hw * 0.1, cy - hh * 0.6 + hoverY, 1.5, 0, Math.PI * 2);
+            ctx.arc(cx + hw * 0.1, cy - hh * 0.6 + hoverY, 1.5, 0, Math.PI * 2);
+            ctx.arc(cx, cy - hh * 0.7 + hoverY, 2, 0, Math.PI * 2);
+            ctx.fill();
             ctx.shadowBlur = 0;
 
-            ctx.strokeStyle = 'rgba(255,180,60,0.2)'; ctx.lineWidth = 1;
-            ctx.setLineDash([3, 5]);
-            ctx.beginPath(); ctx.arc(cx, cy, r + 5, 0, Math.PI * 2); ctx.stroke();
-            ctx.setLineDash([]);
+            ctx.fillStyle = '#3a4046';
+            ctx.beginPath();
+            ctx.moveTo(cx - hw * 0.4, cy + hh + hoverY);
+            ctx.lineTo(cx + hw * 0.4, cy + hh + hoverY);
+            ctx.lineTo(cx + hw * 0.2, cy + hh * 0.8 + hoverY);
+            ctx.lineTo(cx - hw * 0.2, cy + hh * 0.8 + hoverY);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
 
-            ctx.fillStyle = '#ffee99';
-            ctx.beginPath(); ctx.arc(cx, cy, 2.5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = `rgba(0, 255, 255, ${0.4 + Math.random() * 0.3})`;
+            ctx.beginPath();
+            ctx.ellipse(cx, cy + hh + 2 + hoverY, hw * 0.3, 3 + chargeRatio * 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
 
         } else if (this.type === 'large') {
 
@@ -798,7 +896,16 @@ class Enemy {
             const fAngle = isDashing && this.dashDir ?
                 Math.atan2(this.dashDir.y, this.dashDir.x) + Math.PI / 2 :
                 faceAngle + Math.PI / 2;
-            ctx.translate(cx, cy); ctx.rotate(fAngle); ctx.translate(-cx, -cy);
+
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(fAngle);
+
+            const squeezeX = isDashing ? 0.75 : 1 + Math.sin(this.anim * 0.4) * 0.05;
+            const squeezeY = isDashing ? 1.3 : 1 - Math.sin(this.anim * 0.4) * 0.05;
+            ctx.scale(squeezeX, squeezeY);
+
+            ctx.translate(-cx, -cy);
             const hw = this.w / 2, hh = this.h / 2;
 
             if (isDashing) {
@@ -843,7 +950,7 @@ class Enemy {
 
             ctx.strokeStyle = '#993399'; ctx.lineWidth = 2; ctx.lineCap = 'round';
             for (const s of [-1, 1]) {
-                const legSway = Math.sin(this.anim * 0.2 + s) * 3;
+                const legSway = isDashing ? (-hh * 0.2) : Math.sin(this.anim * 0.2 + s) * 4;
 
                 ctx.beginPath();
                 ctx.moveTo(cx + s * hw * 0.5, cy - hh * 0.2);
@@ -879,92 +986,192 @@ class Enemy {
             ctx.beginPath(); ctx.ellipse(cx, cy + hh * 0.65, hw * 0.2, 3, 0, 0, Math.PI * 2); ctx.fill();
             ctx.shadowBlur = 0;
 
-        } else {
+            ctx.restore();
 
+        } else {            
             const r = this.w / 2;
+            const justTeleported = this.teleportCooldown > 165;
+            const timeToShoot = Math.max(0, 1800 - (Date.now() - this.lastShot));
+
+            const attackRatio = timeToShoot < 800 ? 1 - (timeToShoot / 800) : 0;
+            const isWarmingUp = this.warpWarmupTimer > 0;
+            const warmupRatio = isWarmingUp ? (30 - this.warpWarmupTimer) / 30 : 0;
+            const activeRatio = Math.max(attackRatio, warmupRatio);
+
+            const rCol = Math.floor(255 * (1 - activeRatio));
+            const gCol = Math.floor(255 * activeRatio);
+            const themeColor = `rgb(${rCol}, ${gCol}, 255)`;
+
+            if (this.warpTimer > 0) {
+                this.warpTimer--;
+                const trailRatio = this.warpTimer / 40; 
+
+                ctx.save();
+                ctx.globalAlpha = trailRatio * 0.35;
+                ctx.strokeStyle = '#00ffff';
+                ctx.lineWidth = r * 0.4 * trailRatio;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'miter';
+                ctx.shadowColor = '#00ffff';
+                ctx.shadowBlur = 5;
+
+                const dx = cx - (this.warpStartX + r);
+                const dy = cy - (this.warpStartY + r);
+                const dist = Math.hypot(dx, dy);
+                const segments = 4;
+
+                ctx.beginPath();
+                ctx.moveTo(this.warpStartX + r, this.warpStartY + r);
+
+                let curX = this.warpStartX + r;
+                let curY = this.warpStartY + r;
+
+                for (let i = 1; i < segments; i++) {
+                    const progress = i / segments;
+                    const basePx = (this.warpStartX + r) + dx * progress;
+                    const basePy = (this.warpStartY + r) + dy * progress;
+
+                    const perpX = -dy / dist;
+                    const perpY = dx / dist;
+                    const offsetMag = (Math.sin(i * 12.345 + this.warpStartX) * 0.5) * (dist * 0.15);
+
+                    curX = basePx + perpX * offsetMag;
+                    curY = basePy + perpY * offsetMag;
+                    ctx.lineTo(curX, curY);
+                }
+                ctx.lineTo(cx, cy);
+                ctx.stroke();
+
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = r * 0.15 * trailRatio;
+                ctx.shadowBlur = 0;
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            if (justTeleported) {
+                if (Math.random() < 0.5) ctx.translate((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10);
+                ctx.globalAlpha = 0.5 + Math.random() * 0.5;
+            }
 
             const distort = Math.sin(this.anim * 0.25) * 0.3 + 0.2;
-            ctx.globalAlpha = distort * 0.5;
-            ctx.strokeStyle = '#ffee44'; ctx.lineWidth = 1;
-            ctx.beginPath(); ctx.arc(cx, cy, r + 10 + Math.sin(this.anim * 0.15) * 5, 0, Math.PI * 2); ctx.stroke();
-            ctx.beginPath(); ctx.arc(cx, cy, r + 14 + Math.cos(this.anim * 0.12) * 4, 0, Math.PI * 2); ctx.stroke();
-            ctx.globalAlpha = 1;
+            ctx.globalAlpha = Math.min(1, ctx.globalAlpha * (distort * 0.5 + 0.5));
 
-            ctx.save();
-            ctx.translate(cx, cy); ctx.rotate(this.anim * 0.04); ctx.translate(-cx, -cy);
-            ctx.strokeStyle = '#bbaa44'; ctx.lineWidth = 1.5;
+            ctx.strokeStyle = themeColor;
+            ctx.lineWidth = 1;
             ctx.beginPath();
-            for (let i = 0; i < 6; i++) {
-                const a = (i / 6) * Math.PI * 2;
-                const px = cx + Math.cos(a) * (r + 3), py = cy + Math.sin(a) * (r + 3);
-                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-            }
-            ctx.closePath(); ctx.stroke();
-            ctx.restore();
+            ctx.ellipse(cx, cy, r + Math.sin(this.anim * 0.1) * 5, r * 0.5 + Math.cos(this.anim * 0.15) * 5, this.anim * 0.05, 0, Math.PI * 2);
+            ctx.stroke();
 
-            ctx.save();
-            ctx.translate(cx, cy); ctx.rotate(-this.anim * 0.06); ctx.translate(-cx, -cy);
-            ctx.strokeStyle = '#ddcc55'; ctx.lineWidth = 1;
             ctx.beginPath();
-            for (let i = 0; i < 6; i++) {
-                const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
-                const px = cx + Math.cos(a) * r * 0.65, py = cy + Math.sin(a) * r * 0.65;
-                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-            }
-            ctx.closePath(); ctx.stroke();
-            ctx.restore();
+            ctx.ellipse(cx, cy, r * 0.5 + Math.sin(this.anim * 0.13) * 5, r + Math.cos(this.anim * 0.1) * 5, -this.anim * 0.07, 0, Math.PI * 2);
+            ctx.stroke();
 
-            const eGrad = ctx.createRadialGradient(cx - r * 0.15, cy - r * 0.15, 0, cx, cy, r * 0.55);
-            eGrad.addColorStop(0, '#ffeecc');
-            eGrad.addColorStop(0.3, '#ddaa44');
-            eGrad.addColorStop(0.7, '#886611');
-            eGrad.addColorStop(1, '#443300');
-            ctx.fillStyle = eGrad;
-            ctx.beginPath(); ctx.arc(cx, cy, r * 0.55, 0, Math.PI * 2); ctx.fill();
-            ctx.strokeStyle = 'rgba(255,220,80,0.35)'; ctx.lineWidth = 0.8;
-            ctx.beginPath(); ctx.arc(cx, cy, r * 0.55, 0, Math.PI * 2); ctx.stroke();
+            ctx.globalAlpha = justTeleported ? ctx.globalAlpha * 2 : 1;
 
-            ctx.save();
-            ctx.translate(cx, cy); ctx.rotate(faceAngle); ctx.translate(-cx, -cy);
+            const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 0.6);
+            coreGrad.addColorStop(0, '#ffffff');
 
-            const iGrad = ctx.createRadialGradient(cx + r * 0.05, cy, 0, cx, cy, r * 0.3);
-            iGrad.addColorStop(0, '#ff2200');
-            iGrad.addColorStop(0.6, '#cc0000');
-            iGrad.addColorStop(1, '#440000');
-            ctx.fillStyle = iGrad;
-            ctx.beginPath(); ctx.ellipse(cx, cy, r * 0.28, r * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+            const mR = Math.floor(255 * (1 - activeRatio));
+            const mG = Math.floor(85 + 170 * activeRatio);
+            coreGrad.addColorStop(0.2, `rgb(${mR}, ${mG}, 255)`);
 
-            ctx.fillStyle = '#000';
-            ctx.beginPath(); ctx.ellipse(cx + r * 0.03, cy, r * 0.05, r * 0.14, 0, 0, Math.PI * 2); ctx.fill();
+            const oR = Math.floor(85 * (1 - activeRatio));
+            const oG = Math.floor(85 * activeRatio);
+            const oB = Math.floor(170 + 85 * activeRatio);
+            coreGrad.addColorStop(0.6, `rgb(${oR}, ${oG}, ${oB})`);
 
-            ctx.fillStyle = 'rgba(255,255,220,0.6)';
-            ctx.beginPath(); ctx.ellipse(cx - r * 0.08, cy - r * 0.06, 1.5, 2.5, -0.3, 0, Math.PI * 2); ctx.fill();
-            ctx.restore();
+            coreGrad.addColorStop(1, 'rgba(0,0,0,0)');
 
-            const baseA = faceAngle;
-            const stoneAngles = [-0.25, 0, 0.25];
-            stoneAngles.forEach((off, si) => {
-                const sa = baseA + off + Math.sin(this.anim * 0.08 + si * 2) * 0.1;
-                const sr = r * 0.8 + Math.sin(this.anim * 0.1 + si * 1.5) * 2;
-                const sx = cx + Math.cos(sa) * sr;
-                const sy = cy + Math.sin(sa) * sr;
-                ctx.fillStyle = '#ff6622'; ctx.shadowColor = '#ff3300'; ctx.shadowBlur = 4;
-                ctx.save();
-                ctx.translate(sx, sy); ctx.rotate(this.anim * 0.15 + si);
+            ctx.fillStyle = coreGrad;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r * 0.6, 0, Math.PI * 2);
+            ctx.fill();
+
+            if (isWarmingUp) {
+                ctx.fillStyle = `rgba(255, 255, 255, ${warmupRatio})`;
                 ctx.beginPath();
-                ctx.moveTo(0, -3); ctx.lineTo(3, 0); ctx.lineTo(0, 3); ctx.lineTo(-3, 0);
-                ctx.closePath(); ctx.fill();
-                ctx.restore();
-            });
-            ctx.shadowBlur = 0;
+                ctx.arc(cx, cy, r * 0.6, 0, Math.PI * 2);
+                ctx.fill();
+            }
 
-            ctx.strokeStyle = 'rgba(255,180,50,0.12)'; ctx.lineWidth = 0.5;
-            stoneAngles.forEach((off, si) => {
-                const sa = baseA + off;
-                const sx = cx + Math.cos(sa) * r * 0.8;
-                const sy = cy + Math.sin(sa) * r * 0.8;
-                ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(sx, sy); ctx.stroke();
-            });
+            ctx.fillStyle = '#050011';
+            ctx.beginPath();
+            ctx.arc(cx, cy, r * 0.15, 0, Math.PI * 2);
+            ctx.fill();
+
+            const numShards = 5;
+            ctx.save();
+            ctx.translate(cx, cy);
+
+            let rotationBase = this.anim * 0.03 * (1 + 2 * activeRatio);
+            ctx.rotate(rotationBase);
+
+            const shardPositions = [];
+            for (let i = 0; i < numShards; i++) {
+                const a = (i / numShards) * Math.PI * 2 + Math.sin(this.anim * 0.05) * 0.2;
+                let dist = r * 0.7 + Math.sin(this.anim * 0.1 + i) * r * 0.2;
+
+                dist = dist * (1 - 0.5 * warmupRatio) + r * 0.4 * attackRatio;
+
+                shardPositions.push({ x: Math.cos(a) * dist, y: Math.sin(a) * dist, a: a });
+            }
+
+            ctx.strokeStyle = `rgba(${rCol}, ${gCol}, 255, ${0.2 + 0.3 * activeRatio})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let i = 0; i < numShards; i++) {
+                if (i === 0) ctx.moveTo(shardPositions[i].x, shardPositions[i].y);
+                else ctx.lineTo(shardPositions[i].x, shardPositions[i].y);
+            }
+            ctx.closePath();
+            ctx.stroke();
+
+            for (let i = 0; i < numShards; i++) {
+                ctx.save();
+                ctx.translate(shardPositions[i].x, shardPositions[i].y);
+
+                const idleSpin = this.anim * 0.1 * (i % 2 === 0 ? 1 : -1) + (isWarmingUp ? this.anim * 0.3 * warmupRatio * (i % 2 === 0 ? 1 : -1) : 0);
+                const aimAngle = shardPositions[i].a + Math.PI / 2;
+
+                const vIdleX = Math.cos(idleSpin);
+                const vIdleY = Math.sin(idleSpin);
+                const vAimX = Math.cos(aimAngle);
+                const vAimY = Math.sin(aimAngle);
+
+                const lerpX = vIdleX * (1 - attackRatio) + vAimX * attackRatio;
+                const lerpY = vIdleY * (1 - attackRatio) + vAimY * attackRatio;
+
+                ctx.rotate(Math.atan2(lerpY, lerpX));
+
+                ctx.fillStyle = `rgb(${Math.floor(204 + 51 * activeRatio)}, ${Math.floor(119 + 136 * activeRatio)}, 255)`;
+                ctx.shadowColor = themeColor;
+                ctx.shadowBlur = 10 + 10 * activeRatio;
+
+                if (justTeleported && Math.random() < 0.3) {
+                    ctx.fillStyle = '#00ffff';
+                }
+
+                const topY = r * (-0.3 - 0.3 * attackRatio);
+                const botY = r * (0.3 - 0.15 * attackRatio);
+
+                ctx.beginPath();
+                ctx.moveTo(0, topY);
+                ctx.lineTo(r * 0.15, 0);
+                ctx.lineTo(0, botY);
+                ctx.lineTo(-r * 0.15, 0);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+            ctx.restore();
+
+            if (justTeleported) {
+                ctx.globalAlpha = 1;
+                
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+            }
         }
 
         if (this.flash > 0) {

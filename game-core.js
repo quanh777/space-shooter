@@ -197,7 +197,6 @@ function drawPlayer() {
     ctx.closePath();
     ctx.fill();
 
-    // Subtle Skill Readiness LED indicators on the hull
     const cxL = -hw * 0.35;
     const cxR = hw * 0.35;
     const cyLed = hh * 0.35;
