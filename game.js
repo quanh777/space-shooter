@@ -47,6 +47,8 @@ let bulletDamage = 25, canShoot = true, lastShot = 0;
 
 let enemies = [], particles = [];
 let bombProjectiles = [];
+let scorePopups = [];
+let scoreFlash = 0;
 let goldPickups = [];
 
 const skill = { level: 1, maxLvl: 999, cooldown: 6000, lastUse: 0, radius: 100, damage: 100, cost: 20 };
@@ -294,7 +296,7 @@ class Bullet {
             this.y += perpY * wiggle;
             spd = 2.5;
         } else if (this.sniper) {
-            spd = 25;
+            spd = 12.5;
         }
 
         this.x += this.dx * spd;
@@ -725,7 +727,7 @@ class Enemy {
                     pGrad.addColorStop(0, '#ffcc00');
                     if (cycle > 0.1 && cycle < 0.9) {
                         pGrad.addColorStop(Math.max(0, cycle - 0.1), '#ffaa00');
-                        pGrad.addColorStop(cycle, '#ffffff'); 
+                        pGrad.addColorStop(cycle, '#ffffff');
                         pGrad.addColorStop(Math.min(1, cycle + 0.1), '#aa7700');
                     } else {
                         pGrad.addColorStop(0.5, '#ffaa00');
@@ -1146,13 +1148,25 @@ class Enemy {
             ctx.beginPath(); ctx.arc(cx, cy, this.w / 2 + 5, 0, Math.PI * 2); ctx.fill();
             ctx.shadowBlur = 0; ctx.globalAlpha = 1;
         }
-        ctx.restore();
 
+        if (this.hp < this.maxHp) {
+            this.drawHp(ctx);
+        }
+
+        ctx.restore();
+    }
+
+    getBloodColor() {
+        const hpRatio = Math.max(0, this.hp / this.maxHp);
+        return this.isMinion ? '#9933ff' : (hpRatio > 0.5 ? '#44dd44' : (hpRatio > 0.25 ? '#ddaa22' : '#dd3333'));
+    }
+
+    drawHp(ctx) {
         const bw = this.w + 4, bx = this.x - 2, by = this.y - 12;
         const hp = this.hp / this.maxHp;
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
         ctx.beginPath(); ctx.roundRect(bx, by, bw, 4, 2); ctx.fill();
-        const hpColor = this.isMinion ? '#9933ff' : (hp > 0.5 ? '#44dd44' : (hp > 0.25 ? '#ddaa22' : '#dd3333'));
+        const hpColor = this.getBloodColor();
         ctx.fillStyle = hpColor;
         if (hp > 0) { ctx.beginPath(); ctx.roundRect(bx, by, hp * bw, 4, 2); ctx.fill(); }
         ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 0.5;
@@ -1162,6 +1176,7 @@ class Enemy {
     hit(dmg, hitX, hitY) {
         this.hp -= dmg; this.flash = 1;
 
+        const bColor = this.getBloodColor();
         const px = hitX !== undefined ? hitX : (this.x + Math.random() * this.w);
         const py = hitY !== undefined ? hitY : (this.y + Math.random() * this.h);
 
@@ -1169,7 +1184,7 @@ class Enemy {
             particles.push(new Particle(
                 px + (Math.random() - 0.5) * 10,
                 py + (Math.random() - 0.5) * 10,
-                '#fff', 2, 5, 30
+                bColor, 2, 5, 30
             ));
         }
     }

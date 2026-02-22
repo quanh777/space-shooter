@@ -127,7 +127,7 @@ function drawEnemy(e, ctx) {
             const ratio = Math.max(0, e.hp / e.maxHp);
             ctx.fillStyle = 'rgba(0,0,0,0.5)';
             ctx.fillRect(barX, barY, barW, barH);
-            ctx.fillStyle = ratio > 0.5 ? '#44ff44' : (ratio > 0.25 ? '#ffaa00' : '#ff3333');
+            ctx.fillStyle = typeof e.getBloodColor === 'function' ? e.getBloodColor() : (ratio > 0.5 ? '#44ff44' : (ratio > 0.25 ? '#ffaa00' : '#ff3333'));
             ctx.fillRect(barX, barY, barW * ratio, barH);
         }
     }
@@ -167,7 +167,7 @@ function drawMinion(e, ctx, cx, cy, t, faceAngle) {
         mGrad.addColorStop(0, '#ffcc00');
         if (cycle > 0.1 && cycle < 0.9) {
             mGrad.addColorStop(Math.max(0, cycle - 0.1), '#ffaa00');
-            mGrad.addColorStop(cycle, '#ffffff'); 
+            mGrad.addColorStop(cycle, '#ffffff');
             mGrad.addColorStop(Math.min(1, cycle + 0.1), '#aa6600');
         } else {
             mGrad.addColorStop(0.5, '#ffaa00');

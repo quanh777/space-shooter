@@ -107,6 +107,12 @@
         this.hpDrops = [];
     }
 
+    getBloodColor() {
+        if (this.phase === 3) return '#ff8800'; 
+        const hpRatio = Math.max(0, this.hp / this.maxHp);
+        return hpRatio > 0.5 ? '#44dd44' : (hpRatio > 0.25 ? '#ddaa22' : '#dd3333');
+    }
+
     getDamage(baseDamage) {
         return Math.floor(baseDamage * this.damageMultiplier);
     }
@@ -140,12 +146,12 @@
         }
 
         const wasHp = this.displayHp;
-        this.displayHp += (this.hp - this.displayHp) * 0.05; 
-        this.eyeOpenness += ((this.state === 'RESTING' ? 0 : 1) - this.eyeOpenness) * 0.15; 
-        this.restProgress += ((this.state === 'RESTING' ? 1 : 0) - this.restProgress) * 0.03; 
+        this.displayHp += (this.hp - this.displayHp) * 0.05;
+        this.eyeOpenness += ((this.state === 'RESTING' ? 0 : 1) - this.eyeOpenness) * 0.15;
+        this.restProgress += ((this.state === 'RESTING' ? 1 : 0) - this.restProgress) * 0.03;
 
         const targetPhaseLevel = Math.max(0, this.phase - 1);
-        this.currentPhaseLevel += (targetPhaseLevel - this.currentPhaseLevel) * 0.005; 
+        this.currentPhaseLevel += (targetPhaseLevel - this.currentPhaseLevel) * 0.005;
 
         if (this.hitFlash > 0.1 && wasHp - this.hp > 1 && Math.random() < 0.6) {
             const barWidth = Math.min(320, W - 80);
@@ -166,8 +172,8 @@
             this.hpDrops = this.hpDrops.filter(p => {
                 p.x += p.vx;
                 p.y += p.vy;
-                p.vy += 0.15; 
-                p.vx *= 0.95; 
+                p.vy += 0.15;
+                p.vx *= 0.95;
                 p.life--;
                 return p.life > 0;
             });
@@ -259,7 +265,7 @@
                 let b = new Bullet(cx, cy, Math.cos(napAngle), Math.sin(napAngle));
                 b.c = '#ffffff';
                 b.dmg = this.getDamage(25);
-                b.speed = 20 + this.phase * 3;
+                b.speed = 10 + this.phase * 1.5;
                 b.isEnemy = true;
                 if (typeof bullets !== 'undefined') bullets.push(b);
                 screenShake = 15;
@@ -620,9 +626,9 @@
         ctx.fill();
 
         const hpGrad = ctx.createLinearGradient(barX, 0, barX + barWidth * hpPct, 0);
-        if (this.enraged) {
-            hpGrad.addColorStop(0, '#ff2200');
-            hpGrad.addColorStop(1, '#ff6600');
+        if (this.enraged || this.phase === 3) {
+            hpGrad.addColorStop(0, '#ff6600');
+            hpGrad.addColorStop(1, '#ffaa00');
         } else {
             hpGrad.addColorStop(0, this.color);
             hpGrad.addColorStop(0.5, this.color + 'cc');
@@ -890,8 +896,10 @@
         this.glowIntensity = 0.5;
         this.hitFlash = 1;
 
+        if (typeof addComboKill === 'function') addComboKill(10, 'boss');
+
         if (this.hp <= 0 && !this.dying) {
-            this.hp = 1; 
+            this.hp = 1;
             this.dying = true;
             this.deathTimer = 0;
             this.deathState = 0;

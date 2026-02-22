@@ -59,6 +59,21 @@ function updateCombo() {
                     hasImpacted: false
                 };
             }
+            if (comboScoreEarned > 0) {
+                if (comboKills >= 3) {
+                    scorePopups.push({
+                        val: comboScoreEarned,
+                        alpha: 0,
+                        state: 'appear',
+                        timer: 0,
+                        xOffset: 40,
+                        yOffset: -10
+                    });
+                } else {
+                    score += comboScoreEarned;
+                }
+            }
+
             comboKills = 0;
             comboMultiplier = 1;
             comboScoreEarned = 0;
@@ -200,32 +215,40 @@ function shoot() {
 }
 
 function explodeBomb(bomb) {
-    for (let ring = 0; ring < 3; ring++) {
-        const ringRadius = skill.radius * (ring + 1) / 3;
-        for (let i = 0; i < 16; i++) {
-            const ang = (i / 16) * Math.PI * 2;
-            particles.push(new Particle(
-                bomb.x + Math.cos(ang) * ringRadius,
-                bomb.y + Math.sin(ang) * ringRadius,
-                ring === 0 ? '#fff' : (ring === 1 ? '#ff8800' : '#ff4400'),
-                2, 4, 25 - ring * 5
-            ));
-        }
+    
+    for (let i = 0; i < 30; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const dist = Math.random() * skill.radius * 0.15;
+        particles.push(new Particle(bomb.x + Math.cos(ang) * dist, bomb.y + Math.sin(ang) * dist, '#ffffff', 6 + Math.random() * 4, 12, 15));
     }
 
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 60; i++) {
+        const ang = (i / 60) * Math.PI * 2;
+        const p1 = new Particle(bomb.x, bomb.y, '#00ffff', 0, 5, 30);
+        p1.vx = Math.cos(ang) * 15;
+        p1.vy = Math.sin(ang) * 15;
+        p1.maxLt = 20; p1.lt = 20;
+        particles.push(p1);
+
+        const p2 = new Particle(bomb.x, bomb.y, '#0088ff', 0, 8, 25);
+        p2.vx = Math.cos(ang) * 8;
+        p2.vy = Math.sin(ang) * 8;
+        particles.push(p2);
+    }
+
+    for (let i = 0; i < 40; i++) {
         const ang = Math.random() * Math.PI * 2;
-        const dist = Math.random() * skill.radius * 0.7;
-        const colors = ['#ff0', '#f80', '#f00', '#fff'];
+        const dist = Math.random() * skill.radius * 0.8;
+        const colors = ['#00ffff', '#ffffff', '#00aaff', '#0044ff'];
         particles.push(new Particle(
             bomb.x + Math.cos(ang) * dist,
             bomb.y + Math.sin(ang) * dist,
             colors[Math.floor(Math.random() * colors.length)],
-            2 + Math.random() * 3, 6, 35
+            1 + Math.random() * 5, 4 + Math.random() * 6, 20 + Math.random() * 20
         ));
     }
 
-    screenShake = 25;
+    screenShake = 35;
 
     enemies.forEach(enemy => {
         const dx = (enemy.x + enemy.w / 2) - bomb.x;
@@ -239,14 +262,14 @@ function explodeBomb(bomb) {
             if (enemy.hp <= 0) {
                 const baseScore = enemy.type == 'boss' ? 200 : (enemy.type == 'elite' ? 50 : (enemy.type == 'large' ? 30 : (enemy.type == 'medium' ? 20 : 10)));
                 const earnedScore = Math.floor(baseScore * comboMultiplier);
-                score += earnedScore;
                 addComboKill(earnedScore, enemy.type);
                 enemy.drop();
+                const deathColor = enemy.getBloodColor();
                 for (let k = 0; k < 25; k++) {
                     particles.push(new Particle(
                         enemy.x + Math.random() * enemy.w,
                         enemy.y + Math.random() * enemy.h,
-                        '#f00', 2, 5, 30
+                        deathColor, 2, 5, 30
                     ));
                 }
             }
@@ -539,7 +562,6 @@ function update() {
                 if (e.hp <= 0) {
                     const baseScore = e.type == 'boss' ? (bossKills++, typeof onBossDefeated === 'function' && onBossDefeated(), 200) : (e.type == 'elite' ? 50 : (e.type == 'large' ? 30 : (e.type == 'medium' ? 20 : 10)));
                     const earnedScore = Math.floor(baseScore * comboMultiplier);
-                    score += earnedScore;
                     addComboKill(earnedScore, e.type);
 
                     if (e.type === 'elite' || e.type === 'large') {
@@ -547,7 +569,7 @@ function update() {
                     }
 
                     e.drop();
-                    const deathColor = e.type === 'elite' ? '#ffd700' : '#f00';
+                    const deathColor = e.getBloodColor();
                     for (let k = 0; k < 20; k++) particles.push(new Particle(e.x + Math.random() * e.w, e.y + Math.random() * e.h, deathColor, 2, 4, 30));
                     return window.piercingBullets ? true : false;
                 }
@@ -586,6 +608,27 @@ function update() {
     });
 
     particles = particles.filter(p => { p.update(); return p.lt > 0 });
+
+    scorePopups.forEach(sp => {
+        if (sp.state === 'appear') {
+            sp.alpha += 0.05;
+            sp.yOffset += 0.5;
+            sp.timer++;
+            if (sp.timer >= 20) sp.state = 'wait';
+        } else if (sp.state === 'wait') {
+            sp.timer++;
+            if (sp.timer >= 40) sp.state = 'merge';
+        } else if (sp.state === 'merge') {
+            sp.xOffset -= 2.0;
+            sp.alpha -= 0.05;
+            if (sp.xOffset <= 0 || sp.alpha <= 0) {
+                sp.state = 'done';
+                if (typeof scoreFlash !== 'undefined') scoreFlash = 1.0;
+                score += sp.val;
+            }
+        }
+    });
+    scorePopups = scorePopups.filter(sp => sp.state !== 'done');
     if (particles.length > 500) {
         particles = particles.slice(-500);
     }
@@ -746,7 +789,10 @@ function update() {
     if (isResting && now - restStart >= restDuration && !isShop) {
         isResting = false; wave++;
         bossSpawned = false;
-        showWaveTransition(wave);
+        window.shopVisited = false;
+        if (wave % 5 !== 1) {
+            showWaveTransition(wave);
+        }
         neededSpawn = true;
     }
 
@@ -756,8 +802,10 @@ function update() {
 
         if (wave % 5 == 0 && !bossSpawned) {
             enemies.push(new Boss()); bossSpawned = true;
-        } else if (wave % 5 == 1 && wave > 1) {
+        } else if (wave % 5 == 1 && wave > 1 && !window.shopVisited) {
             isShop = true;
+            window.shopVisited = true;
+            neededSpawn = true;
             isResting = false;
             skillUpBoughtThisShop = false;
             shopRefreshCount = 0;
@@ -1123,42 +1171,184 @@ function draw() {
     });
 
     bombProjectiles.forEach(bomb => {
+        const drawTime = Date.now();
         bomb.trail.forEach((t, i) => {
-            const alpha = (t.life / 15) * 0.5;
-            const size = 3 + (1 - t.life / 15) * 6;
+            const alpha = (t.life / 15) * 0.8;
+            const size = 4 + (1 - t.life / 15) * 8;
             ctx.save();
             ctx.globalAlpha = alpha;
-            ctx.shadowColor = '#ff4400'; ctx.shadowBlur = size * 2;
-            ctx.fillStyle = `rgba(255, ${120 + i * 8}, 0, 1)`;
-            ctx.beginPath(); ctx.arc(t.x, t.y, size, 0, Math.PI * 2); ctx.fill();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.translate(t.x, t.y);
+            ctx.rotate(bomb.angle);
+
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 10;
+            ctx.beginPath(); ctx.ellipse(0, 0, size * 0.5, size * 1.5, 0, 0, Math.PI * 2); ctx.fill();
+
+            if (i % 3 === 0) {
+                ctx.strokeStyle = `rgba(0, 200, 255, ${alpha})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(-size, 0); ctx.lineTo(0, -size * 1.5);
+                ctx.lineTo(size, 0); ctx.lineTo(0, size * 1.5);
+                ctx.closePath();
+                ctx.stroke();
+            }
             ctx.restore();
         });
+
+        if (bomb.target && bomb.target.hp > 0) {
+            const tx = bomb.target.x + bomb.target.w / 2;
+            const ty = bomb.target.y + bomb.target.h / 2;
+            const dist = Math.hypot(tx - bomb.x, ty - bomb.y);
+
+            if (dist < 200) {
+                const factor = 1 - (dist / 200);
+                const tRad = Math.max(bomb.target.w, bomb.target.h) * 0.8 + 10;
+
+                ctx.save();
+                ctx.translate(tx, ty);
+                ctx.rotate(drawTime * 0.005);
+                ctx.strokeStyle = `rgba(255, 50, 0, ${factor})`;
+                ctx.lineWidth = 2 + factor * 2;
+
+                ctx.beginPath();
+                ctx.arc(0, 0, tRad, 0, Math.PI * 2);
+                ctx.stroke();
+
+                for (let j = 0; j < 4; j++) {
+                    ctx.rotate(Math.PI / 2);
+                    ctx.beginPath();
+                    ctx.moveTo(tRad * 0.8, 0);
+                    ctx.lineTo(tRad * 1.4, 0);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+        }
 
         ctx.save();
         ctx.translate(bomb.x, bomb.y);
         ctx.rotate(bomb.angle);
 
-        ctx.fillStyle = '#cc4400';
-        ctx.beginPath();
-        ctx.moveTo(-bomb.radius - 12, 0);
-        ctx.lineTo(-bomb.radius - 2, -6);
-        ctx.lineTo(-bomb.radius - 2, 6);
-        ctx.closePath(); ctx.fill();
+        let proximityFactor = 0;
+        if (bomb.target && bomb.target.hp > 0) {
+            const tx = bomb.target.x + bomb.target.w / 2;
+            const ty = bomb.target.y + bomb.target.h / 2;
+            const dist = Math.sqrt((tx - bomb.x) ** 2 + (ty - bomb.y) ** 2);
+            if (dist < 200) proximityFactor = 1 - (dist / 200);
+        }
 
-        const bombGrad = ctx.createLinearGradient(-bomb.radius, 0, bomb.radius, 0);
-        bombGrad.addColorStop(0, '#cc3300');
-        bombGrad.addColorStop(0.5, '#ff5500');
-        bombGrad.addColorStop(1, '#ff8800');
-        ctx.fillStyle = bombGrad;
-        ctx.shadowColor = '#ff4400'; ctx.shadowBlur = 10;
-        ctx.beginPath(); ctx.ellipse(0, 0, bomb.radius, bomb.radius * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.scale(0.65, 0.65);
+
+        if (proximityFactor > 0) {
+            ctx.shadowColor = '#ff2200';
+            ctx.shadowBlur = 15 + proximityFactor * 30;
+            ctx.fillStyle = `rgba(255, 50, 0, ${proximityFactor * 0.5})`;
+            ctx.beginPath(); ctx.arc(0, 0, bomb.radius * 2.5, 0, Math.PI * 2); ctx.fill();
+
+            ctx.strokeStyle = `rgba(255, 0, 0, ${proximityFactor})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, 0, bomb.radius * (2 + Math.sin(Date.now() * 0.02) * 0.5), 0, Math.PI * 2);
+            ctx.moveTo(bomb.radius * 3, 0); ctx.lineTo(bomb.radius * 1.5, 0);
+            ctx.moveTo(-bomb.radius * 3, 0); ctx.lineTo(-bomb.radius * 1.5, 0);
+            ctx.moveTo(0, bomb.radius * 3); ctx.lineTo(0, bomb.radius * 1.5);
+            ctx.moveTo(0, -bomb.radius * 3); ctx.lineTo(0, -bomb.radius * 1.5);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+
+        const pulsate = Math.sin(drawTime * 0.01) * 0.2;
+
+        ctx.fillStyle = proximityFactor > 0.5 ? '#221111' : '#111822';
+        ctx.strokeStyle = proximityFactor > 0.8 ? '#ff4400' : '#00ffcc';
+        ctx.lineWidth = 1.5;
+
+        ctx.beginPath();
+        ctx.moveTo(bomb.radius * 0.5, -bomb.radius * 0.4);
+        
+        ctx.quadraticCurveTo(bomb.radius * 1.6, -bomb.radius * 0.3, bomb.radius * 1.8, -bomb.radius * 0.1);
+        
+        ctx.bezierCurveTo(bomb.radius * 1.95, 0, bomb.radius * 1.95, 0, bomb.radius * 1.8, bomb.radius * 0.1);
+        
+        ctx.quadraticCurveTo(bomb.radius * 1.6, bomb.radius * 0.3, bomb.radius * 0.5, bomb.radius * 0.4);
+        
+        ctx.lineTo(-bomb.radius * 0.8, bomb.radius * 0.4);
+        ctx.lineTo(-bomb.radius * 1.0, 0); 
+        ctx.lineTo(-bomb.radius * 0.8, -bomb.radius * 0.4);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+
+        if (proximityFactor > 0) {
+            
+            const blinkSpeed = Math.max(20, 150 - proximityFactor * 130);
+            if (Math.floor(Date.now() / blinkSpeed) % 2 === 0) {
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowColor = '#ff3300';
+                ctx.shadowBlur = 15;
+                ctx.beginPath();
+                ctx.arc(bomb.radius * 1.7, 0, bomb.radius * 0.25, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        ctx.fillStyle = proximityFactor > 0 ? `rgba(255, ${200 - proximityFactor * 200}, 0, 1)` : '#00ffcc';
+        ctx.beginPath();
+        ctx.moveTo(bomb.radius * 0.8, bomb.radius * 0.36);
+        ctx.lineTo(bomb.radius * 0.5, bomb.radius * 0.8);
+        ctx.lineTo(bomb.radius * 0.2, bomb.radius * 0.39);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(bomb.radius * 0.8, -bomb.radius * 0.36);
+        ctx.lineTo(bomb.radius * 0.5, -bomb.radius * 0.8);
+        ctx.lineTo(bomb.radius * 0.2, -bomb.radius * 0.39);
+        ctx.fill();
+
+        ctx.strokeStyle = '#ffffff';
+        ctx.fillStyle = proximityFactor > 0.6 ? '#aa2222' : '#1a2a3a';
+        ctx.beginPath();
+        ctx.moveTo(-bomb.radius * 0.2, bomb.radius * 0.4);
+        ctx.lineTo(-bomb.radius * 0.8, bomb.radius * 1.4);
+        ctx.lineTo(-bomb.radius * 1.0, bomb.radius * 1.4);
+        ctx.lineTo(-bomb.radius * 0.8, bomb.radius * 0.4);
+        ctx.fill(); ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(-bomb.radius * 0.2, -bomb.radius * 0.4);
+        ctx.lineTo(-bomb.radius * 0.8, -bomb.radius * 1.4);
+        ctx.lineTo(-bomb.radius * 1.0, -bomb.radius * 1.4);
+        ctx.lineTo(-bomb.radius * 0.8, -bomb.radius * 0.4);
+        ctx.fill(); ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = proximityFactor > 0.4 ? '#ff0000' : '#00ffff';
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.arc(bomb.radius * 0.4, 0, bomb.radius * 0.2 + pulsate * bomb.radius, 0, Math.PI * 2);
+        ctx.fill();
         ctx.shadowBlur = 0;
 
-        ctx.fillStyle = 'rgba(255,200,100,0.4)';
-        ctx.beginPath(); ctx.ellipse(bomb.radius * 0.2, -2, 4, 2, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = proximityFactor > 0.4 ? `rgba(255, 50, 0, ${0.5 + pulsate})` : `rgba(0, 255, 255, ${0.5 + pulsate})`;
+        ctx.lineWidth = 1;
+        for (let r = 0; r < 3; r++) {
+            ctx.beginPath();
+            ctx.ellipse(bomb.radius * (0.8 - r * 0.5), 0, bomb.radius * 0.1, bomb.radius * (0.6 + r * 0.1), Math.PI / 2, 0, Math.PI * 2);
+            ctx.stroke();
+        }
 
-        ctx.fillStyle = '#fff';
-        ctx.beginPath(); ctx.arc(bomb.radius * 0.8, 0, 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.globalCompositeOperation = 'lighter';
+        const engineGrad = ctx.createLinearGradient(-bomb.radius * 1.2, 0, -bomb.radius * 2.5, 0);
+        engineGrad.addColorStop(0, '#ffffff');
+        engineGrad.addColorStop(0.3, proximityFactor > 0.7 ? '#ff8800' : '#00ffff');
+        engineGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = engineGrad;
+        ctx.beginPath();
+        ctx.moveTo(-bomb.radius * 1.2, bomb.radius * 0.15);
+        ctx.lineTo(-bomb.radius * (2.5 + Math.random()), 0);
+        ctx.lineTo(-bomb.radius * 1.2, -bomb.radius * 0.15);
+        ctx.fill();
 
         ctx.restore();
     });
@@ -1495,6 +1685,7 @@ document.addEventListener('keydown', e => {
         } else if (e.key == 'Escape') {
             selectedItems = [];
             isShop = false;
+            if (wave % 5 === 1) showWaveTransition(wave);
         }
     }
 });
@@ -1584,6 +1775,7 @@ document.addEventListener('click', e => {
     if (mx >= W / 2 - sl.btnW / 2 && mx <= W / 2 + sl.btnW / 2 && my >= sl.skipY && my <= sl.skipY + sl.btnH) {
         selectedItems = [];
         isShop = false;
+        if (wave % 5 === 1) showWaveTransition(wave);
     }
 });
 

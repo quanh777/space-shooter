@@ -7,10 +7,10 @@ function updateBossEntry(boss) {
     boss.x = W / 2 - boss.w / 2;
 
     if (boss.bossType === 0) {
-        
+
         if (boss.entryState === 0) {
-            boss.y += 12; 
-            
+            boss.y += 12;
+
             const c = ['#ff4400', '#ff8800', '#ffffff'][Math.floor(Math.random() * 3)];
             particles.push(new Particle(W / 2 + (Math.random() - 0.5) * boss.w, boss.y - boss.h / 2, c, 3 + Math.random() * 4, 10, 30));
 
@@ -19,37 +19,37 @@ function updateBossEntry(boss) {
                 boss.entryState = 1;
                 boss.entryTimer = 0;
                 screenShake = 40;
-                
+
                 for (let i = 0; i < 40; i++) {
                     const ang = (i / 40) * Math.PI * 2;
                     particles.push(new Particle(W / 2 + Math.cos(ang) * 80, 50 + boss.h / 2 + Math.sin(ang) * 80, '#ff4400', 4, 8, 40));
                 }
             }
         } else if (boss.entryState === 1) {
-            
-            boss.y = 50 - Math.sin(t * 0.2) * (20 - t / 3); 
+
+            boss.y = 50 - Math.sin(t * 0.2) * (20 - t / 3);
             if (t > 60) boss.entering = false;
         }
 
     } else if (boss.bossType === 1) {
-        
+
         if (boss.entryState === 0) {
             boss.y = 50;
-            screenShake = 2; 
+            screenShake = 2;
             if (t % 5 === 0) {
-                
+
                 const ang = Math.random() * Math.PI * 2;
                 particles.push(new Particle(W / 2 + Math.cos(ang) * 150, 50 + boss.h / 2 + Math.sin(ang) * 150, '#ff00ff', 2, -6, 25));
             }
             if (t > 40) { boss.entryState = 1; boss.entryTimer = 0; }
         } else if (boss.entryState === 1) {
-            
+
             screenShake = 5;
             if (t > 60) {
                 boss.entryState = 2;
                 boss.entryTimer = 0;
                 screenShake = 30;
-                
+
                 for (let i = 0; i < 60; i++) {
                     particles.push(new Particle(W / 2 + (Math.random() - 0.5) * 200, 50 + boss.h / 2, i % 2 === 0 ? '#aa00ff' : '#ffffff', 2 + Math.random() * 3, 10 - Math.random() * 20, 30));
                 }
@@ -59,20 +59,20 @@ function updateBossEntry(boss) {
         }
 
     } else {
-        
+
         if (boss.entryState === 0) {
             if (t === 1) boss.y = -200;
-            
+
             if (t > 40) { boss.entryState = 1; boss.entryTimer = 0; }
         } else if (boss.entryState === 1) {
-            boss.y += 1.5; 
+            boss.y += 1.5;
             screenShake = 3;
             if (boss.y >= 50) {
                 boss.y = 50;
                 boss.entryState = 2;
                 boss.entryTimer = 0;
                 screenShake = 25;
-                
+
                 for (let i = 0; i < 50; i++) {
                     const ang = Math.random() * Math.PI * 2;
                     particles.push(new Particle(W / 2, 50 + boss.h / 2, '#ffee00', 3 + Math.random() * 5, 8 + Math.random() * 4, 50));
@@ -90,16 +90,16 @@ function updateBossDeath(boss) {
     const cx = boss.x + boss.w / 2;
     const cy = boss.y + boss.h / 2;
 
-    boss.mines = []; 
-    boss.clonesActive = false; 
+    boss.mines = [];
+    boss.clonesActive = false;
     boss.laserFiring = false;
     boss.shieldActive = false;
 
     if (boss.bossType === 0) {
-        
+
         if (boss.deathState === 0) {
             screenShake = 15;
-            
+
             if (t % 8 === 0) {
                 const ex = cx + (Math.random() - 0.5) * boss.w;
                 const ey = cy + (Math.random() - 0.5) * boss.h;
@@ -108,7 +108,7 @@ function updateBossDeath(boss) {
             if (t > 90) { boss.deathState = 1; boss.deathTimer = 0; }
         } else if (boss.deathState === 1) {
             screenShake = 30;
-            
+
             if (t > 60) {
                 boss.deathState = 2;
                 boss.deathTimer = 0;
@@ -121,23 +121,23 @@ function updateBossDeath(boss) {
         }
 
     } else if (boss.bossType === 1) {
-        
+
         if (boss.deathState === 0) {
             screenShake = 10;
-            
+
             if (t % 3 === 0) {
                 const a = Math.random() * Math.PI * 2;
-                particles.push(new Particle(cx + Math.cos(a) * 100, cy + Math.sin(a) * 100, '#aa00ff', 2, -15, 10)); 
+                particles.push(new Particle(cx + Math.cos(a) * 100, cy + Math.sin(a) * 100, '#aa00ff', 2, -15, 10));
             }
             if (t > 70) { boss.deathState = 1; boss.deathTimer = 0; }
         } else if (boss.deathState === 1) {
             screenShake = 40;
-            
+
             if (t > 30) {
                 boss.deathState = 2;
                 boss.deathTimer = 0;
                 screenShake = 70;
-                
+
                 for (let i = 0; i < 120; i++) {
                     const ang = Math.random() * Math.PI * 2;
                     particles.push(new Particle(cx, cy, ['#ff00ff', '#cc00ff', '#ffffff'][Math.floor(Math.random() * 3)], 2 + Math.random() * 4, 25 + Math.random() * 15, 60));
@@ -148,19 +148,19 @@ function updateBossDeath(boss) {
         }
 
     } else {
-        
+
         if (boss.deathState === 0) {
             screenShake = 20;
-            
+
             if (t > 60) { boss.deathState = 1; boss.deathTimer = 0; }
         } else if (boss.deathState === 1) {
             screenShake = 45;
-            
+
             if (t > 50) {
                 boss.deathState = 2;
                 boss.deathTimer = 0;
                 screenShake = 80;
-                
+
                 for (let i = 0; i < 200; i++) {
                     const ang = Math.random() * Math.PI * 2;
                     particles.push(new Particle(cx, cy, ['#ffee00', '#ffffff', '#ffaa00'][Math.floor(Math.random() * 3)], 4 + Math.random() * 6, 30 + Math.random() * 20, 70));
@@ -180,14 +180,28 @@ function finalizeBossDeath(boss) {
     score += earnedScore;
     addComboKill(earnedScore, 'boss');
 
-    const bossReward = 60 + Math.floor(wave / 5) * 30;
-    playerMoney += bossReward;
+    const bossNumber = Math.max(1, Math.floor(wave / 5));
+    const minReward = 200 + bossNumber * 50;
+    const maxReward = 300 + bossNumber * 80;
+    const bossReward = Math.floor(minReward + Math.random() * (maxReward - minReward));
+
+    for (let c = 0; c < 30; c++) {
+        goldPickups.push({
+            x: boss.x + boss.w / 2,
+            y: boss.y + boss.h / 2,
+            vx: (Math.random() - 0.5) * 16,
+            vy: (Math.random() - 0.5) * 16,
+            value: Math.ceil(bossReward / 30),
+            life: 900,
+            maxLife: 900
+        });
+    }
+
     if (typeof onBossDefeated === 'function') onBossDefeated();
-    if (typeof onMoneyEarned === 'function') onMoneyEarned(bossReward);
 }
 
 function bossPhaseTransitionEffect(boss, newPhase) {
-    
+
     screenShake = 10 + newPhase * 3;
 }
 
@@ -213,14 +227,15 @@ function bossAmbientParticles(boss) {
     if (boss.phase === 3) {
         const ragAng = Math.random() * Math.PI * 2;
         const ragDist = boss.w * 0.5 + Math.random() * 15;
-        particles.push(new Particle(cx + Math.cos(ragAng) * ragDist, cy + Math.sin(ragAng) * ragDist, boss.bossType === 0 ? '#ff2200' : (boss.bossType === 1 ? '#ff00ff' : '#ff8800'), 1.5, 4, 15));
+        const pColor = typeof boss.getBloodColor === 'function' ? boss.getBloodColor() : '#ff0000';
+        particles.push(new Particle(cx + Math.cos(ragAng) * ragDist, cy + Math.sin(ragAng) * ragDist, pColor, 1.5, 4, 15));
     }
 }
 
 function drawBossCinematics_Under(boss, ctx, cx, cy) {
     if (boss.entering) {
         if (boss.bossType === 1) {
-            
+
             const t = boss.entryTimer;
             ctx.save();
             ctx.translate(cx, cy);
@@ -243,7 +258,7 @@ function drawBossCinematics_Under(boss, ctx, cx, cy) {
             ctx.beginPath(); ctx.ellipse(0, 0, 80, 120, 0, 0, Math.PI * 2); ctx.fill();
             ctx.restore();
         } else if (boss.bossType === 2) {
-            
+
             const t = boss.entryTimer;
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
@@ -263,7 +278,7 @@ function drawBossCinematics_Under(boss, ctx, cx, cy) {
         }
     } else if (boss.dying) {
         if (boss.bossType === 1 && boss.deathState === 1) {
-            
+
             const scale = 1 - boss.deathTimer / 30;
             ctx.save();
             ctx.translate(cx, cy);
@@ -272,7 +287,7 @@ function drawBossCinematics_Under(boss, ctx, cx, cy) {
             ctx.strokeStyle = '#ff00ff'; ctx.lineWidth = 10 * scale; ctx.stroke();
             ctx.restore();
         } else if (boss.bossType === 2 && boss.deathState >= 0) {
-            
+
             ctx.save();
             ctx.translate(cx, cy);
             ctx.globalCompositeOperation = 'lighter';
@@ -295,14 +310,14 @@ function drawBossCinematics_Under(boss, ctx, cx, cy) {
 function applyBossCinematicTransforms(boss, ctx, cx, cy) {
     if (boss.entering) {
         if (boss.bossType === 0) {
-            
+
             if (boss.entryState === 0) {
                 ctx.translate(cx, boss.y + boss.h / 2);
-                ctx.scale(0.8, 1.5); 
+                ctx.scale(0.8, 1.5);
                 ctx.translate(-cx, -(boss.y + boss.h / 2));
             }
         } else if (boss.bossType === 1) {
-            
+
             if (boss.entryState === 0) {
                 ctx.globalAlpha = 0;
             } else if (boss.entryState === 1) {
@@ -317,12 +332,12 @@ function applyBossCinematicTransforms(boss, ctx, cx, cy) {
         }
     } else if (boss.dying) {
         if (boss.bossType === 0) {
-            
+
             if (boss.deathState === 1) {
                 ctx.translate((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10);
             }
         } else if (boss.bossType === 1) {
-            
+
             if (boss.deathState === 0) {
                 ctx.translate((Math.random() - 0.5) * 15, (Math.random() - 0.5) * 15);
                 ctx.globalAlpha = 0.5 + Math.random() * 0.5;
@@ -330,18 +345,18 @@ function applyBossCinematicTransforms(boss, ctx, cx, cy) {
                 const tr = Math.max(0, 1 - (boss.deathTimer / 30));
                 ctx.translate(cx, cy);
                 ctx.scale(tr, tr);
-                ctx.rotate(boss.deathTimer * 0.5); 
+                ctx.rotate(boss.deathTimer * 0.5);
                 ctx.translate(-cx, -cy);
             }
         } else if (boss.bossType === 2) {
-            
+
             if (boss.deathState === 0) {
                 ctx.globalAlpha = Math.max(0, 1 - (boss.deathTimer / 60));
                 ctx.translate(cx, cy);
                 ctx.scale(1 + boss.deathTimer / 30, 1 + boss.deathTimer / 30);
                 ctx.translate(-cx, -cy);
             } else if (boss.deathState >= 1) {
-                ctx.globalAlpha = 0; 
+                ctx.globalAlpha = 0;
             }
         }
     }
@@ -350,7 +365,7 @@ function applyBossCinematicTransforms(boss, ctx, cx, cy) {
 function drawBossCinematics_Over(boss, ctx, cx, cy) {
     if (boss.entering) {
         if (boss.bossType === 0 && boss.entryState === 0) {
-            
+
             ctx.save();
             ctx.translate(cx, boss.y + boss.h / 2);
             ctx.scale(0.8, 1.5);
@@ -363,8 +378,8 @@ function drawBossCinematics_Over(boss, ctx, cx, cy) {
             ctx.beginPath(); ctx.arc(0, Math.max(0, Math.max(0, boss.h / 2)), boss.w * 1.5, 0, Math.PI * 2); ctx.fill();
             ctx.restore();
         } else if (boss.bossType === 2 && boss.entryState === 1) {
-            
-            const ratio = boss.entryTimer / 60; 
+
+            const ratio = boss.entryTimer / 60;
             if (ratio < 1) {
                 ctx.save();
                 ctx.globalCompositeOperation = 'source-atop';
@@ -377,7 +392,7 @@ function drawBossCinematics_Over(boss, ctx, cx, cy) {
     } else if (boss.dying) {
         if (boss.bossType === 0) {
             if (boss.deathState === 0) {
-                
+
                 const t = boss.deathTimer;
                 ctx.save();
                 ctx.globalCompositeOperation = 'lighter';
@@ -393,8 +408,8 @@ function drawBossCinematics_Over(boss, ctx, cx, cy) {
                 }
                 ctx.restore();
             } else if (boss.deathState === 1) {
-                
-                const t = boss.deathTimer; 
+
+                const t = boss.deathTimer;
                 ctx.save();
                 ctx.translate(cx, cy);
                 ctx.globalCompositeOperation = 'lighter';
