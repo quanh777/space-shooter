@@ -78,7 +78,7 @@ function drawWaveTransition() {
             ctx.strokeStyle = isBoss ? '#ff0000' : '#00aaff';
             ctx.lineWidth = 15 * (1 - afterImpact / 10);
             ctx.beginPath();
-            ctx.arc(cx, cy, 60 + afterImpact * 40, 0, Math.PI * 2);
+            ctx.arc(cx, cy, 60 + afterImpact * 20, 0, Math.PI * 2);
             ctx.stroke();
 
             ctx.fillStyle = isBoss ? `rgba(255,0,0,${0.6 * (1 - afterImpact / 10)})` : `rgba(255,255,255,${0.8 * (1 - afterImpact / 10)})`;
