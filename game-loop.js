@@ -201,13 +201,20 @@ function shoot() {
     const aim = aimEnemy(), cx = playerX + PW / 2, cy = playerY + PH / 2;
     bullets.push(new Bullet(cx, cy, aim.x, aim.y));
 
-    if (doubleShot) {
-        bullets.push(new Bullet(cx - 10, cy, aim.x, aim.y));
-        bullets.push(new Bullet(cx + 10, cy, aim.x, aim.y));
-    } else if (tripleShot) {
+    for (let i = 1; i <= doubleShotCount; i++) {
+        const spacing = 12 * i;
+        const perpX = -aim.y, perpY = aim.x;
+        bullets.push(new Bullet(cx + perpX * spacing, cy + perpY * spacing, aim.x, aim.y));
+        bullets.push(new Bullet(cx - perpX * spacing, cy - perpY * spacing, aim.x, aim.y));
+    }
+
+    if (tripleShotCount > 0) {
         const a = Math.atan2(aim.y, aim.x);
-        bullets.push(new Bullet(cx, cy, Math.cos(a - 0.3), Math.sin(a - 0.3)));
-        bullets.push(new Bullet(cx, cy, Math.cos(a + 0.3), Math.sin(a + 0.3)));
+        for (let i = 1; i <= tripleShotCount; i++) {
+            const spread = 0.2 * i;
+            bullets.push(new Bullet(cx, cy, Math.cos(a - spread), Math.sin(a - spread)));
+            bullets.push(new Bullet(cx, cy, Math.cos(a + spread), Math.sin(a + spread)));
+        }
     }
 
     for (let i = 0; i < 3; i++) particles.push(new Particle(cx, cy, 'rgb(100,150,255)', 2, 3, 10));
@@ -215,7 +222,7 @@ function shoot() {
 }
 
 function explodeBomb(bomb) {
-    
+
     for (let i = 0; i < 30; i++) {
         const ang = Math.random() * Math.PI * 2;
         const dist = Math.random() * skill.radius * 0.15;
@@ -334,8 +341,8 @@ function applyItem(item) {
     else if (item == 'Energy Upgrade') energyRegen += 5;
     else if (item == 'Bullet Speed') bulletSpeed += 2;
     else if (item == 'Bullet Damage') bulletDamage += 10;
-    else if (item == 'Double Shot') { doubleShot = true; tripleShot = false }
-    else if (item == 'Triple Shot') { tripleShot = true; doubleShot = false }
+    else if (item == 'Double Shot') doubleShotCount++;
+    else if (item == 'Triple Shot') tripleShotCount++;
     else if (item == 'Piercing') window.piercingBullets = true;
     else if (item == 'Max Health') { maxHealth += 25; playerHealth = Math.min(maxHealth, playerHealth + 25) }
     else if (item == 'Fire Rate') bulletCooldown = Math.max(200, bulletCooldown - 100);
@@ -770,7 +777,7 @@ function update() {
         }
     }
 
-    if (enemies.length === 0 && !isResting && !isShop && wave > 0) {
+    if (enemies.length === 0 && spawnQueue.length === 0 && !isResting && !isShop && wave > 0) {
         isResting = true; restStart = now;
         playerHealth = Math.min(maxHealth, playerHealth + 20);
 
@@ -801,6 +808,7 @@ function update() {
         isResting = false;
 
         if (wave % 5 == 0 && !bossSpawned) {
+            spawnQueue = [];
             enemies.push(new Boss()); bossSpawned = true;
         } else if (wave % 5 == 1 && wave > 1 && !window.shopVisited) {
             isShop = true;
@@ -1267,21 +1275,21 @@ function draw() {
 
         ctx.beginPath();
         ctx.moveTo(bomb.radius * 0.5, -bomb.radius * 0.4);
-        
+
         ctx.quadraticCurveTo(bomb.radius * 1.6, -bomb.radius * 0.3, bomb.radius * 1.8, -bomb.radius * 0.1);
-        
+
         ctx.bezierCurveTo(bomb.radius * 1.95, 0, bomb.radius * 1.95, 0, bomb.radius * 1.8, bomb.radius * 0.1);
-        
+
         ctx.quadraticCurveTo(bomb.radius * 1.6, bomb.radius * 0.3, bomb.radius * 0.5, bomb.radius * 0.4);
-        
+
         ctx.lineTo(-bomb.radius * 0.8, bomb.radius * 0.4);
-        ctx.lineTo(-bomb.radius * 1.0, 0); 
+        ctx.lineTo(-bomb.radius * 1.0, 0);
         ctx.lineTo(-bomb.radius * 0.8, -bomb.radius * 0.4);
         ctx.closePath();
         ctx.fill(); ctx.stroke();
 
         if (proximityFactor > 0) {
-            
+
             const blinkSpeed = Math.max(20, 150 - proximityFactor * 130);
             if (Math.floor(Date.now() / blinkSpeed) % 2 === 0) {
                 ctx.fillStyle = '#ffffff';
@@ -1501,7 +1509,7 @@ window.cheat = {
         bulletSpeed = 15; bulletCooldown = 100;
         energyRegen = 50; energy = 100;
         skill.level = 5; skill.radius = 250; skill.damage = 300; skill.cooldown = 3000;
-        doubleShot = false; tripleShot = true;
+        doubleShotCount = 5; tripleShotCount = 5;
         shopItems["Shield"].b = 5;
         console.log('âš¡ All stats maxed!');
     },
@@ -1550,7 +1558,7 @@ function resetGame() {
     bullets = []; enemies = []; particles = [];
     bombProjectiles = []; shieldCooldown = 0;
     bossKills = 0; bossSpawned = false; isShop = false;
-    doubleShot = false; tripleShot = false;
+    doubleShotCount = 0; tripleShotCount = 0;
     isResting = false; restStart = 0; neededSpawn = false;
     tutorialCircle = null; tutorialProgress = 0;
 
