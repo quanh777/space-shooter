@@ -1822,8 +1822,8 @@ describe('Core Flight, Combat & Progression Simulation Tests', () => {
     expect(offending).toEqual([]);
 
     for (const def of Object.values(SECTOR_HAZARDS)) {
-      expect(def.bannerUrl).toMatch(/^\/assets\/sectors\/sector_[a-z_]+\.jpg$/);
-      const diskPath = path.join(rootDir, 'public', def.bannerUrl.slice(1));
+      expect(def.bannerUrl).toMatch(/^\.\/assets\/sectors\/sector_[a-z_]+\.jpg$/);
+      const diskPath = path.join(rootDir, 'public', def.bannerUrl.replace(/^\.\//, ''));
       expect(fs.existsSync(diskPath)).toBe(true);
       expect(fs.statSync(diskPath).size).toBeGreaterThan(50_000);
     }
@@ -2768,7 +2768,7 @@ describe('Level-Up Mid-Room Draft & Hyperspace Warp Tests', () => {
     openRoomDoorSelection(s, bus);
     expect(s.phase).toBe('ROOM_SELECT');
     for (const door of s.pendingRoomDoors) {
-      expect(door.bannerUrl.startsWith('/assets/chambers/door_')).toBe(true);
+      expect(door.bannerUrl.startsWith('./assets/chambers/door_')).toBe(true);
       expect(door.arenaRadius).toBeGreaterThan(0);
       expect(door.zoneTagVi.length).toBeGreaterThan(0);
     }

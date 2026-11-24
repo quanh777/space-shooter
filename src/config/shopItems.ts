@@ -54,7 +54,7 @@ export const SHOP_ITEMS: Record<ShopItemId, ShopItemDefinition> = {
     maxLevel: -1,
     accent: '#44ee77',
     icon: 'plus',
-    iconUrl: '/assets/icons/core_health.png',
+    iconUrl: './assets/icons/core_health.png',
     category: 'survival',
   },
   maxHealth: {
@@ -70,7 +70,7 @@ export const SHOP_ITEMS: Record<ShopItemId, ShopItemDefinition> = {
     maxLevel: -1,
     accent: '#ff5588',
     icon: 'heart',
-    iconUrl: '/assets/icons/core_max_health.png',
+    iconUrl: './assets/icons/core_max_health.png',
     category: 'survival',
   },
   shield: {
@@ -86,7 +86,7 @@ export const SHOP_ITEMS: Record<ShopItemId, ShopItemDefinition> = {
     maxLevel: 6,
     accent: '#00f0dd',
     icon: 'shield',
-    iconUrl: '/assets/icons/core_shield.png',
+    iconUrl: './assets/icons/core_shield.png',
     category: 'survival',
   },
   regen: {
@@ -102,7 +102,7 @@ export const SHOP_ITEMS: Record<ShopItemId, ShopItemDefinition> = {
     maxLevel: 8,
     accent: '#55ffaa',
     icon: 'spark',
-    iconUrl: '/assets/icons/core_regen.png',
+    iconUrl: './assets/icons/core_regen.png',
     category: 'survival',
   },
   energyUpgrade: {
@@ -118,7 +118,7 @@ export const SHOP_ITEMS: Record<ShopItemId, ShopItemDefinition> = {
     maxLevel: -1,
     accent: '#33aaff',
     icon: 'bolt',
-    iconUrl: '/assets/icons/core_energy.png',
+    iconUrl: './assets/icons/core_energy.png',
     category: 'mobility',
   },
   speedBoost: {
@@ -134,7 +134,7 @@ export const SHOP_ITEMS: Record<ShopItemId, ShopItemDefinition> = {
     maxLevel: 8,
     accent: '#33ddff',
     icon: 'chevronRight',
-    iconUrl: '/assets/icons/core_speed.png',
+    iconUrl: './assets/icons/core_speed.png',
     category: 'mobility',
   },
   dashCooldown: {
@@ -150,7 +150,7 @@ export const SHOP_ITEMS: Record<ShopItemId, ShopItemDefinition> = {
     maxLevel: 5,
     accent: '#66ccff',
     icon: 'arrowRight',
-    iconUrl: '/assets/icons/core_dash.png',
+    iconUrl: './assets/icons/core_dash.png',
     category: 'mobility',
   },
   bulletSpeed: {
@@ -166,7 +166,7 @@ export const SHOP_ITEMS: Record<ShopItemId, ShopItemDefinition> = {
     maxLevel: 6,
     accent: '#88ddff',
     icon: 'arrowRight',
-    iconUrl: '/assets/icons/rail_sniper.png',
+    iconUrl: './assets/icons/rail_sniper.png',
     category: 'offense',
   },
   bulletDamage: {
@@ -182,7 +182,7 @@ export const SHOP_ITEMS: Record<ShopItemId, ShopItemDefinition> = {
     maxLevel: -1,
     accent: '#ff4455',
     icon: 'diamond',
-    iconUrl: '/assets/icons/pulse_blaster.png',
+    iconUrl: './assets/icons/pulse_blaster.png',
     category: 'offense',
   },
   fireRate: {
@@ -198,7 +198,7 @@ export const SHOP_ITEMS: Record<ShopItemId, ShopItemDefinition> = {
     maxLevel: 5,
     accent: '#ff8833',
     icon: 'spark',
-    iconUrl: '/assets/icons/pulse_blaster.png',
+    iconUrl: './assets/icons/pulse_blaster.png',
     category: 'offense',
   },
   doubleShot: {
@@ -214,7 +214,7 @@ export const SHOP_ITEMS: Record<ShopItemId, ShopItemDefinition> = {
     maxLevel: 3,
     accent: '#5588ff',
     icon: 'twin',
-    iconUrl: '/assets/icons/scatter_cannon.png',
+    iconUrl: './assets/icons/scatter_cannon.png',
     category: 'offense',
   },
   tripleShot: {
@@ -230,7 +230,7 @@ export const SHOP_ITEMS: Record<ShopItemId, ShopItemDefinition> = {
     maxLevel: 3,
     accent: '#9966ff',
     icon: 'spread',
-    iconUrl: '/assets/icons/homing_pod.png',
+    iconUrl: './assets/icons/homing_pod.png',
     category: 'offense',
   },
   piercing: {
@@ -246,7 +246,7 @@ export const SHOP_ITEMS: Record<ShopItemId, ShopItemDefinition> = {
     maxLevel: 4,
     accent: '#ffcc33',
     icon: 'pierce',
-    iconUrl: '/assets/icons/rail_sniper.png',
+    iconUrl: './assets/icons/rail_sniper.png',
     category: 'offense',
   },
   skillUp: {
@@ -262,7 +262,7 @@ export const SHOP_ITEMS: Record<ShopItemId, ShopItemDefinition> = {
     maxLevel: -1,
     accent: '#ff6622',
     icon: 'nova',
-    iconUrl: '/assets/icons/skill_salvo.png',
+    iconUrl: './assets/icons/skill_salvo.png',
     category: 'offense',
   },
   luck: {
@@ -278,7 +278,7 @@ export const SHOP_ITEMS: Record<ShopItemId, ShopItemDefinition> = {
     maxLevel: 6,
     accent: '#66ee66',
     icon: 'star',
-    iconUrl: '/assets/icons/core_luck.png',
+    iconUrl: './assets/icons/core_luck.png',
     category: 'utility',
   },
   magnet: {
@@ -294,7 +294,7 @@ export const SHOP_ITEMS: Record<ShopItemId, ShopItemDefinition> = {
     maxLevel: 5,
     accent: '#dd66ff',
     icon: 'target',
-    iconUrl: '/assets/icons/core_magnet.png',
+    iconUrl: './assets/icons/core_magnet.png',
     category: 'utility',
   },
   greed: {
@@ -310,7 +310,7 @@ export const SHOP_ITEMS: Record<ShopItemId, ShopItemDefinition> = {
     maxLevel: 6,
     accent: '#ffdd33',
     icon: 'coin',
-    iconUrl: '/assets/icons/core_greed.png',
+    iconUrl: './assets/icons/core_greed.png',
     category: 'utility',
   },
   cryoCooler: {
@@ -326,7 +326,7 @@ export const SHOP_ITEMS: Record<ShopItemId, ShopItemDefinition> = {
     maxLevel: 5,
     accent: '#34d399',
     icon: 'snow',
-    iconUrl: '/assets/icons/thermal_sink.png',
+    iconUrl: './assets/icons/thermal_sink.png',
     category: 'utility',
   },
 };

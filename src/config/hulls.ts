@@ -66,7 +66,7 @@ export const HULL_CATALOG: Record<HullClassId, HullClassDef> = {
     statArmor: 2,
     statSpeed: 5,
     statTech: 3,
-    iconUrl: '/assets/hulls/hull_interceptor.jpg',
+    iconUrl: './assets/hulls/hull_interceptor.jpg',
   },
   carrier: {
     id: 'carrier',
@@ -94,7 +94,7 @@ export const HULL_CATALOG: Record<HullClassId, HullClassDef> = {
     statArmor: 3,
     statSpeed: 3,
     statTech: 5,
-    iconUrl: '/assets/hulls/hull_carrier.jpg',
+    iconUrl: './assets/hulls/hull_carrier.jpg',
   },
   juggernaut: {
     id: 'juggernaut',
@@ -122,7 +122,7 @@ export const HULL_CATALOG: Record<HullClassId, HullClassDef> = {
     statArmor: 5,
     statSpeed: 2,
     statTech: 2,
-    iconUrl: '/assets/hulls/hull_juggernaut.jpg',
+    iconUrl: './assets/hulls/hull_juggernaut.jpg',
   },
   sniper: {
     id: 'sniper',
@@ -150,7 +150,7 @@ export const HULL_CATALOG: Record<HullClassId, HullClassDef> = {
     statArmor: 2,
     statSpeed: 4,
     statTech: 4,
-    iconUrl: '/assets/hulls/hull_sniper.jpg',
+    iconUrl: './assets/hulls/hull_sniper.jpg',
   },
 };
 
@@ -195,7 +195,7 @@ export const META_UPGRADE_CATALOG: Record<MetaUpgradeId, MetaUpgradeDef> = {
     baseCost: 35,
     costStep: 30,
     accent: '#34d399',
-    iconUrl: '/assets/icons/core_max_health.png',
+    iconUrl: './assets/icons/core_max_health.png',
   },
   chrono_capacitor: {
     id: 'chrono_capacitor',
@@ -207,7 +207,7 @@ export const META_UPGRADE_CATALOG: Record<MetaUpgradeId, MetaUpgradeDef> = {
     baseCost: 40,
     costStep: 35,
     accent: '#38e8ff',
-    iconUrl: '/assets/icons/mut_chrono.jpg',
+    iconUrl: './assets/icons/mut_chrono.jpg',
   },
   draft_reroll: {
     id: 'draft_reroll',
@@ -219,7 +219,7 @@ export const META_UPGRADE_CATALOG: Record<MetaUpgradeId, MetaUpgradeDef> = {
     baseCost: 50,
     costStep: 50,
     accent: '#fbbf24',
-    iconUrl: '/assets/icons/core_luck.png',
+    iconUrl: './assets/icons/core_luck.png',
   },
   starting_credits: {
     id: 'starting_credits',
@@ -231,7 +231,7 @@ export const META_UPGRADE_CATALOG: Record<MetaUpgradeId, MetaUpgradeDef> = {
     baseCost: 30,
     costStep: 25,
     accent: '#fbbf24',
-    iconUrl: '/assets/icons/core_greed.png',
+    iconUrl: './assets/icons/core_greed.png',
   },
   salvage_magnet: {
     id: 'salvage_magnet',
@@ -243,7 +243,7 @@ export const META_UPGRADE_CATALOG: Record<MetaUpgradeId, MetaUpgradeDef> = {
     baseCost: 35,
     costStep: 30,
     accent: '#a78bfa',
-    iconUrl: '/assets/icons/core_magnet.png',
+    iconUrl: './assets/icons/core_magnet.png',
   },
   overclock_core: {
     id: 'overclock_core',
@@ -255,6 +255,6 @@ export const META_UPGRADE_CATALOG: Record<MetaUpgradeId, MetaUpgradeDef> = {
     baseCost: 45,
     costStep: 40,
     accent: '#ff5e5e',
-    iconUrl: '/assets/icons/pulse_blaster.png',
+    iconUrl: './assets/icons/pulse_blaster.png',
   },
 };

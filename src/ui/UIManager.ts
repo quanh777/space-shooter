@@ -1556,7 +1556,7 @@ export class UIManager {
     const weaponEntry = offer.weaponId ? WEAPON_CATALOG[offer.weaponId] : null;
     const coreDef = isCoreOffer ? SHOP_ITEMS[offer.coreItemId!] : null;
 
-    const iconUrl = weaponEntry?.iconUrl ?? coreDef?.iconUrl ?? '/assets/icons/core_health.png';
+    const iconUrl = weaponEntry?.iconUrl ?? coreDef?.iconUrl ?? './assets/icons/core_health.png';
     const displayName = weaponEntry
       ? this.lang === 'vi'
         ? weaponEntry.nameVi
@@ -1763,9 +1763,9 @@ export class UIManager {
 
     if (roulette.offers.length === 0) {
       const placeholders: Array<[string, string, string]> = [
-        ['/assets/icons/rail_sniper.png', 'PRIMARY', '?'],
-        ['/assets/icons/skill_salvo.png', 'SKILL', '?'],
-        ['/assets/icons/core_health.png', 'CORE', '?'],
+        ['./assets/icons/rail_sniper.png', 'PRIMARY', '?'],
+        ['./assets/icons/skill_salvo.png', 'SKILL', '?'],
+        ['./assets/icons/core_health.png', 'CORE', '?'],
       ];
       for (const [iconPath, slotTitle, q] of placeholders) {
         const reel = document.createElement('div');
@@ -2111,7 +2111,7 @@ export class UIManager {
     const titleRow = document.createElement('div');
     titleRow.className = 'inspector-weapon-title';
     titleRow.append(
-      this.createItemImg('/assets/icons/core_health.png', 'item-icon-img'),
+      this.createItemImg('./assets/icons/core_health.png', 'item-icon-img'),
       document.createTextNode(strings.slotCoreTitle)
     );
     const pill = document.createElement('span');

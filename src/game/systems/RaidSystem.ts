@@ -382,7 +382,7 @@ export function buildQuickDraftOptions(state: GameState): QuickDraftOption[] {
     badgeVi: 'KINH TẾ & SỬA CHỮA',
     badgeEn: 'BOUNTY & REPAIR',
     accent: '#fbbf24',
-    iconUrl: '/assets/icons/core_greed.png',
+    iconUrl: './assets/icons/core_greed.png',
   });
 
   return options;
