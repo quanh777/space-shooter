@@ -1,0 +1,66 @@
+{
+  "name": "ui_hover",
+  "description": "Soft warm console hover tick without harsh 2-5kHz buildup.",
+  "layers": [
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          780
+        ],
+        [
+          0.022,
+          1040
+        ]
+      ],
+      "env": {
+        "attack": 0.001,
+        "hold": 0.002,
+        "release": 0.022,
+        "curve": 3
+      }
+    },
+    {
+      "wave": "triangle",
+      "freq": [
+        [
+          0,
+          1170
+        ],
+        [
+          0.02,
+          1480
+        ]
+      ],
+      "env": {
+        "attack": 0.001,
+        "hold": 0.001,
+        "release": 0.016,
+        "curve": 3
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": 1950
+        }
+      ],
+      "gain_db": -9
+    }
+  ],
+  "master": {
+    "lufs": -23,
+    "peak_db": -1.5,
+    "highpass": 220
+  },
+  "expect": {
+    "duration": [
+      0.014,
+      0.06
+    ],
+    "centroid": [
+      600,
+      2200
+    ]
+  }
+}

@@ -1,0 +1,100 @@
+{
+  "name": "shoot_blaster",
+  "description": "Tactile plasma repeater: snappy trigger + swept FM laser + punchy thump.",
+  "layers": [
+    {
+      "wave": "noise",
+      "env": {
+        "attack": 0.0005,
+        "hold": 0.001,
+        "release": 0.012,
+        "curve": 3
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": 2800,
+          "q": 1.3
+        }
+      ],
+      "gain_db": -6
+    },
+    {
+      "wave": "saw",
+      "freq": [
+        [
+          0,
+          1320
+        ],
+        [
+          0.082,
+          215
+        ]
+      ],
+      "detune_cents": 7,
+      "env": {
+        "attack": 0.001,
+        "hold": 0.008,
+        "release": 0.075,
+        "curve": 2.6
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": [
+            [
+              0,
+              7600
+            ],
+            [
+              0.08,
+              1600
+            ]
+          ],
+          "q": 1.1
+        }
+      ],
+      "gain_db": -2
+    },
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          235
+        ],
+        [
+          0.05,
+          68
+        ]
+      ],
+      "drive": 1.5,
+      "env": {
+        "attack": 0.001,
+        "hold": 0.005,
+        "release": 0.048,
+        "curve": 2.2
+      },
+      "gain_db": -1
+    }
+  ],
+  "master": {
+    "lufs": -18,
+    "peak_db": -1,
+    "highpass": 55
+  },
+  "vary": {
+    "pitch": 1.2,
+    "gain_db": 1.2
+  },
+  "expect": {
+    "duration": [
+      0.06,
+      0.2
+    ],
+    "centroid": [
+      350,
+      2400
+    ]
+  }
+}

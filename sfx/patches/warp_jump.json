@@ -1,0 +1,106 @@
+{
+  "name": "warp_jump",
+  "description": "Hyperspace ignition: sub-bass gravity well drop + rising bandpass warp tunnel whoosh.",
+  "layers": [
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          185
+        ],
+        [
+          0.46,
+          42
+        ]
+      ],
+      "drive": 1.7,
+      "env": {
+        "attack": 0.006,
+        "hold": 0.08,
+        "release": 0.4,
+        "curve": 2
+      },
+      "gain_db": -2
+    },
+    {
+      "wave": "noise",
+      "env": {
+        "attack": 0.03,
+        "hold": 0.18,
+        "release": 0.32,
+        "curve": 2
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": [
+            [
+              0,
+              320
+            ],
+            [
+              0.32,
+              2900
+            ],
+            [
+              0.55,
+              780
+            ]
+          ],
+          "q": 1.5
+        }
+      ],
+      "gain_db": 0
+    },
+    {
+      "wave": "triangle",
+      "at": [
+        0.04
+      ],
+      "freq": [
+        [
+          0,
+          280
+        ],
+        [
+          0.46,
+          1280
+        ]
+      ],
+      "detune_cents": 10,
+      "env": {
+        "attack": 0.02,
+        "hold": 0.16,
+        "release": 0.28,
+        "curve": 2.2
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": 5500
+        }
+      ],
+      "gain_db": -2
+    }
+  ],
+  "master": {
+    "lufs": -14,
+    "peak_db": -1,
+    "highpass": 35,
+    "reverb": {
+      "mix": 0.2,
+      "decay": 0.6
+    }
+  },
+  "expect": {
+    "duration": [
+      0.4,
+      1.1
+    ],
+    "centroid": [
+      120,
+      2200
+    ]
+  }
+}

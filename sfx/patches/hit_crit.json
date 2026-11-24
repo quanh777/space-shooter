@@ -1,0 +1,105 @@
+{
+  "name": "hit_crit",
+  "description": "Critical strike crystal bell dink + sharp armor crack + heavy sub slam.",
+  "layers": [
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          1174.7
+        ],
+        [
+          0.028,
+          1760
+        ]
+      ],
+      "fm": {
+        "ratio": 1.5,
+        "index": [
+          [
+            0,
+            2.1
+          ],
+          [
+            0.14,
+            0.15
+          ]
+        ]
+      },
+      "env": {
+        "attack": 0.001,
+        "hold": 0.015,
+        "release": 0.16,
+        "curve": 2.8
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": 7500
+        }
+      ]
+    },
+    {
+      "wave": "noise",
+      "env": {
+        "attack": 0.0005,
+        "hold": 0.002,
+        "release": 0.028,
+        "curve": 3
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": 3200,
+          "q": 1.5
+        }
+      ],
+      "gain_db": -4
+    },
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          220
+        ],
+        [
+          0.12,
+          52
+        ]
+      ],
+      "drive": 1.8,
+      "env": {
+        "attack": 0.001,
+        "hold": 0.012,
+        "release": 0.12,
+        "curve": 2
+      },
+      "gain_db": -2
+    }
+  ],
+  "master": {
+    "lufs": -14,
+    "peak_db": -1,
+    "highpass": 45,
+    "reverb": {
+      "mix": 0.09,
+      "decay": 0.32
+    }
+  },
+  "vary": {
+    "pitch": 0.8,
+    "gain_db": 1.0
+  },
+  "expect": {
+    "duration": [
+      0.1,
+      0.45
+    ],
+    "centroid": [
+      300,
+      3200
+    ]
+  }
+}

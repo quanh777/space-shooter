@@ -1,0 +1,98 @@
+{
+  "name": "roulette_claim",
+  "description": "NEW: Roulette reward claim \u2014 pneumatic latch + prize fanfare.",
+  "layers": [
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          140
+        ],
+        [
+          0.09,
+          55
+        ]
+      ],
+      "drive": 1.2,
+      "env": {
+        "attack": 0.002,
+        "hold": 0.01,
+        "release": 0.08,
+        "curve": 2.2
+      },
+      "gain_db": -3
+    },
+    {
+      "wave": "triangle",
+      "at": [
+        0.03
+      ],
+      "freq": [
+        [
+          0,
+          523.3
+        ],
+        [
+          0.06,
+          523.3
+        ],
+        [
+          0.06,
+          784
+        ],
+        [
+          0.13,
+          784
+        ],
+        [
+          0.13,
+          1046.5
+        ]
+      ],
+      "partials": [
+        [
+          1,
+          0,
+          1
+        ],
+        [
+          2,
+          -10,
+          0.6
+        ]
+      ],
+      "env": {
+        "attack": 0.002,
+        "hold": 0.14,
+        "release": 0.22,
+        "curve": 2.6
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": 7200
+        }
+      ]
+    }
+  ],
+  "master": {
+    "lufs": -16,
+    "peak_db": -1,
+    "highpass": 60,
+    "reverb": {
+      "mix": 0.14,
+      "decay": 0.45
+    }
+  },
+  "expect": {
+    "duration": [
+      0.25,
+      0.8
+    ],
+    "centroid": [
+      400,
+      3000
+    ]
+  }
+}

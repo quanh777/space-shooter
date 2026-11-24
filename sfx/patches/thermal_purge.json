@@ -1,0 +1,76 @@
+{
+  "name": "thermal_purge",
+  "description": "High-pressure cryo-steam vent: valve snap + rushing bandpass steam hiss + sub.",
+  "layers": [
+    {
+      "wave": "noise",
+      "env": {
+        "attack": 0.002,
+        "hold": 0.08,
+        "release": 0.28,
+        "curve": 2
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": [
+            [
+              0,
+              900
+            ],
+            [
+              0.12,
+              3200
+            ],
+            [
+              0.35,
+              650
+            ]
+          ],
+          "q": 1.3
+        }
+      ],
+      "gain_db": -1
+    },
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          210
+        ],
+        [
+          0.22,
+          65
+        ]
+      ],
+      "drive": 1.3,
+      "env": {
+        "attack": 0.002,
+        "hold": 0.03,
+        "release": 0.22,
+        "curve": 2
+      },
+      "gain_db": -3
+    }
+  ],
+  "master": {
+    "lufs": -15,
+    "peak_db": -1,
+    "highpass": 50,
+    "reverb": {
+      "mix": 0.12,
+      "decay": 0.4
+    }
+  },
+  "expect": {
+    "duration": [
+      0.25,
+      0.6
+    ],
+    "centroid": [
+      150,
+      2400
+    ]
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "name": "graze_spark",
+  "description": "Close-call bullet graze: crisp ion static snap + tiny rise.",
+  "layers": [
+    {
+      "wave": "noise",
+      "env": {
+        "attack": 0.0008,
+        "hold": 0.002,
+        "release": 0.024,
+        "curve": 3
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": 3800,
+          "q": 1.8
+        }
+      ],
+      "gain_db": -5
+    },
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          1180
+        ],
+        [
+          0.055,
+          1680
+        ]
+      ],
+      "env": {
+        "attack": 0.001,
+        "hold": 0.005,
+        "release": 0.05,
+        "curve": 2.8
+      }
+    }
+  ],
+  "master": {
+    "lufs": -19,
+    "peak_db": -1,
+    "highpass": 280
+  },
+  "expect": {
+    "duration": [
+      0.04,
+      0.12
+    ],
+    "centroid": [
+      800,
+      4200
+    ]
+  }
+}

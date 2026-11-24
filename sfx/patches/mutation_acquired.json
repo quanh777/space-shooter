@@ -1,0 +1,101 @@
+{
+  "name": "mutation_acquired",
+  "description": "Exotic build mutation chime: harmonic triad + glassy FM sparkle.",
+  "layers": [
+    {
+      "wave": "triangle",
+      "freq": [
+        [
+          0,
+          440
+        ],
+        [
+          0.06,
+          440
+        ],
+        [
+          0.06,
+          659.3
+        ],
+        [
+          0.12,
+          659.3
+        ],
+        [
+          0.12,
+          987.8
+        ]
+      ],
+      "partials": [
+        [
+          1,
+          0,
+          1
+        ],
+        [
+          2,
+          -9,
+          0.55
+        ]
+      ],
+      "env": {
+        "attack": 0.003,
+        "hold": 0.12,
+        "release": 0.24,
+        "curve": 2.5
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": 6800
+        }
+      ]
+    },
+    {
+      "wave": "sine",
+      "at": [
+        0.11
+      ],
+      "freq": 1318.5,
+      "fm": {
+        "ratio": 3,
+        "index": [
+          [
+            0,
+            1.8
+          ],
+          [
+            0.2,
+            0.2
+          ]
+        ]
+      },
+      "env": {
+        "attack": 0.003,
+        "hold": 0.02,
+        "release": 0.2,
+        "curve": 3
+      },
+      "gain_db": -6
+    }
+  ],
+  "master": {
+    "lufs": -16,
+    "peak_db": -1,
+    "highpass": 180,
+    "reverb": {
+      "mix": 0.18,
+      "decay": 0.5
+    }
+  },
+  "expect": {
+    "duration": [
+      0.25,
+      0.85
+    ],
+    "centroid": [
+      550,
+      3200
+    ]
+  }
+}

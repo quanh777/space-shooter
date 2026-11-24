@@ -1,0 +1,73 @@
+{
+  "name": "storm_burn",
+  "description": "NEW: Outside-storm radiation burn tick \u2014 subtle geiger crackle + hull sizzle.",
+  "layers": [
+    {
+      "wave": "noise",
+      "env": {
+        "attack": 0.002,
+        "hold": 0.02,
+        "release": 0.09,
+        "curve": 2.5
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": [
+            [
+              0,
+              1800
+            ],
+            [
+              0.1,
+              750
+            ]
+          ],
+          "q": 1.6
+        }
+      ],
+      "gain_db": -2
+    },
+    {
+      "wave": "saw",
+      "freq": [
+        [
+          0,
+          145
+        ],
+        [
+          0.09,
+          95
+        ]
+      ],
+      "env": {
+        "attack": 0.003,
+        "hold": 0.01,
+        "release": 0.08,
+        "curve": 2.4
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": 1100
+        }
+      ],
+      "gain_db": -5
+    }
+  ],
+  "master": {
+    "lufs": -20,
+    "peak_db": -1.5,
+    "highpass": 80
+  },
+  "expect": {
+    "duration": [
+      0.08,
+      0.25
+    ],
+    "centroid": [
+      250,
+      2200
+    ]
+  }
+}

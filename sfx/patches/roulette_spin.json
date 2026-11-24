@@ -1,0 +1,72 @@
+{
+  "name": "roulette_spin",
+  "description": "NEW: Boss Roulette mechanical ratchet spin burst.",
+  "layers": [
+    {
+      "wave": "noise",
+      "at": [
+        0,
+        0.045,
+        0.095,
+        0.155,
+        0.225
+      ],
+      "env": {
+        "attack": 0.001,
+        "hold": 0.002,
+        "release": 0.016,
+        "curve": 3
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": 2600,
+          "q": 2.0
+        }
+      ],
+      "gain_db": -3
+    },
+    {
+      "wave": "triangle",
+      "at": [
+        0,
+        0.045,
+        0.095,
+        0.155,
+        0.225
+      ],
+      "freq": [
+        [
+          0,
+          720
+        ],
+        [
+          0.02,
+          420
+        ]
+      ],
+      "env": {
+        "attack": 0.001,
+        "hold": 0.004,
+        "release": 0.02,
+        "curve": 3
+      },
+      "gain_db": -4
+    }
+  ],
+  "master": {
+    "lufs": -18,
+    "peak_db": -1,
+    "highpass": 200
+  },
+  "expect": {
+    "duration": [
+      0.2,
+      0.45
+    ],
+    "centroid": [
+      500,
+      3200
+    ]
+  }
+}

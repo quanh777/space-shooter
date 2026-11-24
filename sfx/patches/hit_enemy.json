@@ -1,0 +1,97 @@
+{
+  "name": "hit_enemy",
+  "description": "Juicy tactile hitmarker crunch: crisp 1950Hz snap + armor crunch + punchy sub.",
+  "layers": [
+    {
+      "wave": "triangle",
+      "freq": [
+        [
+          0,
+          1950
+        ],
+        [
+          0.024,
+          780
+        ]
+      ],
+      "env": {
+        "attack": 0.0005,
+        "hold": 0.002,
+        "release": 0.024,
+        "curve": 3
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": 5200
+        }
+      ],
+      "gain_db": -2
+    },
+    {
+      "wave": "noise",
+      "env": {
+        "attack": 0.0005,
+        "hold": 0.004,
+        "release": 0.055,
+        "curve": 2.6
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": [
+            [
+              0,
+              2200
+            ],
+            [
+              0.055,
+              620
+            ]
+          ],
+          "q": 1.6
+        }
+      ],
+      "gain_db": -4
+    },
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          195
+        ],
+        [
+          0.095,
+          58
+        ]
+      ],
+      "drive": 1.5,
+      "env": {
+        "attack": 0.001,
+        "hold": 0.008,
+        "release": 0.095,
+        "curve": 2.1
+      }
+    }
+  ],
+  "master": {
+    "lufs": -15,
+    "peak_db": -1,
+    "highpass": 48
+  },
+  "vary": {
+    "pitch": 1.3,
+    "gain_db": 1.5
+  },
+  "expect": {
+    "duration": [
+      0.06,
+      0.24
+    ],
+    "centroid": [
+      220,
+      2400
+    ]
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "name": "ui_error",
+  "description": "Two-pulse low damped console deny buzz.",
+  "layers": [
+    {
+      "wave": "saw",
+      "freq": [
+        [
+          0,
+          185
+        ],
+        [
+          0.08,
+          165
+        ],
+        [
+          0.08,
+          145
+        ],
+        [
+          0.22,
+          118
+        ]
+      ],
+      "detune_cents": 12,
+      "env": {
+        "attack": 0.002,
+        "hold": 0.06,
+        "release": 0.15,
+        "curve": 2
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": 1400,
+          "q": 1.2
+        }
+      ]
+    },
+    {
+      "wave": "noise",
+      "at": [
+        0,
+        0.08
+      ],
+      "env": {
+        "attack": 0.001,
+        "hold": 0.002,
+        "release": 0.018,
+        "curve": 3
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": 1500,
+          "q": 2
+        }
+      ],
+      "gain_db": -8
+    }
+  ],
+  "master": {
+    "lufs": -19,
+    "peak_db": -1,
+    "highpass": 90
+  },
+  "expect": {
+    "duration": [
+      0.15,
+      0.38
+    ],
+    "centroid": [
+      150,
+      1400
+    ]
+  }
+}

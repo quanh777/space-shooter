@@ -1,0 +1,93 @@
+{
+  "name": "player_hurt",
+  "description": "Hull damage impact: metallic crunch + heavy sub punch + alarm dip.",
+  "layers": [
+    {
+      "wave": "noise",
+      "env": {
+        "attack": 0.001,
+        "hold": 0.006,
+        "release": 0.045,
+        "curve": 3
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": [
+            [
+              0,
+              1900
+            ],
+            [
+              0.05,
+              650
+            ]
+          ],
+          "q": 1.4
+        }
+      ],
+      "gain_db": -2
+    },
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          145
+        ],
+        [
+          0.22,
+          38
+        ]
+      ],
+      "drive": 1.9,
+      "env": {
+        "attack": 0.002,
+        "hold": 0.025,
+        "release": 0.22,
+        "curve": 2
+      }
+    },
+    {
+      "wave": "saw",
+      "freq": [
+        [
+          0,
+          320
+        ],
+        [
+          0.2,
+          95
+        ]
+      ],
+      "env": {
+        "attack": 0.003,
+        "hold": 0.015,
+        "release": 0.18,
+        "curve": 2.2
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": 1400
+        }
+      ],
+      "gain_db": -5
+    }
+  ],
+  "master": {
+    "lufs": -14,
+    "peak_db": -1,
+    "highpass": 38
+  },
+  "expect": {
+    "duration": [
+      0.16,
+      0.45
+    ],
+    "centroid": [
+      80,
+      1600
+    ]
+  }
+}

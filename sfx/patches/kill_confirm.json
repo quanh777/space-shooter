@@ -1,0 +1,79 @@
+{
+  "name": "kill_confirm",
+  "description": "Sweet crystalline kill-confirmation ping layered on enemy kills and combo ticks.",
+  "layers": [
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          784
+        ],
+        [
+          0.045,
+          1174.7
+        ]
+      ],
+      "partials": [
+        [
+          1,
+          0,
+          1
+        ],
+        [
+          2,
+          -8,
+          0.6
+        ]
+      ],
+      "env": {
+        "attack": 0.001,
+        "hold": 0.025,
+        "release": 0.13,
+        "curve": 2.8
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": 6200
+        }
+      ]
+    },
+    {
+      "wave": "noise",
+      "env": {
+        "attack": 0.0005,
+        "hold": 0.001,
+        "release": 0.014,
+        "curve": 3
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": 3000,
+          "q": 1.6
+        }
+      ],
+      "gain_db": -10
+    }
+  ],
+  "master": {
+    "lufs": -18,
+    "peak_db": -1,
+    "highpass": 240,
+    "reverb": {
+      "mix": 0.12,
+      "decay": 0.3
+    }
+  },
+  "expect": {
+    "duration": [
+      0.1,
+      0.45
+    ],
+    "centroid": [
+      600,
+      3000
+    ]
+  }
+}

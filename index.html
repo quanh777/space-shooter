@@ -2,276 +2,1135 @@
 <html lang="vi">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Space Shooter - @Qu4nh</title>
-    <meta name="description"
-        content="Space Shooter - An exciting HTML5 space shooting game with bosses, powerups and online leaderboard. Play now!">
-    <meta name="keywords" content="space shooter, html5 game, web game, javascript game, shooter game, browser game">
-    <meta name="author" content="@Qu4nh">
-
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="Space Shooter - HTML5 Game">
-    <meta property="og:description" content="Fight through waves of enemies and bosses! Online leaderboard included.">
-    <meta property="og:image" content="./screenshot.png">
-
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:title" content="Space Shooter - HTML5 Game">
-    <meta property="twitter:description" content="Fight through waves of enemies and bosses!">
-    <meta property="twitter:image" content="./screenshot.png">
-
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>SPACE SHOOTER // NEBULA VANGUARD</title>
+  <meta name="description"
+    content="Space Shooter: Nebula Vanguard — 2.5D/3D WebGL2 roguelite space shooter with custom GLSL shaders, 6 hardpoints, Hades-style warps, multi-phase bosses, and zero-IDM synth audio." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&family=JetBrains+Mono:wght@500;700;800&display=swap"
+    rel="stylesheet" />
 </head>
 
 <body>
-    <div class="stars-bg">
-        <div class="stars"></div>
-        <div class="stars2"></div>
-        <div class="stars3"></div>
+  <!-- Fullscreen Three.js WebGL2 playground -->
+  <div id="webglStage" class="webgl-stage"></div>
+
+  <!-- Floating damage numbers, crispy hitmarker ticks, and target lock box -->
+  <div id="floatingLayer" class="floating-layer">
+    <div id="fcsReticle" class="fcs-reticle hidden">
+      <div class="fcs-corner tl"></div>
+      <div class="fcs-corner tr"></div>
+      <div class="fcs-corner bl"></div>
+      <div class="fcs-corner br"></div>
+      <span id="fcsTag" class="fcs-tag">FCS.LOCK</span>
+    </div>
+    <div id="hitmarkerReticle" class="hitmarker-reticle hidden" aria-hidden="true">
+      <span class="hm-tick tl"></span>
+      <span class="hm-tick tr"></span>
+      <span class="hm-tick bl"></span>
+      <span class="hm-tick br"></span>
+      <span class="hm-ring"></span>
+    </div>
+  </div>
+
+  <!-- Quick mute & language toggles tucked into the top corner -->
+  <div id="globalTopBar" class="global-top-bar">
+    <button id="muteQuickBtn" class="tac-btn" type="button" aria-label="Toggle Audio">
+      <span class="tac-dot"></span>
+      <span id="muteQuickLabel">AUD:ON</span>
+    </button>
+    <button id="langToggleBtn" class="tac-btn" type="button">LOC:VI</button>
+  </div>
+
+  <!-- Main menu: keep the 3D flagship center-stage and hide the clutter -->
+  <section id="mainMenu" class="screen-overlay hero-menu hangar-lobby">
+    <div class="hero-vignette hangar-vignette"></div>
+    <div class="visor-scanlines"></div>
+
+    <header class="hangar-top-bar" style="--stagger: 0">
+      <div class="hangar-brand">
+        <div class="hero-kicker">
+          <span class="kicker-code">HANGAR // VG-09</span>
+          <span class="kicker-sep"></span>
+          <span class="kicker-meta">WEBGL2 · 3D SHOWCASE</span>
+        </div>
+        <h1 class="hero-title hangar-title">NEBULA <span>VANGUARD</span></h1>
+        <p class="hero-subtitle hangar-sub" data-lang="subtitle">NOVA DRIFT × HADES</p>
+      </div>
+
+      <div class="hangar-util-bar">
+        <div class="shard-pill">
+          <span class="shard-pill-label" data-lang="shardsLabel">SHARDS</span>
+          <strong id="menuShardCount" class="shard-pill-val">0</strong>
+        </div>
+        <button id="openMetaForgeBtn" class="btn btn-wire btn-sm hangar-forge-btn" type="button">
+          <span id="forgeReadyDot" class="forge-ready-dot hidden"></span>
+          <span data-lang="metaForgeBtn">XƯỞNG NÂNG CẤP</span>
+        </button>
+        <div class="hangar-icon-row">
+          <button id="leaderboardBtn" class="btn btn-steel btn-sm hangar-icon-btn" type="button" title="Leaderboard">
+            <svg class="tac-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M4 20h16M6 20V10h3v10M10.5 20V4h3v16M15 20v-7h3v7" />
+            </svg>
+            <span data-lang="leaderboard">XẾP HẠNG</span>
+          </button>
+          <button id="achievementsBtn" class="btn btn-steel btn-sm hangar-icon-btn" type="button" title="Achievements">
+            <svg class="tac-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <polygon points="12 2 19 6 19 14 12 18 5 14 5 6" />
+              <path d="M9 18v4l3-1.5L15 22v-4" />
+            </svg>
+            <span data-lang="achievementsTitle">THÀNH TỰU</span>
+          </button>
+          <button id="instructionsBtn" class="btn btn-wire btn-sm hangar-icon-btn" type="button" title="Controls">
+            <svg class="tac-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <rect x="3" y="6" width="18" height="12" />
+              <path d="M7 10h2M11 10h2M15 10h2M8 14h8" />
+            </svg>
+            <span data-lang="instructions">ĐIỀU KHIỂN</span>
+          </button>
+          <button id="infoBtn" class="btn btn-wire btn-sm hangar-icon-btn" type="button" title="System Info">
+            <svg class="tac-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 3L21 8v8l-9 5-9-5V8l9-5z" />
+              <path d="M12 11v5M12 8h.01" />
+            </svg>
+            <span data-lang="info">THÔNG TIN</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="hangar-mid-stage" style="--stagger: 1">
+      <aside id="hangarSpecCard" class="hangar-spec-card"></aside>
     </div>
 
-    <div id="loadingScreen" class="loading-screen">
-        <div class="loading-content">
-            <h1>SPACE SHOOTER</h1>
-            <div class="spaceship-icon">🚀</div>
-            <div class="loading-bar">
-                <div class="loading-fill"></div>
-            </div>
-            <p data-lang="loading">Đang tải...</p>
-            <p class="loading-credit" data-lang="loadingCredit">bởi @Qu4nh</p>
-        </div>
+    <div class="hangar-bottom-dock" style="--stagger: 2">
+      <div id="hullSelectorGrid" class="hull-selector-grid"></div>
+      <div id="heroActions" class="hero-actions hangar-launch-wrap">
+        <div id="heroFocusRail" class="hero-focus-rail" aria-hidden="true"></div>
+        <button id="playBtn" class="btn btn-amber btn-xl hero-choice active" type="button">
+          <svg class="tac-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M5 3.5L20 12L5 20.5V3.5Z" />
+          </svg>
+          <span data-lang="playGame">XUẤT KÍCH</span>
+          <span class="btn-code">01</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- In-game HUD (only lives here; simulation knows nothing about the DOM) -->
+  <div id="hudLayer" class="hud-layer hidden">
+    <!-- Subtle visor corner brackets (hidden in the Overwatch HUD layout) -->
+    <div class="visor-frame-corner tl"></div>
+    <div class="visor-frame-corner tr"></div>
+    <div class="visor-frame-corner bl"></div>
+    <div class="visor-frame-corner br"></div>
+
+    <!-- HUD motion wrapper so the visor subtly sways with ship inertia and trauma -->
+    <div id="hudMotionRig" class="hud-motion-rig">
+
+    <!-- Top-left: radar sweep and active mutation / hazard badges -->
+    <div class="ow-top-left">
+      <div id="radarWidget" class="radar-widget ow-radar-widget">
+        <canvas id="tacticalRadar" class="radar-canvas" width="136" height="136"></canvas>
+        <span id="radarRadiusLabel" class="radar-label">ZONE 1220</span>
+      </div>
+      <div class="hud-telemetry-extra ow-telemetry-extra">
+        <div id="synergyHudRow" class="synergy-hud-row"></div>
+        <div id="hudMutationStrip" class="hud-mutation-strip"></div>
+        <div id="hazardBadge" class="hazard-badge hidden"></div>
+      </div>
     </div>
 
-    <div class="container">
-        <button id="langToggle" class="lang-toggle" onclick="toggleLanguage()">🌐 EN</button>
-
-        <div id="mainMenu" class="menu-screen">
-            <div class="menu-bg-effects">
-                <div class="floating-asteroid a1">🪨</div>
-                <div class="floating-asteroid a2">☄️</div>
-                <div class="floating-asteroid a3">⭐</div>
-                <div class="floating-asteroid a4">💫</div>
-                <div class="floating-asteroid a5">🌟</div>
-            </div>
-            <h1 class="game-title">
-                <span class="title-icon">🚀</span>
-                SPACE SHOOTER
-                <span class="title-icon">🛸</span>
-            </h1>
-            <p class="game-subtitle" data-lang="subtitle">Cuộc chiến vũ trụ huyền thoại</p>
-            <div class="menu-buttons">
-                <button class="btn btn-primary" onclick="startGame()" data-lang="playGame">
-                    <span class="btn-icon">▶</span> CHƠI GAME
-                </button>
-                <button class="btn btn-secondary" onclick="showLeaderboard()" data-lang="leaderboard">
-                    <span class="btn-icon">🏆</span> BẢNG XẾP HẠNG
-                </button>
-                <button class="btn btn-tertiary" onclick="showInstructions()" data-lang="instructions">
-                    <span class="btn-icon">📖</span> INSTRUCTIONS
-                </button>
-                <button class="btn btn-tertiary" onclick="showInfo()" data-lang="info">
-                    <span class="btn-icon">ℹ️</span> INFO
-                </button>
-            </div>
-            <button class="achievement-icon-btn" onclick="showAchievements()" title="Achievements">
-                🏅
-            </button>
-            <div class="credit">@Qu4nh</div>
+    <!-- Top-center: wave/room tracker, XP bar, raid progress, and boss HP -->
+    <div class="hud-top-center ow-top-center">
+      <div class="ow-objective-bar">
+        <div class="ow-obj-cell ow-obj-wave">
+          <span class="ow-obj-label">WAVE</span>
+          <span id="hudWave" class="ow-obj-val amber">00</span>
         </div>
-
-        <canvas id="gameCanvas" width="800" height="600"></canvas>
-
-        <div id="gameOverScreen" class="menu-screen hidden">
-            <div class="game-over-effects">
-                <div class="explosion-icon">💥</div>
-            </div>
-            <h1 class="game-over-title" data-lang="gameOver">GAME OVER</h1>
-
-            <div class="game-over-content">
-                <div class="game-over-left">
-                    <div id="finalStats">
-                        <p><span data-lang="score">Score</span>: <span id="finalScore" class="stat-value">0</span>
-                        </p>
-                        <p><span data-lang="wave">Wave</span>: <span id="finalWave" class="stat-value">0</span></p>
-                    </div>
-
-                    <div class="score-submit">
-                        <p class="submit-encourage" data-lang="encourageSubmit">🏆 Ghi danh vào bảng xếp hạng!</p>
-                        <p id="rankPreview" class="rank-preview"></p>
-                        <input type="text" id="playerName" data-lang="enterName" placeholder="Nhập tên của bạn"
-                            maxlength="20">
-                        <button class="btn btn-primary submit-btn-highlight" onclick="submitScore()"
-                            data-lang="submitScore">
-                            <span class="btn-icon">📤</span> GỬI ĐIỂM
-                        </button>
-                    </div>
-
-                    <div class="menu-buttons">
-                        <button class="btn btn-secondary" onclick="restartGame()" data-lang="playAgain">
-                            <span class="btn-icon">🔄</span> PLAY AGAIN
-                        </button>
-                        <button class="btn btn-tertiary" onclick="showMainMenu()" data-lang="mainMenu">
-                            <span class="btn-icon">🏠</span> MAIN MENU
-                        </button>
-                    </div>
-                </div>
-
-                <div class="game-over-right">
-                    <div id="gameOverLeaderboard" class="leaderboard-section">
-                        <h2 data-lang="top10">🏆 TOP 10</h2>
-                        <div id="gameOverLeaderboardContent">Loading...</div>
-                    </div>
-                </div>
-            </div>
+        <div class="ow-obj-divider"></div>
+        <div class="ow-obj-cell ow-obj-room">
+          <span class="ow-obj-label">ROOM</span>
+          <span id="hudRoomPill" class="ow-obj-val cyan">1/5</span>
         </div>
-
-        <div id="leaderboardScreen" class="menu-screen hidden">
-            <h1 class="leaderboard-title">
-                <span class="title-icon">🏆</span>
-                <span data-lang="leaderboardTitle">BẢNG XẾP HẠNG</span>
-                <span class="title-icon">🏆</span>
-            </h1>
-            <div id="leaderboardContent">
-                <div class="loading" data-lang="loadingScores">Đang tải...</div>
-            </div>
-            <button class="btn btn-secondary" onclick="hideLeaderboard()" data-lang="back">
-                <span class="btn-icon">◀</span> QUAY LẠI
-            </button>
+        <div class="ow-obj-divider"></div>
+        <div class="ow-obj-cell ow-obj-score">
+          <span class="ow-obj-label">SCORE</span>
+          <span id="hudScore" class="ow-obj-val">0</span>
         </div>
-
-        <div id="instructionsScreen" class="menu-screen hidden">
-            <h1 class="instructions-title">
-                <span class="title-icon">🎮</span>
-                <span data-lang="controls">HƯỚNG DẪN</span>
-                <span class="title-icon">🎮</span>
-            </h1>
-            <div class="instructions-content">
-                <div class="control-group">
-                    <h3 data-lang="movement">Di Chuyển</h3>
-                    <p><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> - <span data-lang="move">Di chuyển</span>
-                    </p>
-                    <p><kbd>Shift</kbd> - <span data-lang="dash">Lướt (tốn năng lượng)</span></p>
-                </div>
-                <div class="control-group">
-                    <h3 data-lang="combat">Chiến Đấu</h3>
-                    <p><kbd>Space</kbd> - <span data-lang="autoShoot">Tự động ngắm và bắn</span></p>
-                    <p><kbd>E</kbd> - <span data-lang="bombSkill">Skill Bomb (Sát thương diện rộng)</span></p>
-                </div>
-                <div class="control-group">
-                    <h3 data-lang="shop">Cửa Hàng</h3>
-                    <p><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> - <span data-lang="selectItems">Chọn vật
-                            phẩm</span></p>
-                    <p><kbd>Enter</kbd> - <span data-lang="buyItems">Mua vật phẩm đã chọn</span></p>
-                    <p><kbd>Esc</kbd> - <span data-lang="skipShop">Bỏ qua shop</span></p>
-                </div>
-                <div class="control-group">
-                    <h3 data-lang="tips">Mẹo Chơi</h3>
-                    <p data-lang="tip1">• Wave 5, 10, 15... là BOSS waves</p>
-                    <p data-lang="tip2">• Shop xuất hiện sau khi hạ boss</p>
-                    <p data-lang="tip3">• Enemy vàng rơi nhiều tiền hơn</p>
-                    <p data-lang="tip4">• Nâng cấp skill để gây sát thương lớn</p>
-                </div>
-            </div>
-            <button class="btn btn-secondary" onclick="hideInstructions()" data-lang="back">
-                <span class="btn-icon">◀</span> QUAY LẠI
-            </button>
+        <div class="ow-obj-divider"></div>
+        <div class="ow-obj-cell ow-obj-credits">
+          <span class="ow-obj-label">CREDITS</span>
+          <span id="hudMoney" class="ow-obj-val gold">0</span>
         </div>
-
-        <div id="infoScreen" class="menu-screen hidden">
-            <h1 class="instructions-title" data-lang="info">ℹ️ INFO</h1>
-            <div class="instructions-content">
-                <div class="control-group">
-                    <h3 data-lang="aboutGame">About Game</h3>
-                    <p data-lang="gameDescription">Trò chơi arcade vũ trụ được phát triển độc lập, kết hợp cơ chế di
-                        chuyển nhanh nhẹn với hệ thống tiến hóa nhân vật sâu sắc.</p>
-                </div>
-                <div class="control-group">
-                    <h3 data-lang="credits">Credits</h3>
-                    <p><span data-lang="developer">Phát triển bởi</span>: <strong>Qu4nh</strong></p>
-                    <p><span data-lang="version">Phiên bản</span>: <strong>2.0</strong></p>
-                    <p><span data-lang="releaseDate">Ngày phát hành</span>: <strong>07/2025</strong></p>
-                    <p><span data-lang="lastUpdated">Cập nhật cuối</span>: <strong>01/2026</strong></p>
-                    <p><span data-lang="codeLines">Dòng code</span>: <strong>~5000+</strong></p>
-                </div>
-                <div class="control-group">
-                    <h3 data-lang="techSkills">Kỹ năng kỹ thuật</h3>
-                    <p data-lang="skill1">• Canvas 2D rendering & game loop optimization</p>
-                    <p data-lang="skill2">• Object-oriented design patterns (Factory, State)</p>
-                    <p data-lang="skill3">• Firebase Realtime Database integration</p>
-                    <p data-lang="skill4">• Responsive design & touch event handling</p>
-                    <p data-lang="skill5">• Multi-language internationalization (i18n)</p>
-                </div>
-                <div class="control-group">
-                    <h3 data-lang="highlights">Điểm nổi bật</h3>
-                    <p data-lang="highlight1">• Hệ thống điều khiển phản hồi tức thì</p>
-                    <p data-lang="highlight2">• Boss AI với nhiều giai đoạn chiến đấu</p>
-                    <p data-lang="highlight3">• Hơn 10 nâng cấp đa dạng</p>
-                    <p data-lang="highlight4">• Xếp hạng trực tuyến toàn cầu</p>
-                </div>
-                <div class="control-group">
-                    <h3 data-lang="feedback">Góp ý & Đánh giá</h3>
-                    <p data-lang="feedbackDesc">Ý kiến của bạn giúp game ngày càng hoàn thiện!</p>
-                    <a href="https://forms.gle/NQdmzA83NbHGvQT16" target="_blank" class="btn btn-tertiary feedback-btn">
-                        <span class="btn-icon">📝</span> <span data-lang="sendFeedback">Gửi góp ý</span>
-                    </a>
-                </div>
-            </div>
-            <button class="btn btn-secondary" onclick="hideInfo()" data-lang="back">
-                <span class="btn-icon">◀</span> QUAY LẠI
-            </button>
+      </div>
+      <div id="hudRoomSubBanner" class="hud-room-sub-banner">SECTOR 01 // ARMORY</div>
+      <div id="hudXpWrap" class="hud-xp-wrap">
+        <span id="hudLevelBadge" class="hud-level-badge">LV.1</span>
+        <div class="hud-xp-track">
+          <div id="xpFill" class="hud-xp-fill"></div>
         </div>
+        <span id="hudXpText" class="hud-xp-text">0/55 XP</span>
+      </div>
 
-        <div id="achievementsScreen" class="menu-screen hidden">
-            <h1 class="instructions-title">
-                <span class="title-icon">🏅</span>
-                <span data-lang="achievementsTitle">THÀNH TỰU</span>
-                <span class="title-icon">🏅</span>
-            </h1>
-            <div id="achievementsList" class="achievements-list"></div>
-            <button class="btn btn-secondary" onclick="hideAchievements()" data-lang="back">
-                <span class="btn-icon">◀</span> QUAY LẠI
-            </button>
+      <div id="raidObjectiveHud" class="raid-obj-hud hidden">
+        <div class="raid-obj-top">
+          <span id="raidSectorLabel" class="raid-sector-pill">SECTOR 01</span>
+          <div id="raidObjPips" class="raid-obj-pips"></div>
+          <span id="raidObjTitle" class="raid-obj-title">SECTOR REACTOR CORE</span>
         </div>
-
-        <div id="mobileControls" class="mobile-controls hidden">
-            <div class="pause-wrapper">
-                <button id="pauseBtn" class="pause-btn-mobile">⏸</button>
-            </div>
-
-            <div class="joystick-wrapper">
-                <div id="joystick" class="joystick">
-                    <div class="joystick-inner"></div>
-                </div>
-            </div>
-
-            <div class="action-buttons">
-                <button id="skillBtn" class="action-btn skill-btn">SKILL</button>
-                <button id="shootBtn" class="action-btn shoot-btn">SHOOT</button>
-                <button id="dashBtn" class="action-btn dash-btn">DASH</button>
-            </div>
+        <div class="raid-obj-bar-row">
+          <div class="raid-obj-track">
+            <div id="raidObjFill" class="raid-obj-fill"></div>
+          </div>
+          <span id="raidObjMeta" class="raid-obj-meta">100%</span>
         </div>
+      </div>
+
+      <div id="bossBarContainer" class="boss-bar-container ow-boss-bar hidden">
+        <div class="boss-bar-header">
+          <span id="bossNameLabel" class="boss-name">DESTROYER</span>
+          <div id="bossMutatorsRow" class="boss-mutators-row"></div>
+          <span id="bossPhaseLabel" class="boss-phase">PHASE 01</span>
+        </div>
+        <div class="boss-bar-track">
+          <div id="bossHpTrail" class="boss-hp-trail"></div>
+          <div id="bossHpFill" class="boss-hp-fill"></div>
+          <div class="boss-marker" style="left: 60%"></div>
+          <div class="boss-marker" style="left: 30%"></div>
+        </div>
+      </div>
+
+      <div id="stormWarningBanner" class="storm-warning-banner hidden"></div>
+
+      <div id="restBanner" class="rest-banner hidden">
+        <div id="restTitle" class="rest-title"></div>
+        <div id="restSub" class="rest-sub"></div>
+        <button id="restHangarBtn" class="rest-hangar-btn hud-interactive hidden" type="button" data-lang="restOpenInventory">
+          KHO TRANG BỊ [G]
+        </button>
+      </div>
     </div>
 
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <!-- Top-right: quick toggles, FPS stamp, and kill feed -->
+    <div class="hud-top-right ow-top-right">
+      <div class="hud-controls-row hud-interactive">
+        <button id="hudAimBtn" class="hud-mini-btn" type="button" title="Tab">AIM:MOUSE</button>
+        <button id="hudAutoFireBtn" class="hud-mini-btn" type="button">FIRE:HOLD</button>
+        <button id="hudMuteBtn" class="hud-mini-btn" type="button" aria-label="Audio">AUD:ON</button>
+        <button id="hudPauseBtn" class="hud-mini-btn" type="button" aria-label="Pause">
+          <svg class="tac-svg-sm" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <rect x="3" y="2" width="3.5" height="12" />
+            <rect x="9.5" y="2" width="3.5" height="12" />
+          </svg>
+        </button>
+        <span id="fpsBadge" class="fps-badge">60 FPS // AGX</span>
+      </div>
+      <div id="owKillFeed" class="ow-kill-feed" aria-live="polite"></div>
+    </div>
 
-    <script src="firebase-config.js"></script>
-    <script src="language.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.3.3/dist/pixi.min.js"></script>
-    <script src="renderers/pixi-setup.js"></script>
-    <script src="renderers/entity-renderer.js"></script>
-    <script src="game.js"></script>
-    <script src="game-core.js"></script>
-    <script src="renderers/boss-effects.js"></script>
-    <script src="renderers/boss-renderer.js"></script>
-    <script src="boss.js"></script>
-    <script src="wave-transition.js"></script>
-    <script src="game-loop.js"></script>
-    <script src="interactive-bg.js"></script>
-    <script src="mobile-controls.js"></script>
-    <script src="leaderboard.js"></script>
-    <script src="achievements.js"></script>
+    <!-- Right-side style/combo meter that rewards not taking breaks -->
+    <div id="comboHud" class="combo-hud hidden">
+      <div class="combo-ring-burst" aria-hidden="true"></div>
+      <div class="combo-header">
+        <span>CHAIN // STYLE</span>
+        <span id="comboBankedText" class="combo-banked">+0 PTS</span>
+      </div>
+      <div class="combo-main-row">
+        <div id="comboRankText" class="combo-rank">D</div>
+        <div class="combo-side">
+          <div id="comboCalloutText" class="combo-callout">ENGAGED</div>
+          <div id="comboHitsText" class="combo-hits">02 HITS</div>
+          <div id="comboMultText" class="combo-mult">x1.5</div>
+        </div>
+      </div>
+      <div class="combo-timer-track">
+        <div id="comboTimerFill" class="combo-timer-fill"></div>
+      </div>
+      <div id="comboProgressDots" class="combo-progress-dots" aria-hidden="true"></div>
+    </div>
+
+    <!-- Pop-in celebration banner when a spicy streak wraps up -->
+    <div id="comboEndBanner" class="combo-end-banner hidden">
+      <div id="comboEndRank" class="combo-end-rank">S</div>
+      <div id="comboEndDetails" class="combo-end-details"></div>
+    </div>
+
+    <!-- Bottom-left: ship portrait, laggy HP bar, heat gauge, and Chrono meter -->
+    <div class="hud-top-left ow-hero-cluster">
+      <div id="owPortraitWrap" class="ow-portrait-wrap">
+        <img class="ow-portrait-img" src="/assets/icons/core_health.png" alt="Vanguard Ship" />
+        <div class="ow-portrait-flame" aria-hidden="true"></div>
+        <span id="owOnFireTag" class="ow-on-fire-tag hidden">ON FIRE</span>
+      </div>
+      <div class="ow-health-block">
+        <div class="ow-hp-readout-row">
+          <span id="hpValue" class="ow-hp-num">100/100</span>
+          <span class="ow-hero-name">VANGUARD MK-VIII</span>
+        </div>
+        <div class="bar-track segmented ow-hp-track">
+          <div id="hpDelayFill" class="bar-delay"></div>
+          <div id="hpFill" class="bar-fill hp-fill ow-hp-fill"></div>
+        </div>
+        <div id="heatRow" class="ow-heat-row">
+          <span class="ow-heat-tag">THERMAL</span>
+          <div class="bar-track segmented ow-heat-track">
+            <div id="heatFill" class="bar-fill heat-fill"></div>
+          </div>
+          <span id="heatValue" class="ow-heat-val">0%</span>
+          <button id="thermalPurgeBtn" class="thermal-purge-btn hud-interactive hidden" type="button" title="Press R: Thermal Purge">
+            [R] PURGE
+          </button>
+        </div>
+        <div id="chronoRow" class="ow-chrono-row">
+          <span class="ow-chrono-tag">CHRONO [F]</span>
+          <div class="bar-track segmented ow-chrono-track">
+            <div id="chronoFill" class="bar-fill chrono-fill"></div>
+          </div>
+          <span id="chronoValue" class="ow-chrono-val">0%</span>
+          <button id="chronoHudBtn" class="chrono-hud-btn hud-interactive hidden" type="button" title="Press F: Chrono Overdrive">
+            [F] CHRONO
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom-center: the one dorsal skill gauge you actually have -->
+    <div class="ow-ult-dock">
+      <div id="skillWidget" class="skill-widget ow-ult-widget hud-interactive ready mode-salvo" role="button" tabindex="0"
+        title="Click or press E to activate skill">
+        <div class="ow-ult-ring-wrap">
+          <svg class="ow-ult-svg" viewBox="0 0 100 100" aria-hidden="true">
+            <circle class="ow-ult-bg" cx="50" cy="50" r="42" />
+            <circle id="owUltArc" class="ow-ult-arc" cx="50" cy="50" r="42" />
+          </svg>
+          <div class="ow-ult-core">
+            <img id="skillIconImg" class="skill-icon-img ow-ult-icon hidden" src="" alt="" />
+            <span id="owUltPct" class="ow-ult-pct hidden">0%</span>
+            <span id="skillCdText" class="skill-cd ow-ult-cd hidden"></span>
+          </div>
+          <span class="ow-ult-keycap">E</span>
+        </div>
+        <div class="ow-ult-meta">
+          <div class="ow-ult-title-row">
+            <span id="skillNameLabel" class="skill-name">CHÙM LASER VŨ TRỤ</span>
+            <span id="skillLvlText" class="skill-lvl">LV 1</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom-right: dash/aegis cooldowns, energy bar, and mounted guns -->
+    <div class="ow-abilities-cluster">
+      <div id="activeBuffsBar" class="active-buffs-bar ow-buffs-bar"></div>
+      <div class="ow-ability-row">
+        <div id="owDashTile" class="ow-ability-tile ready" title="Shift / Space: Phase Dash">
+          <span class="ow-tile-icon">DASH</span>
+          <span id="owDashCd" class="ow-tile-cd hidden">0.0s</span>
+          <span class="ow-tile-key">SHIFT</span>
+        </div>
+        <div id="shieldBadge" class="shield-badge ow-shield-tile ready" title="Passive Aegis Barrier">
+          <span class="shield-dot"></span>
+          <span id="shieldStatusText" class="ow-shield-text">SHIELD READY</span>
+          <span class="ow-tile-key">AEGIS</span>
+        </div>
+      </div>
+      <div class="ow-energy-row">
+        <span class="ow-en-tag">ENERGY</span>
+        <div class="bar-track segmented ow-en-track">
+          <div id="enFill" class="bar-fill en-fill"></div>
+        </div>
+        <span id="enValue" class="stat-num ow-en-val">100</span>
+      </div>
+      <div id="weaponBadges" class="weapon-badges ow-weapon-badges"></div>
+    </div>
+
+    </div>
+
+    <div id="offscreenMarkers" class="offscreen-markers" aria-hidden="true"></div>
+
+    <!-- Hyperspace warp banner while stars stretch past the cockpit -->
+    <div id="warpJumpBanner" class="warp-jump-banner hidden" aria-hidden="true">
+      <div id="warpJumpKicker" class="warp-jump-kicker">DU HÀNH ÁNH SÁNG // HYPERSPACE</div>
+      <div id="warpJumpTitle" class="warp-jump-title">KHO VŨ KHÍ CHIẾN THUẬT</div>
+      <div id="warpJumpZone" class="warp-jump-zone">BO GỌN · 720m</div>
+    </div>
+
+    <!-- Wave intro slash banner -->
+    <div id="waveBanner" class="wave-banner hidden">
+      <div class="wave-banner-bar top"></div>
+      <div class="wave-hazard-strip top" aria-hidden="true"></div>
+      <div class="wave-scan-beam" aria-hidden="true"></div>
+      <div class="wave-banner-center">
+        <div id="waveBannerTag" class="wave-banner-tag">SECTOR TELEMETRY // ENGAGE</div>
+        <div class="wave-title-wrap">
+          <div id="waveBannerGhost" class="wave-banner-ghost" aria-hidden="true">WAVE 01</div>
+          <div id="waveBannerTitle" class="wave-banner-title">WAVE 01</div>
+        </div>
+        <div id="waveBannerSub" class="wave-banner-sub">GET READY</div>
+        <div id="waveProgressTrack" class="wave-progress-track" aria-hidden="true"></div>
+      </div>
+      <div class="wave-hazard-strip bottom" aria-hidden="true"></div>
+      <div class="wave-banner-bar bottom"></div>
+    </div>
+
+    <!-- Non-blocking wave clear / boss down stamp -->
+    <div id="waveClearBanner" class="wave-clear-banner hidden" aria-hidden="true">
+      <div class="wave-clear-slash"></div>
+      <div id="waveClearKicker" class="wave-clear-kicker">SECTOR CLEARED</div>
+      <div id="waveClearTitle" class="wave-clear-title">WAVE 01 COMPLETE</div>
+      <div id="waveClearBonus" class="wave-clear-bonus"></div>
+    </div>
+
+    <!-- Boss dramatic letterbox intro (try not to panic) -->
+    <div id="cinemaBarTop" class="cinema-letterbox top" aria-hidden="true"></div>
+    <div id="cinemaBarBottom" class="cinema-letterbox bottom" aria-hidden="true"></div>
+    <div id="bossIntroOverlay" class="boss-intro-overlay" aria-hidden="true">
+      <div class="boss-intro-hazard top"></div>
+      <div class="boss-intro-slash"></div>
+      <div class="boss-intro-card">
+        <div class="boss-intro-kicker">
+          <span id="bossIntroWarning" class="boss-intro-warning">RED ALERT // OMEGA-CLASS SIGNATURE</span>
+          <span id="bossIntroSector" class="boss-intro-sector">WAVE 05</span>
+        </div>
+        <div id="bossIntroClass" class="boss-intro-class">TITAN-CLASS ASSAULT DREADNOUGHT</div>
+        <div id="bossIntroTitle" class="boss-intro-title">IRON VALKYRIE EX</div>
+        <div class="boss-intro-footer">
+          <span id="bossIntroSubtitle" class="boss-intro-subtitle">ORBITAL DROP ASSAULT</span>
+          <span id="bossIntroThreat" class="boss-intro-threat">THREAT: EXTREME</span>
+        </div>
+      </div>
+      <div class="boss-intro-hazard bottom"></div>
+    </div>
+  </div>
+
+  <!-- Virtual thumbstick + panic buttons for touch screens -->
+  <div id="mobileControls" class="mobile-controls hidden">
+    <div class="joystick-zone">
+      <div id="mobileJoystick" class="joystick-base">
+        <div id="mobileJoystickKnob" class="joystick-knob"></div>
+      </div>
+    </div>
+    <div class="mobile-actions-zone">
+      <button id="mobileVentBtn" class="mob-btn mob-vent" type="button">VENT</button>
+      <button id="mobileSkillBtn" class="mob-btn mob-skill" type="button">SKILL</button>
+      <button id="mobileDashBtn" class="mob-btn mob-dash" type="button">DASH</button>
+      <button id="mobileShootBtn" class="mob-btn mob-shoot" type="button">FIRE</button>
+    </div>
+  </div>
+
+  <!-- Between-wave shop, post-boss draft, and 3D hardpoint garage -->
+  <section id="shopOverlay" class="screen-overlay modal-backdrop garage-backdrop hidden">
+    <div class="shop-shell garage-shell ow-hub-shell">
+      <header class="shop-header garage-header ow-hub-header">
+        <div class="ow-hub-title-group">
+          <h2 id="shopTitle" class="ow-hub-title" data-lang="inventoryTitle">GARA CHIẾN HẠM</h2>
+        </div>
+
+        <nav class="ow-view-stepper" aria-label="Post-wave navigation">
+          <button id="navViewDraft" class="ow-step-btn hidden" type="button">
+            <span class="ow-step-num">01</span>
+            <span>THUỘC TÍNH</span>
+            <span id="navDraftBadge" class="ow-step-badge hidden">!</span>
+          </button>
+          <button id="navViewStore" class="ow-step-btn hidden" type="button">
+            <span class="ow-step-num">02</span>
+            <span>CỬA HÀNG</span>
+          </button>
+          <button id="navViewGarage" class="ow-step-btn active" type="button">
+            <span class="ow-step-num">03</span>
+            <span>GARA</span>
+            <span id="navGarageCount" class="ow-step-count">0</span>
+          </button>
+        </nav>
+
+        <div class="garage-header-actions">
+          <div class="shop-wallet">
+            <span class="wallet-label">CR</span>
+            <span id="shopMoneyVal" class="wallet-amount">0</span>
+          </div>
+          <button id="shopSkipBtn" class="btn btn-amber garage-deploy-btn" type="button">
+            <span data-lang="btnDeploy">XUẤT KÍCH</span>
+            <kbd>ESC</kbd>
+          </button>
+        </div>
+      </header>
+
+      <!-- Step 1: Post-boss single-choice augment / route draft -->
+      <div id="postBossDraftView" class="ow-draft-view hidden">
+        <div class="ow-draft-header">
+          <span id="draftStepIndicator" class="ow-draft-step-pill">BƯỚC 1 / 2</span>
+          <h3 id="draftStageTitle" class="ow-draft-stage-title">CHỌN 1 LÕI CÔNG NGHỆ</h3>
+        </div>
+
+        <div id="draftCardsGrid" class="ow-draft-cards"></div>
+
+        <div class="ow-draft-footer">
+          <button id="draftContinueBtn" class="btn btn-cyan ow-next-btn" type="button">
+            BỎ QUA - CỬA HÀNG
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 2: Boss roulette + permanent ship-core upgrades -->
+      <div id="bossStoreView" class="ow-store-view hidden">
+        <div class="ow-store-columns">
+          <section class="garage-panel ow-store-panel ow-store-roulette-panel">
+            <div class="ow-panel-header">
+              <h3 class="ow-panel-title" data-lang="tabRoulette">QUAY TIẾP TẾ</h3>
+            </div>
+            <div id="storeRouletteContainer" class="ow-store-roulette-body"></div>
+          </section>
+
+          <section class="garage-panel ow-store-panel ow-store-core-panel">
+            <div class="ow-panel-header">
+              <h3 class="ow-panel-title" data-lang="tabCore">NÂNG CẤP LÕI TÀU</h3>
+            </div>
+            <div id="storeCoreGrid" class="ow-core-grid"></div>
+          </section>
+        </div>
+
+        <footer class="ow-view-footer">
+          <span class="ow-footer-hint">Lõi tàu nâng cấp tại đây sẽ giữ suốt trận</span>
+          <button id="storeGoGarageBtn" class="btn btn-cyan ow-next-btn" type="button">
+            LẮP ĐỒ VÀO TÀU
+          </button>
+        </footer>
+      </div>
+
+      <!-- Step 3: Drag-and-drop 3D garage onto the actual flying hull -->
+      <div id="shipGarageView" class="garage-workspace ow-garage-view">
+        <aside id="garageArmoryPanel" class="garage-panel garage-armory-panel">
+          <div class="ow-panel-header">
+            <h3 class="ow-panel-title" data-lang="tabInventory">KHO ĐỒ</h3>
+          </div>
+          <div id="garageArmoryList" class="garage-armory-list"></div>
+        </aside>
+
+        <div class="garage-stage-panel">
+          <div class="ow-stage-topbar">
+            <div id="shopSelectionBar" class="shop-selection-bar"></div>
+            <div id="garageSynergyBar" class="synergy-bar"></div>
+          </div>
+          <div id="shipDropStage" class="ship-drop-stage"></div>
+          <div id="garageDragHint" class="garage-drag-hint" data-lang="dragHint">Kéo vũ khí từ kho thả vào khung tàu 3D</div>
+        </div>
+
+        <aside class="garage-panel garage-inspector-panel">
+          <div id="garageInspector" class="garage-inspector"></div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- Floating drag preview so dragging guns across slots feels snappy -->
+  <div id="dragGhost" class="drag-ghost hidden" aria-hidden="true"></div>
+
+  <!-- Pause modal: take a breather while enemy bullets hang frozen in mid-air -->
+  <section id="pauseOverlay" class="screen-overlay modal-backdrop hidden">
+    <div class="pause-card">
+      <div class="panel-kicker">SYS.HOLD // FLIGHT PAUSED</div>
+      <h2 class="modal-title" data-lang="paused">TẠM DỪNG</h2>
+      <p id="pauseStats" class="pause-stats"></p>
+
+      <div class="pause-settings">
+        <button id="pauseSoundBtn" class="btn btn-wire btn-sm" type="button"></button>
+        <button id="pauseAimBtn" class="btn btn-wire btn-sm" type="button"></button>
+        <button id="pauseAutoFireBtn" class="btn btn-wire btn-sm" type="button"></button>
+        <button id="pauseQualityBtn" class="btn btn-wire btn-sm" type="button"></button>
+      </div>
+
+      <div class="pause-actions">
+        <button id="pauseResumeBtn" class="btn btn-amber" type="button">
+          <span data-lang="resume">TIẾP TỤC</span>
+        </button>
+        <button id="pauseRestartBtn" class="btn btn-steel" type="button">
+          <span data-lang="restart">CHƠI LẠI</span>
+        </button>
+        <button id="pauseMenuBtn" class="btn btn-danger" type="button">
+          <span data-lang="mainMenu">MENU CHÍNH</span>
+        </button>
+      </div>
+      <p class="pause-hint" data-lang="pauseHint">ESC Tiếp tục · R Chơi lại · M Menu chính</p>
+    </div>
+  </section>
+
+  <!-- Game Over summary & humble walk of shame (or glory) -->
+  <section id="gameOverScreen" class="screen-overlay modal-backdrop hidden">
+    <div id="gameOverShell" class="gameover-shell">
+      <div id="gameOverKicker" class="panel-kicker center">SIGNAL LOST // SORTIE TERMINATED</div>
+      <h2 id="gameOverTitle" class="gameover-title" data-lang="gameOver">CHIẾN HẠM THẤT THỦ</h2>
+
+      <div class="gameover-grid">
+        <div class="gameover-left">
+          <div class="stats-summary">
+            <div class="stat-row">
+              <span data-lang="score">Điểm</span>
+              <strong id="finalScore" class="stat-highlight">0</strong>
+            </div>
+            <div class="stat-row">
+              <span data-lang="wave">Wave</span>
+              <strong id="finalWave" class="stat-highlight">0</strong>
+            </div>
+            <div class="stat-row">
+              <span data-lang="maxCombo">Combo Tối Đa</span>
+              <strong id="finalCombo">0</strong>
+            </div>
+            <div class="stat-row">
+              <span data-lang="bossesSlain">Boss Đã Hạ</span>
+              <strong id="finalBosses">0</strong>
+            </div>
+            <div class="stat-row">
+              <span data-lang="roomsCleared">Phòng Đã Vượt</span>
+              <strong id="finalRooms">0</strong>
+            </div>
+            <div class="stat-row">
+              <span data-lang="shardsEarned">Scrap Shards</span>
+              <strong id="finalShards" class="stat-highlight">+0</strong>
+            </div>
+          </div>
+
+          <div class="submit-box">
+            <p class="submit-encourage" data-lang="encourageSubmit">Ghi danh lên Bảng Xếp Hạng Thiên Hà!</p>
+            <p id="rankPreview" class="rank-preview"></p>
+            <input id="playerNameInput" class="pilot-input" type="text" maxlength="20" data-lang-placeholder="enterName"
+              placeholder="Nhập tên phi công..." />
+            <button id="submitScoreBtn" class="btn btn-amber" type="button">
+              <span data-lang="submitScore">GỬI ĐIỂM</span>
+            </button>
+            <p id="submitStatusMsg" class="submit-status"></p>
+          </div>
+
+          <div class="gameover-actions">
+            <button id="playAgainBtn" class="btn btn-steel" type="button">
+              <span data-lang="playAgain">CHƠI LẠI</span>
+            </button>
+            <button id="gameOverForgeBtn" class="btn btn-wire" type="button">
+              <span data-lang="metaForgeBtn">XƯỞNG META</span>
+            </button>
+            <button id="gameOverMenuBtn" class="btn btn-wire" type="button">
+              <span data-lang="mainMenu">MENU CHÍNH</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="gameover-right">
+          <h3 class="sub-panel-title" data-lang="top10">TOP 10 PHI CÔNG</h3>
+          <div id="gameOverLeaderboardBody" class="leaderboard-scroll"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Global Firebase leaderboard modal -->
+  <section id="leaderboardScreen" class="screen-overlay modal-backdrop hidden">
+    <div class="modal-card modal-wide">
+      <div class="panel-kicker">NET.UPLINK // GLOBAL RANKINGS</div>
+      <h2 class="modal-title" data-lang="leaderboardTitle">BẢNG XẾP HẠNG</h2>
+      <div id="leaderboardBody" class="leaderboard-scroll tall"></div>
+      <button id="closeLeaderboardBtn" class="btn btn-steel" type="button">
+        <span data-lang="back">QUAY LẠI</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- Interactive Flight Controls & Tactical Keyboard/Mouse Simulator -->
+  <section id="instructionsScreen" class="screen-overlay modal-backdrop hidden">
+    <div class="modal-card modal-console controls-modal">
+      <div class="console-header">
+        <div>
+          <div class="panel-kicker" data-lang="manualKicker">TÀI LIỆU VẬN HÀNH // HỆ THỐNG ĐIỀU KHIỂN</div>
+          <h2 class="modal-title" data-lang="controls">HƯỚNG DẪN ĐIỀU KHIỂN &amp; TÁC CHIẾN</h2>
+        </div>
+        <div class="console-header-meta">
+          <div class="deck-live-pill">
+            <span class="deck-live-dot" aria-hidden="true"></span>
+            <span data-lang="deckLiveBadge">MÔ PHỎNG TƯƠNG TÁC</span>
+          </div>
+          <div class="deck-role-legend">
+            <span class="role-dot role-flight" data-lang="roleFlight">CƠ ĐỘNG</span>
+            <span class="role-dot role-ordnance" data-lang="roleOrdnance">HỎA LỰC</span>
+            <span class="role-dot role-tactical" data-lang="roleTactical">KỸ NĂNG</span>
+            <span class="role-dot role-systems" data-lang="roleSystems">HỆ THỐNG</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="console-scroll">
+        <div class="deck-hint-bar">
+          <span data-lang="deckLiveHint">Nhấn phím thực tế trên bàn phím hoặc chọn nút trên sơ đồ để kiểm tra chức năng</span>
+        </div>
+
+        <div id="ctrlDeckStage" class="control-deck-stage">
+          <!-- Simulated 65% Mechanical Keyboard -->
+          <div class="vkb-chassis" role="group" aria-label="Keyboard Control Simulator">
+            <div class="vkb-main-cluster">
+              <div class="vkb-row">
+                <button type="button" class="vkb-key w-11 role-systems" data-bind="esc" data-codes="Escape">
+                  <span class="vkb-cap">ESC</span>
+                  <span class="vkb-sub">PAUSE</span>
+                </button>
+                <div class="vkb-gap-sm" aria-hidden="true"></div>
+                <button type="button" class="vkb-key role-systems" data-bind="slots" data-codes="Digit1">
+                  <span class="vkb-cap">1</span>
+                  <span class="vkb-sub">OPT</span>
+                </button>
+                <button type="button" class="vkb-key role-systems" data-bind="slots" data-codes="Digit2">
+                  <span class="vkb-cap">2</span>
+                  <span class="vkb-sub">OPT</span>
+                </button>
+                <button type="button" class="vkb-key role-systems" data-bind="slots" data-codes="Digit3">
+                  <span class="vkb-cap">3</span>
+                  <span class="vkb-sub">OPT</span>
+                </button>
+                <button type="button" class="vkb-key role-systems" data-bind="slots" data-codes="Digit4">
+                  <span class="vkb-cap">4</span>
+                  <span class="vkb-sub">SHOP</span>
+                </button>
+                <span class="vkb-key inert"><span class="vkb-cap">5</span></span>
+                <div class="vkb-gap-sm" aria-hidden="true"></div>
+                <button type="button" class="vkb-key role-systems" data-bind="garage" data-codes="KeyG">
+                  <span class="vkb-cap">G</span>
+                  <span class="vkb-sub">HANGAR</span>
+                </button>
+                <button type="button" class="vkb-key role-systems" data-bind="menu_key" data-codes="KeyM">
+                  <span class="vkb-cap">M</span>
+                  <span class="vkb-sub">MENU</span>
+                </button>
+                <span class="vkb-key inert w-fill"><span class="vkb-cap">BKSP</span></span>
+              </div>
+
+              <div class="vkb-row">
+                <button type="button" class="vkb-key w-14 role-systems" data-bind="aim_toggle" data-codes="Tab">
+                  <span class="vkb-cap">TAB</span>
+                  <span class="vkb-sub">AIM</span>
+                </button>
+                <button type="button" class="vkb-key role-tactical" data-bind="skill" data-codes="KeyQ">
+                  <span class="vkb-cap">Q</span>
+                  <span class="vkb-sub">SKILL</span>
+                </button>
+                <button type="button" class="vkb-key role-flight" data-bind="move" data-codes="KeyW">
+                  <span class="vkb-cap">W</span>
+                  <span class="vkb-sub">UP</span>
+                </button>
+                <button type="button" class="vkb-key role-tactical" data-bind="skill" data-codes="KeyE">
+                  <span class="vkb-cap">E</span>
+                  <span class="vkb-sub">SKILL</span>
+                </button>
+                <button type="button" class="vkb-key role-ordnance" data-bind="vent" data-codes="KeyR">
+                  <span class="vkb-cap">R</span>
+                  <span class="vkb-sub">VENT</span>
+                </button>
+                <span class="vkb-key inert"><span class="vkb-cap">T</span></span>
+                <span class="vkb-key inert"><span class="vkb-cap">Y</span></span>
+                <button type="button" class="vkb-key w-fill role-systems" data-bind="confirm" data-codes="Enter">
+                  <span class="vkb-cap">ENTER</span>
+                  <span class="vkb-sub">BUY</span>
+                </button>
+              </div>
+
+              <div class="vkb-row">
+                <span class="vkb-key inert w-16"><span class="vkb-cap">CAPS</span></span>
+                <button type="button" class="vkb-key role-flight" data-bind="move" data-codes="KeyA">
+                  <span class="vkb-cap">A</span>
+                  <span class="vkb-sub">LEFT</span>
+                </button>
+                <button type="button" class="vkb-key role-flight" data-bind="move" data-codes="KeyS">
+                  <span class="vkb-cap">S</span>
+                  <span class="vkb-sub">DOWN</span>
+                </button>
+                <button type="button" class="vkb-key role-flight" data-bind="move" data-codes="KeyD">
+                  <span class="vkb-cap">D</span>
+                  <span class="vkb-sub">RIGHT</span>
+                </button>
+                <button type="button" class="vkb-key role-tactical" data-bind="chrono" data-codes="KeyF">
+                  <span class="vkb-cap">F</span>
+                  <span class="vkb-sub">CHRONO</span>
+                </button>
+                <span class="vkb-key inert"><span class="vkb-cap">H</span></span>
+                <div class="vkb-plate-tag" aria-hidden="true">NV-65 // TACTICAL</div>
+              </div>
+
+              <div class="vkb-row">
+                <button type="button" class="vkb-key w-21 role-flight" data-bind="dash" data-codes="ShiftLeft,ShiftRight">
+                  <span class="vkb-cap">SHIFT</span>
+                  <span class="vkb-sub">DASH / PARRY</span>
+                </button>
+                <span class="vkb-key inert"><span class="vkb-cap">Z</span></span>
+                <span class="vkb-key inert"><span class="vkb-cap">X</span></span>
+                <button type="button" class="vkb-key w-fill role-ordnance" data-bind="fire" data-codes="Space">
+                  <span class="vkb-cap">SPACE</span>
+                  <span class="vkb-sub">PRIMARY FIRE</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="vkb-nav-cluster">
+              <div class="vkb-nav-telemetry" aria-hidden="true">
+                <span class="vkb-nav-led"></span>
+                <span>NAV-BUS</span>
+              </div>
+              <div class="vkb-arrows-grid">
+                <button type="button" class="vkb-key vkb-arrow-up role-flight" data-bind="move" data-codes="ArrowUp" aria-label="Arrow Up">
+                  <svg class="vkb-arrow-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <polyline points="4 10 8 6 12 10" />
+                  </svg>
+                </button>
+                <button type="button" class="vkb-key vkb-arrow-left role-flight" data-bind="move" data-codes="ArrowLeft" aria-label="Arrow Left">
+                  <svg class="vkb-arrow-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <polyline points="10 4 6 8 10 12" />
+                  </svg>
+                </button>
+                <button type="button" class="vkb-key vkb-arrow-down role-flight" data-bind="move" data-codes="ArrowDown" aria-label="Arrow Down">
+                  <svg class="vkb-arrow-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <polyline points="4 6 8 10 12 6" />
+                  </svg>
+                </button>
+                <button type="button" class="vkb-key vkb-arrow-right role-flight" data-bind="move" data-codes="ArrowRight" aria-label="Arrow Right">
+                  <svg class="vkb-arrow-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <polyline points="6 4 10 8 6 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Simulated 3-Button Tactical Mouse -->
+          <div class="vmouse-chassis" role="group" aria-label="Mouse Control Simulator">
+            <div class="vmouse-unit-title" data-lang="mouseUnitLabel">CHUỘT CHIẾN THUẬT</div>
+            <div class="vmouse-body">
+              <div class="vmouse-top-btns">
+                <button type="button" class="vmouse-zone vmouse-lmb role-ordnance" data-bind="fire" data-codes="LMB">
+                  <span class="vmouse-cap">LMB</span>
+                  <span class="vmouse-sub">FIRE</span>
+                </button>
+                <button type="button" class="vmouse-zone vmouse-mmb role-tactical" data-bind="chrono" data-codes="MMB" aria-label="Middle Mouse Wheel">
+                  <span class="vmouse-wheel-ridges" aria-hidden="true"></span>
+                  <span class="vmouse-cap">MMB</span>
+                </button>
+                <button type="button" class="vmouse-zone vmouse-rmb role-tactical" data-bind="skill" data-codes="RMB">
+                  <span class="vmouse-cap">RMB</span>
+                  <span class="vmouse-sub">SKILL</span>
+                </button>
+              </div>
+              <button type="button" class="vmouse-zone vmouse-sensor role-ordnance" data-bind="mouse_aim" data-codes="AIM">
+                <span class="vmouse-sensor-reticle" aria-hidden="true">
+                  <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.4">
+                    <circle cx="18" cy="18" r="12" stroke-dasharray="3 3" />
+                    <path d="M18 2v6M18 28v6M2 18h6M28 18h6" />
+                  </svg>
+                  <span id="vmouseSensorDot" class="vmouse-sensor-dot"></span>
+                </span>
+                <span class="vmouse-sensor-label" data-lang="mouseAimSensor">CẢM BIẾN TÂM NGẮM 360°</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Key / Mouse Function Inspector -->
+        <div class="control-inspector" aria-live="polite">
+          <div class="ctrl-insp-left">
+            <span id="ctrlInspBadge" class="ctrl-insp-badge">WASD / ARROWS</span>
+            <span id="ctrlInspRole" class="ctrl-insp-role role-flight">CƠ ĐỘNG</span>
+          </div>
+          <div class="ctrl-insp-copy">
+            <div id="ctrlInspTitle" class="ctrl-insp-title"></div>
+            <div id="ctrlInspDesc" class="ctrl-insp-desc"></div>
+          </div>
+          <div id="ctrlInspStatus" class="ctrl-insp-status" data-lang="inspectorStandby">SẴN SÀNG TRA CỨU</div>
+        </div>
+
+        <!-- 3-Column Command Reference Matrix -->
+        <div class="control-matrix-grid">
+          <div class="ctrl-matrix-col">
+            <h3 data-lang="movement">Điều Khiển Bay &amp; Né Đạn</h3>
+            <button type="button" class="ctrl-matrix-row" data-bind="move">
+              <span class="ctrl-matrix-keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span>
+              <span class="ctrl-matrix-desc" data-lang="moveDesc"></span>
+            </button>
+            <button type="button" class="ctrl-matrix-row" data-bind="dash">
+              <span class="ctrl-matrix-keys"><kbd>SHIFT</kbd></span>
+              <span class="ctrl-matrix-desc" data-lang="dashDesc"></span>
+            </button>
+            <button type="button" class="ctrl-matrix-row" data-bind="chrono">
+              <span class="ctrl-matrix-keys"><kbd>F</kbd><kbd>MMB</kbd></span>
+              <span class="ctrl-matrix-desc" data-lang="chronoShortDesc"></span>
+            </button>
+          </div>
+
+          <div class="ctrl-matrix-col">
+            <h3 data-lang="combat">Hệ Thống Vũ Khí &amp; Kỹ Năng</h3>
+            <button type="button" class="ctrl-matrix-row" data-bind="fire">
+              <span class="ctrl-matrix-keys"><kbd>SPACE</kbd><kbd>LMB</kbd></span>
+              <span class="ctrl-matrix-desc" data-lang="shootDesc"></span>
+            </button>
+            <button type="button" class="ctrl-matrix-row" data-bind="skill">
+              <span class="ctrl-matrix-keys"><kbd>E</kbd><kbd>Q</kbd><kbd>RMB</kbd></span>
+              <span class="ctrl-matrix-desc" data-lang="bombDesc"></span>
+            </button>
+            <button type="button" class="ctrl-matrix-row" data-bind="vent">
+              <span class="ctrl-matrix-keys"><kbd>R</kbd></span>
+              <span class="ctrl-matrix-desc" data-lang="ventShortDesc"></span>
+            </button>
+            <button type="button" class="ctrl-matrix-row" data-bind="aim_toggle">
+              <span class="ctrl-matrix-keys"><kbd>TAB</kbd></span>
+              <span class="ctrl-matrix-desc" data-lang="aimToggleDesc"></span>
+            </button>
+          </div>
+
+          <div class="ctrl-matrix-col">
+            <h3 data-lang="shop">Xưởng Lắp Ráp &amp; Giao Dịch</h3>
+            <button type="button" class="ctrl-matrix-row" data-bind="slots">
+              <span class="ctrl-matrix-keys"><kbd>1</kbd>-<kbd>4</kbd></span>
+              <span class="ctrl-matrix-desc" data-lang="selectItems"></span>
+            </button>
+            <button type="button" class="ctrl-matrix-row" data-bind="confirm">
+              <span class="ctrl-matrix-keys"><kbd>ENTER</kbd></span>
+              <span class="ctrl-matrix-desc" data-lang="buyItems"></span>
+            </button>
+            <button type="button" class="ctrl-matrix-row" data-bind="garage">
+              <span class="ctrl-matrix-keys"><kbd>G</kbd></span>
+              <span class="ctrl-matrix-desc" data-lang="hangarKeyDesc"></span>
+            </button>
+            <button type="button" class="ctrl-matrix-row" data-bind="esc">
+              <span class="ctrl-matrix-keys"><kbd>ESC</kbd></span>
+              <span class="ctrl-matrix-desc" data-lang="pauseKeyDesc"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Core Tactical Doctrine 2x2 -->
+        <div class="doctrine-section">
+          <div class="doctrine-head">
+            <h3 data-lang="tips">NGUYÊN TẮC TÁC CHIẾN CỐT LÕI</h3>
+          </div>
+          <div class="doctrine-grid">
+            <article class="doctrine-card">
+              <h4 data-lang="tip1Title">Phản Đòn &amp; Tích Lũy Chrono</h4>
+              <p data-lang="tip1"></p>
+            </article>
+            <article class="doctrine-card">
+              <h4 data-lang="tip2Title">Quản Lý Nhiệt Lượng Vũ Khí</h4>
+              <p data-lang="tip2"></p>
+            </article>
+            <article class="doctrine-card">
+              <h4 data-lang="tip3Title">Khắc Chế Đội Hình Đặc Chủng</h4>
+              <p data-lang="tip3"></p>
+            </article>
+            <article class="doctrine-card">
+              <h4 data-lang="tip4Title">Kỷ Luật Vành Đai &amp; Lộ Trình</h4>
+              <p data-lang="tip4"></p>
+            </article>
+          </div>
+        </div>
+      </div>
+
+      <div class="console-footer">
+        <button id="closeInstructionsBtn" class="btn btn-steel" type="button">
+          <span data-lang="back">QUAY LẠI</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- System Dossier & Architecture Info Modal -->
+  <section id="infoScreen" class="screen-overlay modal-backdrop hidden">
+    <div class="modal-card modal-console dossier-modal">
+      <div class="console-header">
+        <div>
+          <div class="panel-kicker" data-lang="infoKicker">HỒ SƠ HỆ THỐNG // THÔNG SỐ KỸ THUẬT</div>
+          <h2 class="modal-title" data-lang="infoModalTitle">THÔNG TIN DỰ ÁN &amp; KIẾN TRÚC HỆ THỐNG</h2>
+        </div>
+        <div class="dossier-build-badge" data-lang="infoBuildBadge">WEBGL2 · 60HZ DETERMINISTIC</div>
+      </div>
+
+      <div class="console-scroll">
+        <section class="dossier-hero-card">
+          <div class="dossier-overview">
+            <h3 data-lang="aboutGame">Tổng Quan Dự Án</h3>
+            <p data-lang="gameDescription"></p>
+          </div>
+          <div class="dossier-metrics-grid">
+            <div class="dossier-metric">
+              <strong>60 HZ</strong>
+              <span data-lang="metricSimLabel">Mô phỏng cố định</span>
+            </div>
+            <div class="dossier-metric">
+              <strong>6 SLOTS</strong>
+              <span data-lang="metricSlotsLabel">Ổ cứng mô-đun</span>
+            </div>
+            <div class="dossier-metric">
+              <strong>6 BOSSES</strong>
+              <span data-lang="metricBossLabel">Đại Boss biến hình</span>
+            </div>
+            <div class="dossier-metric">
+              <strong>56 SFX</strong>
+              <span data-lang="metricAudioLabel">Âm thanh tổng hợp</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="dossier-section">
+          <h3 class="dossier-sec-title" data-lang="techHighlights">Kiến Trúc Kỹ Thuật Cốt Lõi</h3>
+          <div class="dossier-arch-grid">
+            <article class="dossier-arch-card">
+              <div class="dossier-arch-head">
+                <svg class="tac-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                  <polygon points="12 2 21 7 21 17 12 22 3 17 3 7" />
+                  <path d="M12 22V12M21 7l-9 5-9-5" />
+                </svg>
+                <h4 data-lang="tech1Title">Kết Xuất 3D &amp; Hậu Kỳ GPU</h4>
+              </div>
+              <p data-lang="tech1"></p>
+            </article>
+            <article class="dossier-arch-card">
+              <div class="dossier-arch-head">
+                <svg class="tac-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                  <rect x="4" y="4" width="16" height="16" rx="2" />
+                  <path d="M9 9h6v6H9zM9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2" />
+                </svg>
+                <h4 data-lang="tech2Title">Lõi Mô Phỏng 60Hz Độc Lập</h4>
+              </div>
+              <p data-lang="tech2"></p>
+            </article>
+            <article class="dossier-arch-card">
+              <div class="dossier-arch-head">
+                <svg class="tac-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                  <path d="M3 12h3l2-6 4 12 3-9 2 3h4" />
+                </svg>
+                <h4 data-lang="tech3Title">Tổng Hợp Âm Thanh Số WebAudio</h4>
+              </div>
+              <p data-lang="tech3"></p>
+            </article>
+            <article class="dossier-arch-card">
+              <div class="dossier-arch-head">
+                <svg class="tac-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                  <circle cx="12" cy="12" r="8" />
+                  <circle cx="12" cy="12" r="2.5" />
+                  <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+                </svg>
+                <h4 data-lang="tech4Title">Phản Hồi Tác Chiến &amp; Giao Diện</h4>
+              </div>
+              <p data-lang="tech4"></p>
+            </article>
+          </div>
+        </section>
+
+        <div class="dossier-bottom-grid">
+          <section class="dossier-meta-card">
+            <h3 data-lang="credits">Thông Số Phiên Bản &amp; Tác Giả</h3>
+            <div class="dossier-kv-list">
+              <div class="dossier-kv-row">
+                <span data-lang="developer">Phát triển &amp; Thiết kế hệ thống</span>
+                <strong>@Qu4nh</strong>
+              </div>
+              <div class="dossier-kv-row">
+                <span data-lang="version">Phiên bản phát hành</span>
+                <strong>Nebula Vanguard · WebGL2 Build</strong>
+              </div>
+              <div class="dossier-kv-row">
+                <span data-lang="engineLabel">Nền tảng kỹ thuật</span>
+                <strong>Three.js · GLSL ES 3.00 · AgX · TypeScript</strong>
+              </div>
+              <div class="dossier-kv-row">
+                <span data-lang="cloudLabel">Dịch vụ trực tuyến</span>
+                <strong>Firebase Realtime DB</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="dossier-feedback-card">
+            <h3 data-lang="feedback">Phản Hồi Kỹ Thuật &amp; Báo Cáo Lỗi</h3>
+            <p data-lang="feedbackDesc"></p>
+            <a href="https://forms.gle/NQdmzA83NbHGvQT16" target="_blank" rel="noopener noreferrer"
+              class="btn btn-wire btn-inline dossier-feedback-btn">
+              <span data-lang="sendFeedback">GỬI BÁO CÁO &amp; GÓP Ý</span>
+              <svg class="tac-svg-sm" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M5 11L11 5M6 5h5v5" />
+              </svg>
+            </a>
+          </section>
+        </div>
+      </div>
+
+      <div class="console-footer">
+        <button id="closeInfoBtn" class="btn btn-steel" type="button">
+          <span data-lang="back">QUAY LẠI</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pilot commendations / achievements list -->
+  <section id="achievementsScreen" class="screen-overlay modal-backdrop hidden">
+    <div class="modal-card modal-wide">
+      <div class="panel-kicker">PILOT RECORD // COMMENDATIONS</div>
+      <h2 class="modal-title" data-lang="achievementsTitle">THÀNH TỰU</h2>
+      <div id="achievementsSummary" class="ach-summary"></div>
+      <div id="achievementsList" class="ach-list"></div>
+      <button id="closeAchievementsBtn" class="btn btn-steel" type="button">
+        <span data-lang="back">QUAY LẠI</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- Mid-run 3-card level-up / mutation draft -->
+  <section id="quickDraftScreen" class="screen-overlay modal-backdrop quick-draft-backdrop hidden">
+    <div class="quick-draft-shell">
+      <div id="quickDraftKicker" class="panel-kicker">SECTOR RAID // INSTANT DROP</div>
+      <h2 id="quickDraftTitle" class="quick-draft-title">CHỌN NÂNG CẤP CHIẾN TRƯỜNG</h2>
+      <div id="quickDraftGrid" class="quick-draft-grid"></div>
+      <div class="quick-draft-footer">
+        <span data-lang="quickDraftHotkey">Nhấn phím [1] [2] [3] hoặc bấm thẻ để lắp ngay</span>
+        <button id="quickDraftRerollBtn" class="btn btn-wire btn-sm" type="button">
+          <span data-lang="rerollBtn">[R] ĐỔI LẠI</span>
+          (<span id="quickDraftRerollCount">1</span>)
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Hades-style warp gate picker after clearing a room -->
+  <section id="roomSelectScreen" class="screen-overlay modal-backdrop room-select-backdrop hidden">
+    <div class="room-select-shell">
+      <div id="roomSelectKicker" class="panel-kicker">WARP GATES // BRANCHING ROUTE</div>
+      <h2 id="roomSelectTitle" class="quick-draft-title">CHỌN CỬA DỊCH CHUYỂN TIẾP THEO</h2>
+      <div id="roomDoorGrid" class="room-door-grid"></div>
+      <div class="quick-draft-footer">
+        <span id="roomSelectHint" data-lang="roomSelectHint">Nhấn phím [1] [2] [3] hoặc chọn cổng dịch chuyển</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Permanent Meta-Forge: where hard-earned Scrap Shards turn into unfair advantages -->
+  <section id="metaForgeScreen" class="screen-overlay modal-backdrop hidden">
+    <div class="modal-card modal-wide meta-forge-modal">
+      <div class="meta-forge-header">
+        <div>
+          <div class="panel-kicker">ORBITAL FOUNDRY // PERSISTENT UPGRADES</div>
+          <h2 class="modal-title" data-lang="metaForgeTitle">XƯỞNG META-FORGE</h2>
+        </div>
+        <div class="shard-pill">
+          <span class="shard-pill-label" data-lang="shardsLabel">SHARDS</span>
+          <strong id="metaForgeShardTotal" class="shard-pill-val">0</strong>
+        </div>
+      </div>
+      <div id="metaForgeHullGrid" class="meta-forge-hull-grid"></div>
+      <div id="metaForgeUpgradeGrid" class="meta-forge-upgrade-grid"></div>
+      <button id="closeMetaForgeBtn" class="btn btn-steel" type="button">
+        <span data-lang="back">QUAY LẠI</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- Bottom-center toast stack for achievements so they stay out of your aiming cone -->
+  <div id="toastStack" class="toast-stack"></div>
+
+  <script type="module" src="/src/main.ts"></script>
 </body>
 
 </html>

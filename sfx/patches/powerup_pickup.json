@@ -1,0 +1,108 @@
+{
+  "name": "powerup_pickup",
+  "description": "Tactical buff pickup: rising synth arpeggio + clean high air.",
+  "layers": [
+    {
+      "wave": "triangle",
+      "freq": [
+        [
+          0,
+          440
+        ],
+        [
+          0.05,
+          440
+        ],
+        [
+          0.05,
+          554.4
+        ],
+        [
+          0.1,
+          554.4
+        ],
+        [
+          0.1,
+          659.3
+        ],
+        [
+          0.15,
+          659.3
+        ],
+        [
+          0.15,
+          880
+        ]
+      ],
+      "partials": [
+        [
+          1,
+          0,
+          1
+        ],
+        [
+          2,
+          -10,
+          0.55
+        ]
+      ],
+      "env": {
+        "attack": 0.002,
+        "hold": 0.15,
+        "release": 0.2,
+        "curve": 2.5
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": 7000
+        }
+      ]
+    },
+    {
+      "wave": "noise",
+      "env": {
+        "attack": 0.01,
+        "hold": 0.04,
+        "release": 0.18,
+        "curve": 2
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": [
+            [
+              0,
+              800
+            ],
+            [
+              0.2,
+              3200
+            ]
+          ],
+          "q": 1.6
+        }
+      ],
+      "gain_db": -12
+    }
+  ],
+  "master": {
+    "lufs": -16,
+    "peak_db": -1,
+    "highpass": 140,
+    "reverb": {
+      "mix": 0.14,
+      "decay": 0.4
+    }
+  },
+  "expect": {
+    "duration": [
+      0.25,
+      0.6
+    ],
+    "centroid": [
+      550,
+      3200
+    ]
+  }
+}

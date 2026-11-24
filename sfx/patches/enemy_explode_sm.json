@@ -1,0 +1,97 @@
+{
+  "name": "enemy_explode_sm",
+  "description": "Pop & shatter fighter detonation: tight pop core + staggered debris crackles + blast.",
+  "layers": [
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          290
+        ],
+        [
+          0.16,
+          44
+        ]
+      ],
+      "drive": 1.8,
+      "env": {
+        "attack": 0.001,
+        "hold": 0.018,
+        "release": 0.16,
+        "curve": 2.2
+      }
+    },
+    {
+      "wave": "noise",
+      "at": [
+        0,
+        0.026,
+        0.058
+      ],
+      "env": {
+        "attack": 0.0005,
+        "hold": 0.002,
+        "release": 0.024,
+        "curve": 3
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": 1850,
+          "q": 1.8
+        }
+      ],
+      "gain_db": -4
+    },
+    {
+      "wave": "noise",
+      "env": {
+        "attack": 0.002,
+        "hold": 0.014,
+        "release": 0.22,
+        "curve": 2.2
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": [
+            [
+              0,
+              3200
+            ],
+            [
+              0.22,
+              260
+            ]
+          ],
+          "q": 0.9
+        }
+      ],
+      "gain_db": -2
+    }
+  ],
+  "master": {
+    "lufs": -14,
+    "peak_db": -1,
+    "highpass": 38,
+    "reverb": {
+      "mix": 0.1,
+      "decay": 0.35
+    }
+  },
+  "vary": {
+    "pitch": 1.4,
+    "gain_db": 1.4
+  },
+  "expect": {
+    "duration": [
+      0.14,
+      0.55
+    ],
+    "centroid": [
+      120,
+      1800
+    ]
+  }
+}

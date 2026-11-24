@@ -1,0 +1,120 @@
+{
+  "name": "boss_explode",
+  "description": "Capital boss obliteration: multi-stage crack, seismic sub & rising victory brass.",
+  "layers": [
+    {
+      "wave": "noise",
+      "env": {
+        "attack": 0.002,
+        "hold": 0.04,
+        "release": 0.65,
+        "curve": 1.8
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": [
+            [
+              0,
+              3200
+            ],
+            [
+              0.65,
+              160
+            ]
+          ],
+          "q": 0.9
+        }
+      ],
+      "gain_db": -1
+    },
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          110
+        ],
+        [
+          0.6,
+          26
+        ]
+      ],
+      "drive": 2.0,
+      "env": {
+        "attack": 0.002,
+        "hold": 0.1,
+        "release": 0.55,
+        "curve": 1.8
+      }
+    },
+    {
+      "wave": "triangle",
+      "at": [
+        0.18
+      ],
+      "freq": [
+        [
+          0,
+          261.6
+        ],
+        [
+          0.08,
+          261.6
+        ],
+        [
+          0.08,
+          329.6
+        ],
+        [
+          0.16,
+          329.6
+        ],
+        [
+          0.16,
+          392
+        ],
+        [
+          0.24,
+          392
+        ],
+        [
+          0.24,
+          523.3
+        ]
+      ],
+      "env": {
+        "attack": 0.004,
+        "hold": 0.24,
+        "release": 0.28,
+        "curve": 2.2
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": 4200
+        }
+      ],
+      "gain_db": -7
+    }
+  ],
+  "master": {
+    "lufs": -12,
+    "peak_db": -1,
+    "highpass": 28,
+    "reverb": {
+      "mix": 0.2,
+      "decay": 0.7
+    }
+  },
+  "expect": {
+    "duration": [
+      0.55,
+      1.55
+    ],
+    "centroid": [
+      90,
+      1200
+    ]
+  }
+}

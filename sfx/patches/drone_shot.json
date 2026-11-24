@@ -1,0 +1,67 @@
+{
+  "name": "drone_shot",
+  "description": "Quiet suppressed scout-drone ion dart (low fatigue).",
+  "layers": [
+    {
+      "wave": "noise",
+      "env": {
+        "attack": 0.001,
+        "hold": 0.001,
+        "release": 0.01,
+        "curve": 3
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": 2600,
+          "q": 1.4
+        }
+      ],
+      "gain_db": -8
+    },
+    {
+      "wave": "triangle",
+      "freq": [
+        [
+          0,
+          820
+        ],
+        [
+          0.075,
+          360
+        ]
+      ],
+      "env": {
+        "attack": 0.001,
+        "hold": 0.005,
+        "release": 0.07,
+        "curve": 2.5
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": 4200
+        }
+      ]
+    }
+  ],
+  "master": {
+    "lufs": -21,
+    "peak_db": -1.5,
+    "highpass": 180
+  },
+  "vary": {
+    "pitch": 1.5,
+    "gain_db": 1.5
+  },
+  "expect": {
+    "duration": [
+      0.05,
+      0.15
+    ],
+    "centroid": [
+      400,
+      2000
+    ]
+  }
+}

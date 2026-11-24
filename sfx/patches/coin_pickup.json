@@ -1,0 +1,88 @@
+{
+  "name": "coin_pickup",
+  "description": "ASMR crystal gem pluck: warm two-note fifth + gentle soft FM shimmer.",
+  "layers": [
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          987.8
+        ],
+        [
+          0.045,
+          987.8
+        ],
+        [
+          0.045,
+          1480
+        ]
+      ],
+      "fm": {
+        "ratio": 2,
+        "index": [
+          [
+            0,
+            1.4
+          ],
+          [
+            0.2,
+            0.15
+          ]
+        ]
+      },
+      "env": {
+        "attack": 0.001,
+        "hold": 0.045,
+        "release": 0.22,
+        "curve": 3
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": 5800
+        }
+      ]
+    },
+    {
+      "wave": "noise",
+      "env": {
+        "attack": 0.0005,
+        "hold": 0.001,
+        "release": 0.01,
+        "curve": 3
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": 2800,
+          "q": 1.6
+        }
+      ],
+      "gain_db": -12
+    }
+  ],
+  "master": {
+    "lufs": -17,
+    "peak_db": -1,
+    "highpass": 240,
+    "reverb": {
+      "mix": 0.12,
+      "decay": 0.4
+    }
+  },
+  "vary": {
+    "pitch": 1.1,
+    "gain_db": 1.0
+  },
+  "expect": {
+    "duration": [
+      0.16,
+      0.55
+    ],
+    "centroid": [
+      700,
+      3200
+    ]
+  }
+}

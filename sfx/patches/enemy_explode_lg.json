@@ -1,0 +1,97 @@
+{
+  "name": "enemy_explode_lg",
+  "description": "Heavy cruiser pop & shatter blast: punchy pop core + staggered debris bursts + deep roar.",
+  "layers": [
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          165
+        ],
+        [
+          0.3,
+          30
+        ]
+      ],
+      "drive": 2.0,
+      "env": {
+        "attack": 0.001,
+        "hold": 0.036,
+        "release": 0.32,
+        "curve": 2
+      }
+    },
+    {
+      "wave": "noise",
+      "at": [
+        0,
+        0.032,
+        0.072
+      ],
+      "env": {
+        "attack": 0.0005,
+        "hold": 0.003,
+        "release": 0.032,
+        "curve": 3
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": 1750,
+          "q": 1.7
+        }
+      ],
+      "gain_db": -3
+    },
+    {
+      "wave": "noise",
+      "env": {
+        "attack": 0.002,
+        "hold": 0.035,
+        "release": 0.36,
+        "curve": 2.0
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": [
+            [
+              0,
+              3200
+            ],
+            [
+              0.36,
+              180
+            ]
+          ],
+          "q": 0.9
+        }
+      ],
+      "gain_db": -1
+    }
+  ],
+  "master": {
+    "lufs": -13,
+    "peak_db": -1,
+    "highpass": 32,
+    "reverb": {
+      "mix": 0.14,
+      "decay": 0.45
+    }
+  },
+  "vary": {
+    "pitch": 1.2,
+    "gain_db": 1.5
+  },
+  "expect": {
+    "duration": [
+      0.24,
+      0.72
+    ],
+    "centroid": [
+      90,
+      1400
+    ]
+  }
+}

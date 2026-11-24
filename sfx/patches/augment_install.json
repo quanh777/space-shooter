@@ -1,0 +1,92 @@
+{
+  "name": "augment_install",
+  "description": "NEW: Heavy Sector Augment core installation \u2014 servo clamp + harmonic power-on.",
+  "layers": [
+    {
+      "wave": "noise",
+      "env": {
+        "attack": 0.002,
+        "hold": 0.006,
+        "release": 0.035,
+        "curve": 3
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": 1600,
+          "q": 1.6
+        }
+      ],
+      "gain_db": -4
+    },
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          180
+        ],
+        [
+          0.1,
+          58
+        ]
+      ],
+      "drive": 1.5,
+      "env": {
+        "attack": 0.002,
+        "hold": 0.02,
+        "release": 0.12,
+        "curve": 2
+      }
+    },
+    {
+      "wave": "triangle",
+      "at": [
+        0.04
+      ],
+      "freq": [
+        [
+          0,
+          330
+        ],
+        [
+          0.22,
+          660
+        ]
+      ],
+      "detune_cents": 8,
+      "env": {
+        "attack": 0.006,
+        "hold": 0.08,
+        "release": 0.22,
+        "curve": 2.5
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": 5500
+        }
+      ],
+      "gain_db": -3
+    }
+  ],
+  "master": {
+    "lufs": -15,
+    "peak_db": -1,
+    "highpass": 45,
+    "reverb": {
+      "mix": 0.14,
+      "decay": 0.45
+    }
+  },
+  "expect": {
+    "duration": [
+      0.24,
+      0.75
+    ],
+    "centroid": [
+      140,
+      2200
+    ]
+  }
+}

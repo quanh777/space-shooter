@@ -1,0 +1,26 @@
+{
+  "name": "space-shooter-nebula-vanguard",
+  "version": "3.0.0",
+  "description": "Space Shooter 2.5D/3D WebGL Arcade Rebuild — Vite + TypeScript + Three.js",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "firebase": "^11.0.2",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.170.0",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.1",
+    "vitest": "^2.1.5"
+  },
+  "license": "MIT"
+}

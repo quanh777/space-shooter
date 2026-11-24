@@ -1,0 +1,97 @@
+{
+  "name": "chrono_start",
+  "description": "Time-dilation bass drop + descending crystalline phase lock.",
+  "layers": [
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          240
+        ],
+        [
+          0.38,
+          42
+        ]
+      ],
+      "drive": 1.6,
+      "env": {
+        "attack": 0.004,
+        "hold": 0.04,
+        "release": 0.36,
+        "curve": 2
+      }
+    },
+    {
+      "wave": "triangle",
+      "freq": [
+        [
+          0,
+          1180
+        ],
+        [
+          0.34,
+          420
+        ]
+      ],
+      "env": {
+        "attack": 0.008,
+        "hold": 0.02,
+        "release": 0.31,
+        "curve": 2.4
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": 4500
+        }
+      ],
+      "gain_db": -6
+    },
+    {
+      "wave": "noise",
+      "env": {
+        "attack": 0.004,
+        "hold": 0.02,
+        "release": 0.24,
+        "curve": 2.2
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": [
+            [
+              0,
+              2200
+            ],
+            [
+              0.25,
+              380
+            ]
+          ],
+          "q": 1.6
+        }
+      ],
+      "gain_db": -10
+    }
+  ],
+  "master": {
+    "lufs": -15,
+    "peak_db": -1,
+    "highpass": 35,
+    "reverb": {
+      "mix": 0.18,
+      "decay": 0.55
+    }
+  },
+  "expect": {
+    "duration": [
+      0.28,
+      0.7
+    ],
+    "centroid": [
+      80,
+      1600
+    ]
+  }
+}
