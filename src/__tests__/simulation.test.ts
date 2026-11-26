@@ -74,7 +74,11 @@ import {
 import { createTacticalPostPass } from '../render/shaders/TacticalPostPass';
 import { AchievementService } from '../services/AchievementService';
 import {
+  buildSameNameUpsertPlan,
+  dedupeLeaderboardEntries,
   extractBuildSnapshot,
+  LeaderboardService,
+  normalizePilotKey,
   sanitizeLeaderboardEntry,
   sortLeaderboardEntries,
 } from '../services/LeaderboardService';
@@ -3360,5 +3364,150 @@ describe('Firebase Leaderboard Loadout Snapshot & Sanitization Tests', () => {
     const sorted = sortLeaderboardEntries([legacy!, full!]);
     expect(sorted[0].key).toBe('full-key');
     expect(sorted[1].key).toBe('legacy-key');
+  });
+
+  it('normalizes duplicate names, builds atomic delete-and-upsert plan, and auto-saves pilot callsign', () => {
+    expect(normalizePilotKey('  Quang   Anh  Ngu ')).toBe('quang anh ngu');
+
+    const olderHigh = sanitizeLeaderboardEntry('old-high', {
+      name: 'quang anh ngu',
+      score: 3302,
+      wave: 9,
+      timestamp: 1000,
+    })!;
+    const newerLow = sanitizeLeaderboardEntry('new-low', {
+      name: 'Quang   Anh Ngu',
+      score: 2132,
+      wave: 7,
+      timestamp: 2000,
+      hullId: 'sniper',
+      build: {
+        hullId: 'sniper',
+        level: 5,
+        sector: 2,
+        rooms: 6,
+        bossKills: 1,
+        maxCombo: 40,
+        drones: 1,
+        slots: [{ slot: 'wing_l1', weaponId: 'pulse_blaster', tier: 2, upgTotal: 3 }],
+        augments: ['prism_splitter'],
+        mutations: ['split_shrapnel'],
+        coreLevels: { speedBoost: 2 },
+      },
+    })!;
+    const otherPilot = sanitizeLeaderboardEntry('other-1', {
+      name: 'AcePilot',
+      score: 5000,
+      wave: 12,
+      timestamp: 1500,
+    })!;
+
+    const deduped = dedupeLeaderboardEntries([olderHigh, newerLow, otherPilot]);
+    expect(deduped.length).toBe(2);
+    expect(deduped[0].name).toBe('AcePilot');
+    expect(deduped[1].name).toBe('Quang Anh Ngu');
+    expect(deduped[1].score).toBe(3302);
+    expect(deduped[1].wave).toBe(9);
+    expect(deduped[1].hullId).toBe('sniper');
+
+    const buildV2 = {
+      hullId: 'juggernaut' as const,
+      level: 8,
+      sector: 3,
+      rooms: 12,
+      bossKills: 3,
+      maxCombo: 90,
+      drones: 2,
+      slots: [{ slot: 'wing_l1' as const, weaponId: 'pulse_blaster' as const, tier: 3 as const, upgTotal: 5 }],
+      augments: ['prism_splitter' as const],
+      mutations: ['split_shrapnel' as const],
+      coreLevels: { bulletDamage: 3 },
+    };
+
+    const planLowerScore = buildSameNameUpsertPlan(
+      'Quang Anh Ngu',
+      1500,
+      5,
+      buildV2,
+      3000,
+      [olderHigh, newerLow, otherPilot],
+      'fresh-key-1'
+    );
+    expect(planLowerScore.keysToDelete).toEqual(['old-high', 'new-low']);
+    expect(planLowerScore.previousBestScore).toBe(3302);
+    expect(planLowerScore.isNewRecord).toBe(false);
+    expect(planLowerScore.entry.score).toBe(3302);
+    expect(planLowerScore.entry.name).toBe('Quang Anh Ngu');
+    expect(planLowerScore.entry.hullId).toBe('juggernaut');
+    expect(planLowerScore.patch['old-high']).toBeNull();
+    expect(planLowerScore.patch['new-low']).toBeNull();
+    expect(planLowerScore.patch['other-1']).toBeUndefined();
+    expect(planLowerScore.patch['fresh-key-1']).toBeTruthy();
+
+    const planRecordBroken = buildSameNameUpsertPlan(
+      'Quang Anh Ngu v2',
+      4500,
+      14,
+      buildV2,
+      4000,
+      [olderHigh, newerLow, otherPilot],
+      'fresh-key-2'
+    );
+    expect(planRecordBroken.keysToDelete).toEqual([]);
+    expect(planRecordBroken.isNewRecord).toBe(true);
+    expect(planRecordBroken.entry.score).toBe(4500);
+    expect(planRecordBroken.entry.wave).toBe(14);
+    expect(Object.keys(planRecordBroken.patch)).toEqual(['fresh-key-2']);
+
+    const planUpdateBreakBest = buildSameNameUpsertPlan(
+      'QUANG ANH NGU',
+      6200,
+      18,
+      buildV2,
+      5000,
+      [olderHigh, newerLow, otherPilot],
+      'fresh-key-3'
+    );
+    expect(planUpdateBreakBest.keysToDelete).toEqual(['old-high', 'new-low']);
+    expect(planUpdateBreakBest.isNewRecord).toBe(true);
+    expect(planUpdateBreakBest.entry.score).toBe(6200);
+    expect(planUpdateBreakBest.patch['old-high']).toBeNull();
+    expect(planUpdateBreakBest.patch['new-low']).toBeNull();
+    expect((planUpdateBreakBest.patch['fresh-key-3'] as { name: string; score: number }).name).toBe(
+      'QUANG ANH NGU'
+    );
+
+    const store = new Map<string, string>();
+    const prevDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (k: string) => store.get(k) ?? null,
+        setItem: (k: string, v: string) => {
+          store.set(k, String(v));
+        },
+        removeItem: (k: string) => {
+          store.delete(k);
+        },
+        clear: () => {
+          store.clear();
+        },
+      },
+    });
+    try {
+      const svc = new LeaderboardService();
+      expect(svc.getSavedPilotName()).toBe('');
+      expect(svc.savePilotName('   Ace   Vanguard  ')).toBe('Ace Vanguard');
+      expect(svc.getSavedPilotName()).toBe('Ace Vanguard');
+      const found = svc.findPilotEntry([olderHigh, otherPilot], 'acepilot');
+      expect(found?.rank).toBe(2);
+      expect(found?.entry.name).toBe('AcePilot');
+    } finally {
+      if (prevDescriptor) {
+        Object.defineProperty(globalThis, 'localStorage', prevDescriptor);
+      } else {
+        delete (globalThis as { localStorage?: unknown }).localStorage;
+      }
+    }
   });
 });

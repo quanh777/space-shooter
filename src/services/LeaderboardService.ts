@@ -1,4 +1,5 @@
 import {
+  child,
   get,
   limitToLast,
   onValue,
@@ -6,6 +7,9 @@ import {
   orderByKey,
   push,
   query,
+  remove,
+  set,
+  update,
   type DataSnapshot,
 } from 'firebase/database';
 import { getLeaderboardRef } from '../config/firebase';
@@ -56,13 +60,38 @@ export interface LeaderboardEntry {
   build: LeaderboardBuildSnapshot | null;
 }
 
+export interface SameNameUpsertPlan {
+  payload: {
+    name: string;
+    score: number;
+    wave: number;
+    timestamp: number;
+    hullId: HullClassId;
+    build: LeaderboardBuildSnapshot;
+  };
+  entry: LeaderboardEntry;
+  isNewRecord: boolean;
+  previousBestScore: number | null;
+  keysToDelete: string[];
+  patch: Record<string, unknown>;
+}
+
+export interface SubmitScoreResult {
+  entry: LeaderboardEntry;
+  isNewRecord: boolean;
+  previousBestScore: number | null;
+  deletedOldCount: number;
+}
+
 interface LocalBuildRecord {
   hullId: HullClassId;
   build: LeaderboardBuildSnapshot;
 }
 
-const CACHE_STORAGE_KEY = 'nv_leaderboard_cache_v2';
+const CACHE_STORAGE_KEY = 'nv_leaderboard_cache_v3';
 const LOCAL_BUILDS_KEY = 'nv_leaderboard_local_builds_v1';
+const PILOT_NAME_KEY = 'nv_pilot_name';
+const LEGACY_PILOT_NAME_KEY = 'playerName';
 const CACHE_MAX_ENTRIES = 100;
 const LOCAL_BUILDS_MAX = 50;
 const QUERY_TIMEOUT_MS = 9000;
@@ -98,6 +127,18 @@ function withTimeout<T>(promise: PromiseLike<T>, ms: number): Promise<T> {
 
 function isValidHullId(id: unknown): id is HullClassId {
   return typeof id === 'string' && hasOwn(HULL_CATALOG, id);
+}
+
+export function cleanPilotDisplayName(rawName: string): string {
+  return String(rawName ?? '')
+    .replace(/[\u0000-\u001F\u007F]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, 20);
+}
+
+export function normalizePilotKey(rawName: string): string {
+  return cleanPilotDisplayName(rawName).toLowerCase();
 }
 
 function parseSlotSnapshot(raw: unknown): LeaderboardSlotSnapshot | null {
@@ -268,12 +309,7 @@ export function sanitizeLeaderboardEntry(key: string, raw: unknown): Leaderboard
     return null;
   }
 
-  const cleanName =
-    String(raw.name ?? 'Pilot')
-      .replace(/[\u0000-\u001F\u007F]/g, '')
-      .trim()
-      .slice(0, 20) || 'Pilot';
-
+  const cleanName = cleanPilotDisplayName(String(raw.name ?? 'Pilot')) || 'Pilot';
   const build = sanitizeBuildSnapshot(raw.build);
   const hullId: HullClassId | null = isValidHullId(raw.hullId)
     ? raw.hullId
@@ -305,6 +341,97 @@ export function sortLeaderboardEntries(entries: LeaderboardEntry[]): Leaderboard
   });
 }
 
+export function dedupeLeaderboardEntries(entries: LeaderboardEntry[]): LeaderboardEntry[] {
+  const sorted = sortLeaderboardEntries(entries);
+  const byPilot = new Map<string, LeaderboardEntry>();
+
+  for (const entry of sorted) {
+    const pilotKey = normalizePilotKey(entry.name) || entry.key || 'pilot';
+    const existing = byPilot.get(pilotKey);
+    if (!existing) {
+      byPilot.set(pilotKey, { ...entry });
+      continue;
+    }
+
+    if (entry.timestamp > existing.timestamp) {
+      existing.name = entry.name;
+    }
+    if (!existing.build && entry.build) {
+      existing.build = entry.build;
+      existing.hullId = entry.hullId ?? entry.build.hullId;
+    } else if (!existing.hullId && entry.hullId) {
+      existing.hullId = entry.hullId;
+    }
+  }
+
+  return sortLeaderboardEntries(Array.from(byPilot.values()));
+}
+
+export function buildSameNameUpsertPlan(
+  cleanName: string,
+  newScore: number,
+  newWave: number,
+  newBuild: LeaderboardBuildSnapshot,
+  now: number,
+  existingRawEntries: LeaderboardEntry[],
+  newKey: string
+): SameNameUpsertPlan {
+  const targetPilotKey = normalizePilotKey(cleanName);
+  const matches = sortLeaderboardEntries(
+    existingRawEntries.filter((e) => normalizePilotKey(e.name) === targetPilotKey)
+  );
+
+  const prevBest = matches[0] ?? null;
+  const isNewRecord =
+    !prevBest ||
+    newScore > prevBest.score ||
+    (newScore === prevBest.score && newWave >= prevBest.wave);
+  const previousBestScore = prevBest ? prevBest.score : null;
+
+  const finalScore = isNewRecord ? newScore : prevBest.score;
+  const finalWave = isNewRecord ? newWave : prevBest.wave;
+  const finalTimestamp = isNewRecord ? now : prevBest.timestamp || now;
+  const finalBuild = isNewRecord ? newBuild : (prevBest.build ?? newBuild);
+  const finalHullId = finalBuild.hullId;
+
+  const payload = {
+    name: cleanName,
+    score: finalScore,
+    wave: finalWave,
+    timestamp: finalTimestamp,
+    hullId: finalHullId,
+    build: finalBuild,
+  };
+
+  const keysToDelete = matches
+    .map((m) => m.key)
+    .filter((k): k is string => Boolean(k) && k !== newKey);
+
+  const patch: Record<string, unknown> = {
+    [newKey]: payload,
+  };
+  for (const oldKey of keysToDelete) {
+    patch[oldKey] = null;
+  }
+
+  return {
+    payload,
+    entry: {
+      key: newKey,
+      name: cleanName,
+      score: finalScore,
+      wave: finalWave,
+      timestamp: finalTimestamp,
+      hullId: finalHullId,
+      build: finalBuild,
+    },
+    isNewRecord,
+    previousBestScore,
+    keysToDelete,
+    patch,
+  };
+}
+
 function isMissingIndexError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err ?? '');
   const lower = msg.toLowerCase();
@@ -320,6 +447,52 @@ export class LeaderboardService {
   public lastSubmittedKey: string | null = null;
   public connectionState: LeaderboardConnectionState = 'connecting';
   private indexMissing = false;
+
+  getSavedPilotName(): string {
+    try {
+      if (typeof localStorage === 'undefined') return '';
+      const raw =
+        localStorage.getItem(PILOT_NAME_KEY) ??
+        localStorage.getItem(LEGACY_PILOT_NAME_KEY) ??
+        '';
+      return cleanPilotDisplayName(raw);
+    } catch {
+      return '';
+    }
+  }
+
+  savePilotName(rawName: string): string {
+    const clean = cleanPilotDisplayName(rawName);
+    if (!clean) return '';
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(PILOT_NAME_KEY, clean);
+        localStorage.setItem(LEGACY_PILOT_NAME_KEY, clean);
+      }
+    } catch {
+      // Ignore private browsing or storage quota restrictions
+    }
+    return clean;
+  }
+
+  findPilotEntry(
+    entries: LeaderboardEntry[],
+    explicitName?: string
+  ): { entry: LeaderboardEntry; rank: number } | null {
+    if (entries.length === 0) return null;
+    if (this.lastSubmittedKey && !explicitName) {
+      const idxByKey = entries.findIndex((e) => e.key === this.lastSubmittedKey);
+      if (idxByKey >= 0) {
+        return { entry: entries[idxByKey], rank: idxByKey + 1 };
+      }
+    }
+
+    const key = normalizePilotKey(explicitName ?? this.getSavedPilotName());
+    if (!key) return null;
+    const idx = entries.findIndex((e) => normalizePilotKey(e.name) === key);
+    if (idx < 0) return null;
+    return { entry: entries[idx], rank: idx + 1 };
+  }
 
   private readLocalBuildsMap(): Record<string, LocalBuildRecord> {
     try {
@@ -371,7 +544,7 @@ export class LeaderboardService {
         const entry = sanitizeLeaderboardEntry(String(item.key ?? ''), item);
         if (entry) out.push(entry);
       }
-      return sortLeaderboardEntries(out);
+      return dedupeLeaderboardEntries(out);
     } catch {
       return [];
     }
@@ -380,18 +553,18 @@ export class LeaderboardService {
   private writeCache(entries: LeaderboardEntry[]): void {
     try {
       if (typeof localStorage === 'undefined') return;
-      const trimmed = sortLeaderboardEntries(entries).slice(0, CACHE_MAX_ENTRIES);
+      const trimmed = dedupeLeaderboardEntries(entries).slice(0, CACHE_MAX_ENTRIES);
       localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(trimmed));
     } catch {
       // Ignore storage quota or private browsing errors
     }
   }
 
-  private parseSnapshot(snapshot: DataSnapshot): LeaderboardEntry[] {
+  private parseRawSnapshot(snapshot: DataSnapshot): LeaderboardEntry[] {
     const localBuilds = this.readLocalBuildsMap();
     const entries: LeaderboardEntry[] = [];
-    snapshot.forEach((child) => {
-      const entry = sanitizeLeaderboardEntry(child.key ?? '', child.val());
+    snapshot.forEach((childSnap) => {
+      const entry = sanitizeLeaderboardEntry(childSnap.key ?? '', childSnap.val());
       if (!entry) return;
       if (!entry.build && entry.key && hasOwn(localBuilds, entry.key)) {
         entry.build = localBuilds[entry.key].build;
@@ -400,6 +573,10 @@ export class LeaderboardService {
       entries.push(entry);
     });
     return sortLeaderboardEntries(entries);
+  }
+
+  private parseSnapshot(snapshot: DataSnapshot): LeaderboardEntry[] {
+    return dedupeLeaderboardEntries(this.parseRawSnapshot(snapshot));
   }
 
   async fetchAllEntries(): Promise<LeaderboardEntry[]> {
@@ -424,7 +601,6 @@ export class LeaderboardService {
           );
         } catch (err) {
           if (!isMissingIndexError(err)) throw err;
-          // Fall back seamlessly to key-ordered query when RTDB lacks ".indexOn": ["score"]
           this.indexMissing = true;
           snapshot = await withTimeout(
             get(query(ref, orderByKey(), limitToLast(500))),
@@ -453,10 +629,9 @@ export class LeaderboardService {
     }
   }
 
-  async fetchTop(limit = 50, hullFilter: HullClassId | 'all' = 'all'): Promise<LeaderboardEntry[]> {
+  async fetchTop(limit = 50): Promise<LeaderboardEntry[]> {
     const all = await this.fetchAllEntries();
-    const filtered = hullFilter === 'all' ? all : all.filter((e) => e.hullId === hullFilter);
-    return filtered.slice(0, Math.max(1, limit));
+    return all.slice(0, Math.max(1, limit));
   }
 
   subscribe(
@@ -507,72 +682,94 @@ export class LeaderboardService {
     }
   }
 
-  async submitScore(rawName: string, state: GameState): Promise<LeaderboardEntry> {
+  async submitScore(rawName: string, state: GameState): Promise<SubmitScoreResult> {
     const ref = getLeaderboardRef();
     if (!ref) {
       this.connectionState = 'offline';
       throw new Error('Firebase unavailable');
     }
 
-    const cleanName = rawName.replace(/[\u0000-\u001F\u007F]/g, '').trim().slice(0, 20);
+    const cleanName = this.savePilotName(rawName);
     if (!cleanName) {
       throw new Error('Empty name');
     }
 
     const score = clampInt(state.score, 0, 10_000_000, 0);
     const wave = clampInt(state.wave, 0, 999, 0);
-    const timestamp = Date.now();
+    const now = Date.now();
     const build = extractBuildSnapshot(state);
 
-    const fullPayload = {
-      name: cleanName,
+    // Fetch raw entries first so every duplicate key sharing the same pilot name is cleaned up
+    let existingRaw: LeaderboardEntry[] = [];
+    try {
+      const rawSnap = await withTimeout(
+        get(query(ref, orderByKey(), limitToLast(500))),
+        QUERY_TIMEOUT_MS
+      );
+      existingRaw = this.parseRawSnapshot(rawSnap);
+    } catch (err) {
+      if (!isMissingIndexError(err)) {
+        existingRaw = this.readCache();
+      }
+    }
+
+    const newRef = push(ref);
+    const newKey = newRef.key ?? `run_${now}`;
+    const plan = buildSameNameUpsertPlan(
+      cleanName,
       score,
       wave,
-      timestamp,
-      hullId: build.hullId,
       build,
-    };
+      now,
+      existingRaw,
+      newKey
+    );
 
-    let pushedKey = '';
+    let deletedOldCount = 0;
     try {
-      const pushed = await withTimeout(push(ref, fullPayload), QUERY_TIMEOUT_MS);
-      pushedKey = pushed.key ?? '';
+      await withTimeout(update(ref, plan.patch), QUERY_TIMEOUT_MS);
+      deletedOldCount = plan.keysToDelete.length;
     } catch (err) {
       if (!isPermissionError(err)) throw err;
-      // Fallback for strict RTDB rules that reject extra fields beyond name/score/wave/timestamp
-      const minimalPayload = { name: cleanName, score, wave, timestamp };
-      const pushed = await withTimeout(push(ref, minimalPayload), QUERY_TIMEOUT_MS);
-      pushedKey = pushed.key ?? '';
-      if (pushedKey) {
-        this.saveLocalBuildRecord(pushedKey, build);
+
+      // Fallback when RTDB rules forbid multi-path delete or reject extended build fields
+      try {
+        await withTimeout(set(newRef, plan.payload), QUERY_TIMEOUT_MS);
+      } catch (innerErr) {
+        if (!isPermissionError(innerErr)) throw innerErr;
+        const minimalPayload = {
+          name: cleanName,
+          score: plan.payload.score,
+          wave: plan.payload.wave,
+          timestamp: plan.payload.timestamp,
+        };
+        await withTimeout(set(newRef, minimalPayload), QUERY_TIMEOUT_MS);
+        this.saveLocalBuildRecord(newKey, plan.payload.build);
+      }
+
+      if (plan.keysToDelete.length > 0) {
+        const removals = await Promise.allSettled(
+          plan.keysToDelete.map((oldKey) => remove(child(ref, oldKey)))
+        );
+        deletedOldCount = removals.filter((r) => r.status === 'fulfilled').length;
       }
     }
 
-    this.lastSubmittedKey = pushedKey || null;
+    this.lastSubmittedKey = newKey;
     this.connectionState = 'live';
 
-    const created: LeaderboardEntry = {
-      key: pushedKey,
-      name: cleanName,
-      score,
-      wave,
-      timestamp,
-      hullId: build.hullId,
-      build,
+    const targetKey = normalizePilotKey(cleanName);
+    const updatedCache = this.readCache().filter(
+      (e) => normalizePilotKey(e.name) !== targetKey && e.key !== newKey
+    );
+    updatedCache.push(plan.entry);
+    this.writeCache(updatedCache);
+
+    return {
+      entry: plan.entry,
+      isNewRecord: plan.isNewRecord,
+      previousBestScore: plan.previousBestScore,
+      deletedOldCount,
     };
-
-    try {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('playerName', cleanName);
-      }
-    } catch {
-      // Ignore private browsing storage block
-    }
-
-    const cached = this.readCache().filter((e) => e.key !== created.key || !created.key);
-    cached.push(created);
-    this.writeCache(cached);
-
-    return created;
   }
 }

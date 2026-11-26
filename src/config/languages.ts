@@ -245,22 +245,26 @@ export interface LanguageStrings {
   lbCachedBadge: string;
   lbOfflineBadge: string;
   lbRefreshBtn: string;
-  lbFilterAll: string;
-  lbTotalPilots: string;
-  lbTopScore: string;
-  lbDeepestWave: string;
-  lbColShip: string;
-  lbColLoadout: string;
   lbYouTag: string;
-  lbLegacyHull: string;
-  lbLegacyNote: string;
-  lbInspectorTitle: string;
-  lbHardpointsTitle: string;
-  lbModsTitle: string;
-  lbNoMods: string;
   lbEmptySlot: string;
   lbRunLoadoutTitle: string;
-  lbClickInspectHint: string;
+  lbSubtitleMeta: string;
+  lbPodiumTop1: string;
+  lbPodiumTop2: string;
+  lbPodiumTop3: string;
+  lbRivalChase: string;
+  lbRivalKing: string;
+  lbChaseBtn: string;
+  lbTargetBadge: string;
+  lbUpdateBtn: string;
+  lbSavedPilotHint: string;
+  goHeroScoreLabel: string;
+  goNewCrown: string;
+  goNewPb: string;
+  goFirstRecord: string;
+  goKeepBest: string;
+  goUpdatedKeepBest: string;
+  goNewRecordSaved: string;
 
   achievementLvl: string;
   levelsLabel: string;
@@ -525,22 +529,26 @@ export const LANGUAGES: Record<LangCode, LanguageStrings> = {
     lbCachedBadge: 'BỘ NHỚ ĐỆM CỤC BỘ',
     lbOfflineBadge: 'MẤT KẾT NỐI TRẠM',
     lbRefreshBtn: 'LÀM MỚI',
-    lbFilterAll: 'TẤT CẢ TÀU',
-    lbTotalPilots: 'Phi công ghi danh',
-    lbTopScore: 'Điểm kỷ lục',
-    lbDeepestWave: 'Wave cao nhất',
-    lbColShip: 'Chiến Hạm & Phi Công',
-    lbColLoadout: 'Trang Bị Lắp Ráp',
     lbYouTag: 'BẠN',
-    lbLegacyHull: 'Hồ sơ phiên bản cũ',
-    lbLegacyNote: 'Bản ghi lưu từ phiên bản trước nên chưa đính kèm sơ đồ ổ cứng và đột biến.',
-    lbInspectorTitle: 'HỒ SƠ CHIẾN HẠM & TRANG BỊ',
-    lbHardpointsTitle: 'SƠ ĐỒ 6 Ổ CỨNG THÂN TÀU',
-    lbModsTitle: 'LÕI CÔNG NGHỆ, ĐỘT BIẾN & KHUNG GẦM',
-    lbNoMods: 'Chưa lắp lõi phụ trợ hoặc đột biến nào',
     lbEmptySlot: 'Ổ trống',
-    lbRunLoadoutTitle: 'TÀU & TRANG BỊ SẼ LƯU LÊN BẢNG XẾP HẠNG',
-    lbClickInspectHint: 'Chọn một phi công trong danh sách để xem chi tiết tàu và 6 ổ cứng trang bị',
+    lbRunLoadoutTitle: 'TÀU & TRANG BỊ CỦA TRẬN',
+    lbSubtitleMeta: '{count} PHI CÔNG GHI DANH · ĐỈNH BẢNG {top}',
+    lbPodiumTop1: 'QUÁN QUÂN #1',
+    lbPodiumTop2: 'Á QUÂN #2',
+    lbPodiumTop3: 'HẠNG #3',
+    lbRivalChase: 'HẠNG CỦA BẠN: #{rank} · CẦN THÊM +{diff} ĐIỂM ĐỂ VƯỢT #{targetRank} {targetName}',
+    lbRivalKing: 'ĐANG GIỮ NGÔI ĐẦU #01 · DẪN TRƯỚC #{targetRank} +{diff} ĐIỂM',
+    lbChaseBtn: 'XUẤT KÍCH ĐUA TOP',
+    lbTargetBadge: 'MỤC TIÊU +{diff}',
+    lbUpdateBtn: 'CẬP NHẬT KỶ LỤC',
+    lbSavedPilotHint: 'Đã tự điền biệt danh của bạn — nhấn Enter hoặc nút bên cạnh để lưu',
+    goHeroScoreLabel: 'TỔNG ĐIỂM CHIẾN DỊCH',
+    goNewCrown: 'TÂN VƯƠNG THIÊN HÀ — CHIẾM NGÔI HẠNG #1!',
+    goNewPb: 'PHÁ KỶ LỤC CÁ NHÂN! (+{diff} ĐIỂM)',
+    goFirstRecord: 'HẠNG DỰ KIẾN #{rank} · SẴN SÀNG GHI DANH!',
+    goKeepBest: 'KỶ LỤC CỦA BẠN: {best} (#{rank}) · CÒN KÉM {diff} ĐIỂM ĐỂ PHÁ KỶ LỤC',
+    goUpdatedKeepBest: 'Đã cập nhật tên & giữ nguyên kỷ lục cao nhất {best}!',
+    goNewRecordSaved: 'Đã phá kỷ lục & vươn lên Hạng #{rank}!',
 
     achievementLvl: 'THÀNH TỰU CẤP {lvl}!',
     levelsLabel: 'cấp độ',
@@ -803,22 +811,26 @@ export const LANGUAGES: Record<LangCode, LanguageStrings> = {
     lbCachedBadge: 'OFFLINE CACHE',
     lbOfflineBadge: 'RELAY OFFLINE',
     lbRefreshBtn: 'REFRESH',
-    lbFilterAll: 'ALL HULLS',
-    lbTotalPilots: 'Recorded Pilots',
-    lbTopScore: 'Top Record',
-    lbDeepestWave: 'Highest Wave',
-    lbColShip: 'Pilot & Hull',
-    lbColLoadout: 'Mounted Loadout',
     lbYouTag: 'YOU',
-    lbLegacyHull: 'Legacy Flight Record',
-    lbLegacyNote: 'Logged from an earlier game version without detailed hardpoint telemetry.',
-    lbInspectorTitle: 'SHIP & LOADOUT DOSSIER',
-    lbHardpointsTitle: '6-HARDPOINT HULL CONFIGURATION',
-    lbModsTitle: 'AUGMENTS, MUTATIONS & CORE UPGRADES',
-    lbNoMods: 'No auxiliary augments or mutations recorded',
     lbEmptySlot: 'Empty Slot',
-    lbRunLoadoutTitle: 'SHIP & LOADOUT RECORDED FOR LEADERBOARD',
-    lbClickInspectHint: 'Select any pilot row to inspect their hull class and 6-hardpoint loadout',
+    lbRunLoadoutTitle: 'SHIP & MOUNTED LOADOUT',
+    lbSubtitleMeta: '{count} PILOTS LOGGED · TOP RECORD {top}',
+    lbPodiumTop1: 'CHAMPION #1',
+    lbPodiumTop2: 'RUNNER-UP #2',
+    lbPodiumTop3: '3RD PLACE',
+    lbRivalChase: 'YOUR RANK: #{rank} · +{diff} PTS NEEDED TO PASS #{targetRank} {targetName}',
+    lbRivalKing: 'HOLDING #01 CROWN · LEADING #{targetRank} BY +{diff} PTS',
+    lbChaseBtn: 'LAUNCH & CHASE',
+    lbTargetBadge: 'TARGET +{diff}',
+    lbUpdateBtn: 'UPDATE RECORD',
+    lbSavedPilotHint: 'Callsign auto-filled — press Enter or click to save',
+    goHeroScoreLabel: 'FINAL SORTIE SCORE',
+    goNewCrown: 'NEW GALACTIC CHAMPION — RANK #1 CLAIMED!',
+    goNewPb: 'NEW PERSONAL BEST! (+{diff} PTS)',
+    goFirstRecord: 'PROJECTED RANK #{rank} · READY TO LOG!',
+    goKeepBest: 'YOUR BEST: {best} (#{rank}) · {diff} PTS SHORT OF NEW PB',
+    goUpdatedKeepBest: 'Callsign updated & highest record {best} preserved!',
+    goNewRecordSaved: 'New record logged at Rank #{rank}!',
 
     achievementLvl: 'ACHIEVEMENT LVL {lvl}!',
     levelsLabel: 'levels',

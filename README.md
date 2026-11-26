@@ -57,7 +57,7 @@ node scripts/audio_doctor.mjs # Khám sức khỏe toàn bộ 56 file âm thanh 
 
 Nếu muốn tự host bảng đua top riêng:
 1. Sao chép `.env.example` thành `.env` và điền thông số Firebase project của bạn (tuyệt đối không commit file `.env` thật lên git).
-2. Vào **Firebase Console -> Realtime Database -> Rules** và dán rule dưới đây để bật chỉ mục `.indexOn`, lưu được thông tin tàu/trang bị (`hullId`, `build`) và chặn chỉnh sửa bậy điểm người khác:
+2. Vào **Firebase Console -> Realtime Database -> Rules** và dán rule dưới đây để bật chỉ mục `.indexOn`, lưu được thông tin tàu/trang bị (`hullId`, `build`) và cho phép ghi bản mới + xóa bản cũ khi cập nhật trùng tên:
 
 ```json
 {
@@ -66,7 +66,7 @@ Nếu muốn tự host bảng đua top riêng:
       ".indexOn": ["score"],
       ".read": true,
       "$entryId": {
-        ".write": "!data.exists()",
+        ".write": "!data.exists() || !newData.exists()",
         ".validate": "newData.hasChildren(['name','score','wave','timestamp']) && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 20 && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= 10000000 && newData.child('wave').isNumber() && newData.child('wave').val() >= 0 && newData.child('wave').val() <= 999 && (!newData.hasChild('hullId') || newData.child('hullId').isString()) && (!newData.hasChild('build') || newData.child('build').hasChildren(['hullId']))"
       }
     }
