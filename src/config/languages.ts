@@ -239,6 +239,28 @@ export interface LanguageStrings {
   enterNameAlert: string;
   nameTooLong: string;
   firebaseOffline: string;
+  lbKicker: string;
+  lbLiveBadge: string;
+  lbSyncBadge: string;
+  lbCachedBadge: string;
+  lbOfflineBadge: string;
+  lbRefreshBtn: string;
+  lbFilterAll: string;
+  lbTotalPilots: string;
+  lbTopScore: string;
+  lbDeepestWave: string;
+  lbColShip: string;
+  lbColLoadout: string;
+  lbYouTag: string;
+  lbLegacyHull: string;
+  lbLegacyNote: string;
+  lbInspectorTitle: string;
+  lbHardpointsTitle: string;
+  lbModsTitle: string;
+  lbNoMods: string;
+  lbEmptySlot: string;
+  lbRunLoadoutTitle: string;
+  lbClickInspectHint: string;
 
   achievementLvl: string;
   levelsLabel: string;
@@ -497,6 +519,28 @@ export const LANGUAGES: Record<LangCode, LanguageStrings> = {
     enterNameAlert: 'Quên nhập biệt danh kìa phi công ơi!',
     nameTooLong: 'Tên dài quá rồi (tối đa 20 ký tự thôi)!',
     firebaseOffline: 'Firebase đang ngủ đông hoặc chưa cấu hình.',
+    lbKicker: 'MẠNG QUỸ ĐẠO // BẢNG XẾP HẠNG TRỰC TUYẾN',
+    lbLiveBadge: 'TRỰC TUYẾN · FIREBASE LIVE',
+    lbSyncBadge: 'ĐANG ĐỒNG BỘ...',
+    lbCachedBadge: 'BỘ NHỚ ĐỆM CỤC BỘ',
+    lbOfflineBadge: 'MẤT KẾT NỐI TRẠM',
+    lbRefreshBtn: 'LÀM MỚI',
+    lbFilterAll: 'TẤT CẢ TÀU',
+    lbTotalPilots: 'Phi công ghi danh',
+    lbTopScore: 'Điểm kỷ lục',
+    lbDeepestWave: 'Wave cao nhất',
+    lbColShip: 'Chiến Hạm & Phi Công',
+    lbColLoadout: 'Trang Bị Lắp Ráp',
+    lbYouTag: 'BẠN',
+    lbLegacyHull: 'Hồ sơ phiên bản cũ',
+    lbLegacyNote: 'Bản ghi lưu từ phiên bản trước nên chưa đính kèm sơ đồ ổ cứng và đột biến.',
+    lbInspectorTitle: 'HỒ SƠ CHIẾN HẠM & TRANG BỊ',
+    lbHardpointsTitle: 'SƠ ĐỒ 6 Ổ CỨNG THÂN TÀU',
+    lbModsTitle: 'LÕI CÔNG NGHỆ, ĐỘT BIẾN & KHUNG GẦM',
+    lbNoMods: 'Chưa lắp lõi phụ trợ hoặc đột biến nào',
+    lbEmptySlot: 'Ổ trống',
+    lbRunLoadoutTitle: 'TÀU & TRANG BỊ SẼ LƯU LÊN BẢNG XẾP HẠNG',
+    lbClickInspectHint: 'Chọn một phi công trong danh sách để xem chi tiết tàu và 6 ổ cứng trang bị',
 
     achievementLvl: 'THÀNH TỰU CẤP {lvl}!',
     levelsLabel: 'cấp độ',
@@ -753,6 +797,28 @@ export const LANGUAGES: Record<LangCode, LanguageStrings> = {
     enterNameAlert: 'You forgot to type a callsign, pilot!',
     nameTooLong: 'Keep the callsign under 20 characters!',
     firebaseOffline: 'Firebase is either napping or unconfigured.',
+    lbKicker: 'ORBITAL UPLINK // GLOBAL LEADERBOARD',
+    lbLiveBadge: 'ONLINE · FIREBASE LIVE',
+    lbSyncBadge: 'SYNCING RELAY...',
+    lbCachedBadge: 'OFFLINE CACHE',
+    lbOfflineBadge: 'RELAY OFFLINE',
+    lbRefreshBtn: 'REFRESH',
+    lbFilterAll: 'ALL HULLS',
+    lbTotalPilots: 'Recorded Pilots',
+    lbTopScore: 'Top Record',
+    lbDeepestWave: 'Highest Wave',
+    lbColShip: 'Pilot & Hull',
+    lbColLoadout: 'Mounted Loadout',
+    lbYouTag: 'YOU',
+    lbLegacyHull: 'Legacy Flight Record',
+    lbLegacyNote: 'Logged from an earlier game version without detailed hardpoint telemetry.',
+    lbInspectorTitle: 'SHIP & LOADOUT DOSSIER',
+    lbHardpointsTitle: '6-HARDPOINT HULL CONFIGURATION',
+    lbModsTitle: 'AUGMENTS, MUTATIONS & CORE UPGRADES',
+    lbNoMods: 'No auxiliary augments or mutations recorded',
+    lbEmptySlot: 'Empty Slot',
+    lbRunLoadoutTitle: 'SHIP & LOADOUT RECORDED FOR LEADERBOARD',
+    lbClickInspectHint: 'Select any pilot row to inspect their hull class and 6-hardpoint loadout',
 
     achievementLvl: 'ACHIEVEMENT LVL {lvl}!',
     levelsLabel: 'levels',

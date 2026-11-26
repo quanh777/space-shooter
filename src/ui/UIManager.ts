@@ -23,15 +23,17 @@ import {
   HULL_CLASS_ORDER,
   META_UPGRADE_CATALOG,
   META_UPGRADE_ORDER,
+  type HullClassId,
 } from '../config/hulls';
 import {
-  ARCHETYPE_SYNERGY_DEFS,
+    ARCHETYPE_SYNERGY_DEFS,
   MUTATION_CATALOG,
   computeMutationArchetypeCounts,
   countMutationStacks,
   type MutationArchetype,
+  type MutationId,
 } from '../config/mutations';
-import { SHOP_ITEMS } from '../config/shopItems';
+import { SHOP_ITEMS, type ShopItemId } from '../config/shopItems';
 import {
   AUGMENT_CATALOG,
   CORE_SHOP_ITEM_IDS,
@@ -76,7 +78,14 @@ import {
 import type { GameState, GraphicsQuality, MountedWeapon, RouletteOffer } from '../game/types';
 import type { SceneManager } from '../render/SceneManager';
 import type { AchievementService, AchievementUnlockEvent } from '../services/AchievementService';
-import type { LeaderboardEntry, LeaderboardService } from '../services/LeaderboardService';
+import {
+  extractBuildSnapshot,
+  sortLeaderboardEntries,
+  type LeaderboardBuildSnapshot,
+  type LeaderboardConnectionState,
+  type LeaderboardEntry,
+  type LeaderboardService,
+} from '../services/LeaderboardService';
 import { metaProgression } from '../services/MetaProgressionService';
 import { createTierStarsEl, createUiIcon, setIconText, type UiIconId } from './TacticalIcons';
 
@@ -335,9 +344,24 @@ export class UIManager {
   private playerNameInput: HTMLInputElement;
   private submitScoreBtn: HTMLButtonElement;
   private submitStatusMsg: HTMLElement;
+  private gameOverLoadoutCard: HTMLElement;
+  private gameOverLbStatus: HTMLElement;
+  private gameOverLbStatusLabel: HTMLElement;
   private gameOverLeaderboardBody: HTMLElement;
+  private gameOverLbInspector: HTMLElement;
 
   private leaderboardBody: HTMLElement;
+  private leaderboardInspector: HTMLElement;
+  private lbConnBadge: HTMLElement;
+  private lbConnLabel: HTMLElement;
+  private lbHullFilters: HTMLElement;
+  private lbSummaryStats: HTMLElement;
+  private refreshLeaderboardBtn: HTMLButtonElement;
+  private lbUnsubscribe: (() => void) | null = null;
+  private lbCachedEntries: LeaderboardEntry[] = [];
+  private lbConnectionState: LeaderboardConnectionState = 'connecting';
+  private lbHullFilter: HullClassId | 'all' = 'all';
+  private lbSelectedKey: string | null = null;
   private achievementsSummary: HTMLElement;
   private achievementsList: HTMLElement;
 
@@ -574,9 +598,19 @@ export class UIManager {
     this.playerNameInput = byId('playerNameInput');
     this.submitScoreBtn = byId('submitScoreBtn');
     this.submitStatusMsg = byId('submitStatusMsg');
+    this.gameOverLoadoutCard = byId('gameOverLoadoutCard');
+    this.gameOverLbStatus = byId('gameOverLbStatus');
+    this.gameOverLbStatusLabel = byId('gameOverLbStatusLabel');
     this.gameOverLeaderboardBody = byId('gameOverLeaderboardBody');
+    this.gameOverLbInspector = byId('gameOverLbInspector');
 
     this.leaderboardBody = byId('leaderboardBody');
+    this.leaderboardInspector = byId('leaderboardInspector');
+    this.lbConnBadge = byId('lbConnBadge');
+    this.lbConnLabel = byId('lbConnLabel');
+    this.lbHullFilters = byId('lbHullFilters');
+    this.lbSummaryStats = byId('lbSummaryStats');
+    this.refreshLeaderboardBtn = byId('refreshLeaderboardBtn');
     this.achievementsSummary = byId('achievementsSummary');
     this.achievementsList = byId('achievementsList');
 
@@ -817,11 +851,15 @@ export class UIManager {
     click('leaderboardBtn', () => {
       this.mainMenu.classList.add('hidden');
       this.openModal(this.leaderboardScreen);
-      void this.loadLeaderboardInto(this.leaderboardBody, false);
+      this.startLeaderboardModalSync();
+    });
+    click('refreshLeaderboardBtn', () => {
+      void this.forceRefreshLeaderboard();
     });
     click(
       'closeLeaderboardBtn',
       () => {
+        this.stopLeaderboardSubscription();
         this.closeModal(this.leaderboardScreen, () => {
           this.mainMenu.classList.remove('hidden');
           requestAnimationFrame(() => this.moveHeroFocusRail(this.activeHeroChoice ?? this.playBtn));
@@ -942,6 +980,12 @@ export class UIManager {
 
     // Submit run score straight from simulation state (never trust editable DOM text)
     click('submitScoreBtn', () => void this.handleSubmitScore(), 'confirm');
+    this.playerNameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        void this.handleSubmitScore();
+      }
+    });
   }
 
   private toggleAudio(): void {
@@ -998,7 +1042,16 @@ export class UIManager {
       }
     });
 
+    this.renderHullFilterBar();
+    this.updateLeaderboardStatusBadges(this.lbConnectionState);
     this.renderControlInspector(this.selectedControlBindId, this.activeDeckCodes.size > 0);
+    if (!this.leaderboardScreen.classList.contains('hidden')) {
+      this.renderLeaderboardView(false);
+    }
+    if (!this.gameOverScreen.classList.contains('hidden')) {
+      this.renderPlayerRunLoadoutCard(extractBuildSnapshot(this.sim.state));
+      this.renderLeaderboardView(true);
+    }
   }
 
   private onPhaseChanged(phase: GameState['phase']): void {
@@ -1055,6 +1108,9 @@ export class UIManager {
       this.openModal(this.gameOverScreen);
     } else {
       this.hideOverlayImmediate(this.gameOverScreen);
+      if (this.leaderboardScreen.classList.contains('hidden')) {
+        this.stopLeaderboardSubscription();
+      }
     }
 
     const showMobile = this.input.isMobile && phase === 'PLAYING';
@@ -2435,12 +2491,9 @@ export class UIManager {
       // Private mode or storage blocked? Fine, keep calm and use defaults
     }
 
-    void this.leaderboard.estimateRank(s.score).then((rank) => {
-      if (rank !== null) {
-        this.rankPreviewEl.textContent = this.t.rankPreview.replace('{rank}', String(rank));
-      }
-    });
-    void this.loadLeaderboardInto(this.gameOverLeaderboardBody, true);
+    this.renderPlayerRunLoadoutCard(extractBuildSnapshot(s));
+    this.lbSelectedKey = this.leaderboard.lastSubmittedKey;
+    this.startGameOverLeaderboardSync(s.score);
   }
 
   private async handleSubmitScore(): Promise<void> {
@@ -2461,13 +2514,24 @@ export class UIManager {
     this.submitScoreBtn.disabled = true;
     try {
       // Pull straight from GameSimulation truth - HUD DOM is strictly read-only
-      await this.leaderboard.submitScore(rawName, this.sim.state.score, this.sim.state.wave);
+      const saved = await this.leaderboard.submitScore(rawName, this.sim.state);
       this.scoreSubmitted = true;
+      this.lbSelectedKey = saved.key || null;
       this.submitStatusMsg.textContent = this.t.submitSuccess;
       this.submitStatusMsg.className = 'submit-status';
       const label = this.submitScoreBtn.querySelector<HTMLElement>('[data-lang]');
       if (label) label.textContent = this.t.submitted;
-      void this.loadLeaderboardInto(this.gameOverLeaderboardBody, true);
+
+      const merged = this.lbCachedEntries.filter((e) => e.key !== saved.key || !saved.key);
+      merged.push(saved);
+      this.lbCachedEntries = sortLeaderboardEntries(merged);
+      this.lbConnectionState = 'live';
+      this.updateLeaderboardStatusBadges('live');
+      const rank = this.lbCachedEntries.findIndex((e) => e.key === saved.key) + 1;
+      if (rank > 0) {
+        this.rankPreviewEl.textContent = this.t.rankPreview.replace('{rank}', String(rank));
+      }
+      this.renderLeaderboardView(true);
     } catch {
       this.submitScoreBtn.disabled = false;
       this.submitStatusMsg.textContent = this.t.submitError;
@@ -2475,83 +2539,650 @@ export class UIManager {
     }
   }
 
-  private async loadLeaderboardInto(container: HTMLElement, compact: boolean): Promise<void> {
-    container.textContent = '';
-    const loading = document.createElement('div');
-    loading.className = 'lb-empty';
-    loading.textContent = this.t.loadingScores;
-    container.appendChild(loading);
-
-    try {
-      const entries = await this.leaderboard.fetchTop(10);
-      this.renderLeaderboardTable(container, entries, compact);
-    } catch {
-      container.textContent = '';
-      const errDiv = document.createElement('div');
-      errDiv.className = 'lb-empty';
-      errDiv.textContent = this.t.firebaseOffline;
-      container.appendChild(errDiv);
+  private stopLeaderboardSubscription(): void {
+    if (this.lbUnsubscribe) {
+      this.lbUnsubscribe();
+      this.lbUnsubscribe = null;
     }
   }
 
-  private renderLeaderboardTable(
+  private startLeaderboardModalSync(): void {
+    this.stopLeaderboardSubscription();
+    this.lbConnectionState = 'connecting';
+    this.updateLeaderboardStatusBadges('connecting');
+    this.renderHullFilterBar();
+    this.renderLeaderboardView(false);
+
+    this.lbUnsubscribe = this.leaderboard.subscribe((entries, connState) => {
+      this.lbCachedEntries = entries;
+      this.lbConnectionState = connState;
+      this.updateLeaderboardStatusBadges(connState);
+      if (!this.leaderboardScreen.classList.contains('hidden')) {
+        this.renderLeaderboardView(false);
+      }
+    });
+  }
+
+  private startGameOverLeaderboardSync(currentScore: number): void {
+    this.stopLeaderboardSubscription();
+    this.lbConnectionState = 'connecting';
+    this.updateLeaderboardStatusBadges('connecting');
+    this.renderLeaderboardView(true);
+
+    this.lbUnsubscribe = this.leaderboard.subscribe((entries, connState) => {
+      this.lbCachedEntries = entries;
+      this.lbConnectionState = connState;
+      this.updateLeaderboardStatusBadges(connState);
+
+      if (!this.scoreSubmitted && entries.length > 0 && connState !== 'offline') {
+        const higher = entries.filter((e) => e.score > currentScore).length;
+        this.rankPreviewEl.textContent = this.t.rankPreview.replace('{rank}', String(higher + 1));
+      }
+
+      if (!this.gameOverScreen.classList.contains('hidden')) {
+        this.renderLeaderboardView(true);
+      }
+    });
+  }
+
+  private async forceRefreshLeaderboard(): Promise<void> {
+    this.sound.unlock();
+    this.sound.playUiClick(780);
+    this.refreshLeaderboardBtn.disabled = true;
+    this.lbConnectionState = 'connecting';
+    this.updateLeaderboardStatusBadges('connecting');
+
+    try {
+      const entries = await this.leaderboard.fetchAllEntries();
+      this.lbCachedEntries = entries;
+      this.lbConnectionState = this.leaderboard.connectionState;
+    } catch {
+      this.lbConnectionState = this.leaderboard.connectionState;
+    } finally {
+      this.refreshLeaderboardBtn.disabled = false;
+      this.updateLeaderboardStatusBadges(this.lbConnectionState);
+      this.renderLeaderboardView(false);
+    }
+  }
+
+  private updateLeaderboardStatusBadges(state: LeaderboardConnectionState): void {
+    const labelText =
+      state === 'live'
+        ? this.t.lbLiveBadge
+        : state === 'cached'
+          ? this.t.lbCachedBadge
+          : state === 'offline'
+            ? this.t.lbOfflineBadge
+            : this.t.lbSyncBadge;
+
+    const pairs: Array<[HTMLElement, HTMLElement]> = [
+      [this.lbConnBadge, this.lbConnLabel],
+      [this.gameOverLbStatus, this.gameOverLbStatusLabel],
+    ];
+    for (const [badge, label] of pairs) {
+      badge.classList.remove('state-connecting', 'state-live', 'state-cached', 'state-offline');
+      badge.classList.add(`state-${state}`);
+      label.textContent = labelText;
+    }
+  }
+
+  private renderHullFilterBar(): void {
+    this.lbHullFilters.textContent = '';
+
+    const allBtn = document.createElement('button');
+    allBtn.type = 'button';
+    allBtn.className = `lb-filter-btn${this.lbHullFilter === 'all' ? ' active' : ''}`;
+    allBtn.textContent = this.t.lbFilterAll;
+    allBtn.addEventListener('click', () => {
+      this.sound.unlock();
+      this.sound.playUiClick(760);
+      this.lbHullFilter = 'all';
+      this.renderHullFilterBar();
+      this.renderLeaderboardView(false);
+    });
+    this.lbHullFilters.appendChild(allBtn);
+
+    for (const hullId of HULL_CLASS_ORDER) {
+      const def = HULL_CATALOG[hullId];
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `lb-filter-btn${this.lbHullFilter === hullId ? ' active' : ''}`;
+      btn.style.setProperty('--hull-accent', def.accent);
+
+      const dot = document.createElement('span');
+      dot.className = 'lb-filter-dot';
+      const label = document.createElement('span');
+      label.textContent = this.lang === 'vi' ? def.nameVi : def.nameEn;
+
+      btn.append(dot, label);
+      btn.addEventListener('click', () => {
+        this.sound.unlock();
+        this.sound.playUiClick(760);
+        this.lbHullFilter = hullId;
+        this.renderHullFilterBar();
+        this.renderLeaderboardView(false);
+      });
+      this.lbHullFilters.appendChild(btn);
+    }
+  }
+
+  private renderLeaderboardSummary(entries: LeaderboardEntry[]): void {
+    this.lbSummaryStats.textContent = '';
+    const topScore = entries.length > 0 ? entries[0].score : 0;
+    const maxWave = entries.reduce((mx, e) => Math.max(mx, e.wave), 0);
+
+    const pills: Array<[string, string]> = [
+      [this.t.lbTotalPilots, String(entries.length)],
+      [this.t.lbTopScore, topScore.toLocaleString()],
+      [this.t.lbDeepestWave, `W${maxWave}`],
+    ];
+    for (const [k, v] of pills) {
+      const pill = document.createElement('div');
+      pill.className = 'lb-stat-pill';
+      const label = document.createElement('span');
+      label.textContent = k;
+      const val = document.createElement('strong');
+      val.textContent = v;
+      pill.append(label, val);
+      this.lbSummaryStats.appendChild(pill);
+    }
+  }
+
+  private formatTierTag(tier: 1 | 2 | 3): string {
+    return tier === 3 ? 'Mk.III' : tier === 2 ? 'Mk.II' : 'Mk.I';
+  }
+
+  private formatLeaderboardDate(ts: number): string {
+    if (!ts || !Number.isFinite(ts)) return '';
+    try {
+      const d = new Date(ts);
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mi = String(d.getMinutes()).padStart(2, '0');
+      return `${dd}/${mm} ${hh}:${mi}`;
+    } catch {
+      return '';
+    }
+  }
+
+  private renderPlayerRunLoadoutCard(build: LeaderboardBuildSnapshot): void {
+    this.gameOverLoadoutCard.textContent = '';
+    const hullDef = HULL_CATALOG[build.hullId];
+    this.gameOverLoadoutCard.style.setProperty('--hull-accent', hullDef.accent);
+
+    const head = document.createElement('div');
+    head.className = 'go-loadout-head';
+    const title = document.createElement('span');
+    title.className = 'go-loadout-kicker';
+    title.textContent = this.t.lbRunLoadoutTitle;
+    head.appendChild(title);
+
+    const hullRow = document.createElement('div');
+    hullRow.className = 'go-loadout-hull';
+    const thumb = document.createElement('img');
+    thumb.className = `lb-ship-thumb${build.hullId === 'sniper' ? ' mirrored' : ''}`;
+    thumb.src = hullDef.iconUrl;
+    thumb.alt = '';
+
+    const hullMeta = document.createElement('div');
+    hullMeta.className = 'go-loadout-hull-meta';
+    const hullName = document.createElement('strong');
+    hullName.textContent = this.lang === 'vi' ? hullDef.nameVi : hullDef.nameEn;
+    const hullSub = document.createElement('span');
+    hullSub.textContent = `LV ${build.level} · S${build.sector} · ${build.drones} DRONE`;
+    hullMeta.append(hullName, hullSub);
+    hullRow.append(thumb, hullMeta);
+
+    const slotById = new Map(build.slots.map((s) => [s.slot, s]));
+    const gearGrid = document.createElement('div');
+    gearGrid.className = 'go-loadout-slots';
+
+    for (const slotDef of SHIP_GRID_SLOTS) {
+      const mounted = slotById.get(slotDef.id);
+      const chip = document.createElement('div');
+      chip.className = `go-slot-chip${mounted ? ` armed tier-${mounted.tier}` : ' empty'}`;
+
+      const tag = document.createElement('span');
+      tag.className = 'go-slot-tag';
+      tag.textContent = slotDef.shortTag;
+
+      if (mounted) {
+        const wDef = WEAPON_CATALOG[mounted.weaponId];
+        const img = this.createItemImg(wDef.iconUrl, 'go-slot-icon');
+        const txt = document.createElement('span');
+        txt.className = 'go-slot-name';
+        const wName = this.lang === 'vi' ? wDef.nameVi : wDef.nameEn;
+        txt.textContent =
+          mounted.upgTotal > 0
+            ? `${wName} (${this.formatTierTag(mounted.tier)} +${mounted.upgTotal})`
+            : `${wName} (${this.formatTierTag(mounted.tier)})`;
+        chip.append(tag, img, txt);
+      } else {
+        const txt = document.createElement('span');
+        txt.className = 'go-slot-name';
+        txt.textContent = this.t.lbEmptySlot;
+        chip.append(tag, txt);
+      }
+      gearGrid.appendChild(chip);
+    }
+
+    this.gameOverLoadoutCard.append(head, hullRow, gearGrid);
+
+    if (build.augments.length > 0 || build.mutations.length > 0) {
+      const modBar = document.createElement('div');
+      modBar.className = 'go-loadout-mods';
+      this.appendLoadoutModTags(modBar, build, false);
+      this.gameOverLoadoutCard.appendChild(modBar);
+    }
+  }
+
+  private appendLoadoutModTags(
+    container: HTMLElement,
+    build: LeaderboardBuildSnapshot,
+    includeCore: boolean
+  ): void {
+    for (const augId of build.augments) {
+      const aDef = AUGMENT_CATALOG[augId];
+      const pill = document.createElement('span');
+      pill.className = 'lb-mini-tag aug';
+      pill.style.setProperty('--tag-accent', aDef.accent);
+      pill.textContent = this.lang === 'vi' ? aDef.nameVi : aDef.nameEn;
+      container.appendChild(pill);
+    }
+
+    const mutCounts = new Map<MutationId, number>();
+    for (const mutId of build.mutations) {
+      mutCounts.set(mutId, (mutCounts.get(mutId) ?? 0) + 1);
+    }
+    for (const [mutId, count] of mutCounts.entries()) {
+      const mDef = MUTATION_CATALOG[mutId];
+      if (!mDef) continue;
+      const pill = document.createElement('span');
+      pill.className = 'lb-mini-tag mut';
+      pill.style.setProperty('--tag-accent', mDef.accent);
+      const mName = this.lang === 'vi' ? mDef.nameVi : mDef.nameEn;
+      pill.textContent = count > 1 ? `${mName} ×${count}` : mName;
+      container.appendChild(pill);
+    }
+
+    if (!includeCore) return;
+    for (const [itemId, lvl] of Object.entries(build.coreLevels)) {
+      if (!lvl || lvl <= 0) continue;
+      const itemDef = SHOP_ITEMS[itemId as ShopItemId];
+      if (!itemDef) continue;
+      const pill = document.createElement('span');
+      pill.className = 'lb-mini-tag core';
+      pill.style.setProperty('--tag-accent', itemDef.accent);
+      const iName = this.lang === 'vi' ? itemDef.nameVi : itemDef.nameEn;
+      pill.textContent = `${iName} Lv.${lvl}`;
+      container.appendChild(pill);
+    }
+  }
+
+  private renderLeaderboardView(compact: boolean): void {
+    const baseEntries = this.lbCachedEntries;
+    const filtered = compact
+      ? baseEntries.slice(0, 10)
+      : (this.lbHullFilter === 'all'
+          ? baseEntries
+          : baseEntries.filter((e) => e.hullId === this.lbHullFilter)
+        ).slice(0, 50);
+
+    if (!compact) {
+      this.renderLeaderboardSummary(filtered);
+    }
+
+    const listContainer = compact ? this.gameOverLeaderboardBody : this.leaderboardBody;
+    const inspContainer = compact ? this.gameOverLbInspector : this.leaderboardInspector;
+
+    if (filtered.length > 0) {
+      const stillVisible =
+        this.lbSelectedKey && filtered.some((e) => e.key === this.lbSelectedKey);
+      if (!stillVisible) {
+        const selfEntry = this.leaderboard.lastSubmittedKey
+          ? filtered.find((e) => e.key === this.leaderboard.lastSubmittedKey)
+          : undefined;
+        this.lbSelectedKey = (selfEntry ?? filtered[0]).key;
+      }
+    } else {
+      this.lbSelectedKey = null;
+    }
+
+    const selectedEntry =
+      filtered.find((e) => e.key === this.lbSelectedKey) ?? filtered[0] ?? null;
+
+    this.renderLeaderboardRows(listContainer, filtered, compact, (entry) => {
+      this.sound.unlock();
+      this.sound.playUiClick(740);
+      this.lbSelectedKey = entry.key;
+      listContainer.querySelectorAll<HTMLElement>('.lb-row').forEach((el) => {
+        el.classList.toggle('is-selected', el.dataset.key === entry.key);
+      });
+      this.renderLeaderboardInspector(inspContainer, entry, compact);
+    });
+
+    this.renderLeaderboardInspector(inspContainer, selectedEntry, compact);
+  }
+
+  private renderLeaderboardRows(
     container: HTMLElement,
     entries: LeaderboardEntry[],
-    compact: boolean
+    compact: boolean,
+    onSelect: (entry: LeaderboardEntry) => void
   ): void {
     container.textContent = '';
+
     if (entries.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'lb-empty';
-      empty.textContent = this.t.noScores;
+      if (this.lbConnectionState === 'connecting') {
+        empty.textContent = this.t.loadingScores;
+      } else if (this.lbConnectionState === 'offline') {
+        empty.textContent = this.t.firebaseOffline;
+      } else {
+        empty.textContent = this.t.noScores;
+      }
       container.appendChild(empty);
       return;
     }
 
-    const table = document.createElement('table');
-    table.className = 'lb-table';
+    const list = document.createElement('div');
+    list.className = `lb-list${compact ? ' compact' : ''}`;
 
-    const thead = document.createElement('thead');
-    const hr = document.createElement('tr');
-    const headers = compact
-      ? ['#', this.t.name, this.t.score]
-      : [this.t.rank, this.t.name, this.t.score, this.t.wave];
-    for (const h of headers) {
-      const th = document.createElement('th');
-      th.textContent = h;
-      hr.appendChild(th);
-    }
-    thead.appendChild(hr);
-    table.appendChild(thead);
-
-    const tbody = document.createElement('tbody');
     entries.forEach((entry, idx) => {
       const rank = idx + 1;
-      const tr = document.createElement('tr');
-      if (rank <= 3) tr.classList.add(`rank-${rank}`);
-      if (this.leaderboard.lastSubmittedKey && entry.key === this.leaderboard.lastSubmittedKey) {
-        tr.classList.add('is-self');
+      const isSelf =
+        Boolean(this.leaderboard.lastSubmittedKey) &&
+        entry.key === this.leaderboard.lastSubmittedKey;
+      const isSelected = this.lbSelectedKey === entry.key;
+      const hullDef = entry.hullId ? HULL_CATALOG[entry.hullId] : null;
+
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.dataset.key = entry.key;
+      row.className = `lb-row${rank <= 3 ? ` rank-${rank}` : ''}${isSelf ? ' is-self' : ''}${isSelected ? ' is-selected' : ''}`;
+      if (hullDef) {
+        row.style.setProperty('--hull-accent', hullDef.accent);
       }
 
-      const tdRank = document.createElement('td');
-      tdRank.textContent = String(rank).padStart(2, '0');
+      const rankEl = document.createElement('span');
+      rankEl.className = 'lb-row-rank';
+      rankEl.textContent = String(rank).padStart(2, '0');
 
-      const tdName = document.createElement('td');
-      tdName.textContent = entry.name; // textContent stops <script> injection cold
+      const thumbWrap = document.createElement('div');
+      thumbWrap.className = `lb-row-thumb-wrap${hullDef ? '' : ' legacy'}`;
+      const thumb = document.createElement('img');
+      thumb.className = `lb-ship-thumb${entry.hullId === 'sniper' ? ' mirrored' : ''}`;
+      thumb.src = hullDef ? hullDef.iconUrl : './assets/icons/core_health.png';
+      thumb.alt = '';
+      thumbWrap.appendChild(thumb);
 
-      const tdScore = document.createElement('td');
-      tdScore.textContent = entry.score.toLocaleString();
+      const main = document.createElement('div');
+      main.className = 'lb-row-main';
 
-      tr.append(tdRank, tdName, tdScore);
+      const topLine = document.createElement('div');
+      topLine.className = 'lb-row-top';
+      const pilotName = document.createElement('span');
+      pilotName.className = 'lb-row-pilot';
+      pilotName.textContent = entry.name; // textContent prevents HTML injection
+      topLine.appendChild(pilotName);
+
+      if (isSelf) {
+        const youTag = document.createElement('span');
+        youTag.className = 'lb-you-pill';
+        youTag.textContent = this.t.lbYouTag;
+        topLine.appendChild(youTag);
+      }
+
+      const hullTag = document.createElement('span');
+      hullTag.className = `lb-row-hull-tag${hullDef ? '' : ' legacy'}`;
+      hullTag.textContent = hullDef
+        ? this.lang === 'vi'
+          ? hullDef.nameVi
+          : hullDef.nameEn
+        : this.t.lbLegacyHull;
+      topLine.appendChild(hullTag);
+
       if (!compact) {
-        const tdWave = document.createElement('td');
-        tdWave.textContent = String(entry.wave);
-        tr.appendChild(tdWave);
+        const dateStr = this.formatLeaderboardDate(entry.timestamp);
+        if (dateStr) {
+          const dateEl = document.createElement('span');
+          dateEl.className = 'lb-row-date';
+          dateEl.textContent = dateStr;
+          topLine.appendChild(dateEl);
+        }
       }
-      tbody.appendChild(tr);
+
+      const gearLine = document.createElement('div');
+      gearLine.className = 'lb-gear-strip';
+
+      if (entry.build && entry.build.slots.length > 0) {
+        const shownSlots = compact ? entry.build.slots.slice(0, 4) : entry.build.slots;
+        for (const slotSnap of shownSlots) {
+          const wDef = WEAPON_CATALOG[slotSnap.weaponId];
+          const chip = document.createElement('span');
+          chip.className = `lb-gear-chip tier-${slotSnap.tier}`;
+          chip.title = `${SHIP_SLOT_MAP[slotSnap.slot].shortTag}: ${this.lang === 'vi' ? wDef.nameVi : wDef.nameEn} (${this.formatTierTag(slotSnap.tier)})`;
+
+          const wImg = this.createItemImg(wDef.iconUrl, 'lb-gear-icon');
+          const slotTxt = document.createElement('span');
+          slotTxt.className = 'lb-gear-slot';
+          slotTxt.textContent =
+            slotSnap.upgTotal > 0 ? `+${slotSnap.upgTotal}` : this.formatTierTag(slotSnap.tier);
+          chip.append(wImg, slotTxt);
+          gearLine.appendChild(chip);
+        }
+
+        if (compact && entry.build.slots.length > 4) {
+          const more = document.createElement('span');
+          more.className = 'lb-gear-badge';
+          more.textContent = `+${entry.build.slots.length - 4}`;
+          gearLine.appendChild(more);
+        }
+
+        if (entry.build.mutations.length > 0) {
+          const mutBadge = document.createElement('span');
+          mutBadge.className = 'lb-gear-badge mut';
+          mutBadge.textContent = `${entry.build.mutations.length} MUT`;
+          gearLine.appendChild(mutBadge);
+        }
+        if (entry.build.augments.length > 0 && !compact) {
+          const augBadge = document.createElement('span');
+          augBadge.className = 'lb-gear-badge aug';
+          augBadge.textContent = `${entry.build.augments.length} AUG`;
+          gearLine.appendChild(augBadge);
+        }
+      } else {
+        const legacySpan = document.createElement('span');
+        legacySpan.className = 'lb-gear-legacy-text';
+        legacySpan.textContent = this.t.lbLegacyHull;
+        gearLine.appendChild(legacySpan);
+      }
+
+      main.append(topLine, gearLine);
+
+      const metrics = document.createElement('div');
+      metrics.className = 'lb-row-metrics';
+      const scoreEl = document.createElement('strong');
+      scoreEl.className = 'lb-row-score';
+      scoreEl.textContent = entry.score.toLocaleString();
+      const waveEl = document.createElement('span');
+      waveEl.className = 'lb-row-wave';
+      waveEl.textContent = `W${entry.wave}`;
+      metrics.append(scoreEl, waveEl);
+
+      row.append(rankEl, thumbWrap, main, metrics);
+      row.addEventListener('click', () => onSelect(entry));
+      list.appendChild(row);
     });
-    table.appendChild(tbody);
-    container.appendChild(table);
+
+    container.appendChild(list);
+  }
+
+  private renderLeaderboardInspector(
+    container: HTMLElement,
+    entry: LeaderboardEntry | null,
+    compact: boolean
+  ): void {
+    container.textContent = '';
+
+    if (!entry) {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'lb-insp-empty';
+      placeholder.textContent = this.t.lbClickInspectHint;
+      container.appendChild(placeholder);
+      return;
+    }
+
+    const hullDef = entry.hullId ? HULL_CATALOG[entry.hullId] : null;
+    if (hullDef) {
+      container.style.setProperty('--hull-accent', hullDef.accent);
+    } else {
+      container.style.removeProperty('--hull-accent');
+    }
+
+    const hero = document.createElement('div');
+    hero.className = 'lb-insp-hero';
+
+    const art = document.createElement('img');
+    art.className = `lb-insp-ship-img${entry.hullId === 'sniper' ? ' mirrored' : ''}${hullDef ? '' : ' legacy'}`;
+    art.src = hullDef ? hullDef.iconUrl : './assets/icons/core_health.png';
+    art.alt = '';
+
+    const info = document.createElement('div');
+    info.className = 'lb-insp-identity';
+    const kicker = document.createElement('div');
+    kicker.className = 'lb-insp-kicker';
+    kicker.textContent = this.t.lbInspectorTitle;
+
+    const pilot = document.createElement('div');
+    pilot.className = 'lb-insp-pilot';
+    pilot.textContent = entry.name;
+
+    const hullLine = document.createElement('div');
+    hullLine.className = 'lb-insp-hull-name';
+    hullLine.textContent = hullDef
+      ? `${this.lang === 'vi' ? hullDef.nameVi : hullDef.nameEn} · ${this.lang === 'vi' ? hullDef.roleVi : hullDef.roleEn}`
+      : this.t.lbLegacyHull;
+
+    info.append(kicker, pilot, hullLine);
+    hero.append(art, info);
+    container.appendChild(hero);
+
+    const build = entry.build;
+    const statsGrid = document.createElement('div');
+    statsGrid.className = `lb-insp-stats${compact ? ' compact' : ''}`;
+    const statItems: Array<[string, string]> = build
+      ? compact
+        ? [
+            [this.t.score.toUpperCase(), entry.score.toLocaleString()],
+            ['WAVE', `W${entry.wave}`],
+            ['SECTOR', `S${build.sector}`],
+            ['BOSS', String(build.bossKills)],
+          ]
+        : [
+            [this.t.score.toUpperCase(), entry.score.toLocaleString()],
+            ['WAVE', `W${entry.wave}`],
+            ['SECTOR / ROOMS', `S${build.sector} · ${build.rooms}R`],
+            ['BOSS / COMBO', `${build.bossKills}B · ${build.maxCombo}x`],
+            ['PILOT LV', `LV ${build.level}`],
+            ['DRONES', String(build.drones)],
+          ]
+      : [
+          [this.t.score.toUpperCase(), entry.score.toLocaleString()],
+          ['WAVE', `W${entry.wave}`],
+        ];
+
+    for (const [labelText, valText] of statItems) {
+      const box = document.createElement('div');
+      box.className = 'lb-insp-stat';
+      const l = document.createElement('span');
+      l.textContent = labelText;
+      const v = document.createElement('strong');
+      v.textContent = valText;
+      box.append(l, v);
+      statsGrid.appendChild(box);
+    }
+    container.appendChild(statsGrid);
+
+    if (!build) {
+      const note = document.createElement('div');
+      note.className = 'lb-legacy-notice';
+      note.textContent = this.t.lbLegacyNote;
+      container.appendChild(note);
+      return;
+    }
+
+    const hpTitle = document.createElement('div');
+    hpTitle.className = 'lb-insp-sec-title';
+    hpTitle.textContent = this.t.lbHardpointsTitle;
+    container.appendChild(hpTitle);
+
+    const slotById = new Map(build.slots.map((s) => [s.slot, s]));
+    const hpGrid = document.createElement('div');
+    hpGrid.className = `lb-hardpoint-grid${compact ? ' compact' : ''}`;
+
+    for (const slotDef of SHIP_GRID_SLOTS) {
+      const mounted = slotById.get(slotDef.id);
+      const card = document.createElement('div');
+      card.className = `lb-hp-slot${mounted ? ` equipped tier-${mounted.tier}` : ' empty'}`;
+
+      const topRow = document.createElement('div');
+      topRow.className = 'lb-hp-slot-head';
+      const tag = document.createElement('span');
+      tag.className = 'lb-hp-slot-tag';
+      tag.textContent = slotDef.shortTag;
+      topRow.appendChild(tag);
+
+      if (mounted) {
+        const tierBadge = document.createElement('span');
+        tierBadge.className = `lb-hp-tier tier-${mounted.tier}`;
+        tierBadge.textContent =
+          mounted.upgTotal > 0
+            ? `${this.formatTierTag(mounted.tier)} +${mounted.upgTotal}`
+            : this.formatTierTag(mounted.tier);
+        topRow.appendChild(tierBadge);
+      }
+
+      const bodyRow = document.createElement('div');
+      bodyRow.className = 'lb-hp-slot-body';
+      if (mounted) {
+        const wDef = WEAPON_CATALOG[mounted.weaponId];
+        const icon = this.createItemImg(wDef.iconUrl, 'lb-hp-icon');
+        const name = document.createElement('span');
+        name.className = 'lb-hp-name';
+        name.textContent = this.lang === 'vi' ? wDef.nameVi : wDef.nameEn;
+        bodyRow.append(icon, name);
+      } else {
+        const emptyTxt = document.createElement('span');
+        emptyTxt.className = 'lb-hp-empty-txt';
+        emptyTxt.textContent = this.t.lbEmptySlot;
+        bodyRow.appendChild(emptyTxt);
+      }
+
+      card.append(topRow, bodyRow);
+      hpGrid.appendChild(card);
+    }
+    container.appendChild(hpGrid);
+
+    const modsTitle = document.createElement('div');
+    modsTitle.className = 'lb-insp-sec-title';
+    modsTitle.textContent = this.t.lbModsTitle;
+    container.appendChild(modsTitle);
+
+    const modPills = document.createElement('div');
+    modPills.className = 'lb-mod-pills';
+    this.appendLoadoutModTags(modPills, build, true);
+
+    if (modPills.childElementCount === 0) {
+      const none = document.createElement('span');
+      none.className = 'lb-no-mods';
+      none.textContent = this.t.lbNoMods;
+      modPills.appendChild(none);
+    }
+
+    container.appendChild(modPills);
   }
 
   private renderAchievements(): void {

@@ -73,6 +73,11 @@ import {
 } from '../render/AssetLoader';
 import { createTacticalPostPass } from '../render/shaders/TacticalPostPass';
 import { AchievementService } from '../services/AchievementService';
+import {
+  extractBuildSnapshot,
+  sanitizeLeaderboardEntry,
+  sortLeaderboardEntries,
+} from '../services/LeaderboardService';
 import { metaProgression } from '../services/MetaProgressionService';
 
 function idleInput(overrides: Partial<InputSnapshot> = {}): InputSnapshot {
@@ -3227,5 +3232,133 @@ describe('Off-Screen Ingress Spawns & Progressive Wave Scaling Tests', () => {
     enterSectorRoom(s, 1, 'armory', bus, 0, false);
     const sector2Room1Hp = s.enemies.reduce((sum, e) => sum + e.maxHp, 0);
     expect(sector2Room1Hp).toBeGreaterThan(room3Wave1Hp);
+  });
+});
+
+describe('Firebase Leaderboard Loadout Snapshot & Sanitization Tests', () => {
+  beforeEach(() => {
+    metaProgression.resetForTests(500);
+  });
+
+  it('extracts ship hull, 6-hardpoint weapons, augments, mutations and core upgrades into leaderboard build snapshot', () => {
+    const bus = new EventBus();
+    const sim = new GameSimulation(bus);
+    metaProgression.unlockHull('carrier');
+    sim.startNewGame('carrier');
+    const s = sim.state;
+
+    s.raid.sectorNumber = 2;
+    s.roomsClearedTotal = 6;
+    s.bossKills = 1;
+    s.combo.maxCombo = 42;
+    s.player.level = 5;
+    s.player.loadout.slots.nose = {
+      instanceId: 'test-nose',
+      weaponId: 'rail_sniper',
+      tier: 3,
+      upgrades: { damage: 3, fireRate: 2 },
+      investedCredits: 400,
+      lastFireMs: -1000,
+      recoil: 0,
+    };
+    s.player.loadout.slots.skill_1 = {
+      instanceId: 'test-skill',
+      weaponId: 'skill_emp',
+      tier: 2,
+      upgrades: { radius: 2 },
+      investedCredits: 220,
+      lastFireMs: -1000,
+      recoil: 0,
+    };
+    s.player.loadout.activeAugments = ['hellfire_reactor', 'kinetic_aegis'];
+    applyWildMutation(s, 'ricochet_prism', bus);
+    applyWildMutation(s, 'ricochet_prism', bus);
+    s.shop.levels.healthUpgrade = 1;
+    s.shop.levels.bulletDamage = 2;
+    applyShopUpgrade(s, 'healthUpgrade');
+    applyShopUpgrade(s, 'bulletDamage');
+    applyShopUpgrade(s, 'bulletDamage');
+
+    const build = extractBuildSnapshot(s);
+    expect(build.hullId).toBe('carrier');
+    expect(build.sector).toBe(2);
+    expect(build.rooms).toBe(6);
+    expect(build.bossKills).toBe(1);
+    expect(build.maxCombo).toBe(42);
+    expect(build.level).toBe(5);
+    expect(build.drones).toBeGreaterThanOrEqual(1);
+
+    const noseSlot = build.slots.find((slot) => slot.slot === 'nose');
+    expect(noseSlot).toEqual({
+      slot: 'nose',
+      weaponId: 'rail_sniper',
+      tier: 3,
+      upgTotal: 5,
+    });
+    const skillSlot = build.slots.find((slot) => slot.slot === 'skill_1');
+    expect(skillSlot).toEqual({
+      slot: 'skill_1',
+      weaponId: 'skill_emp',
+      tier: 2,
+      upgTotal: 2,
+    });
+    expect(build.augments).toEqual(['hellfire_reactor', 'kinetic_aegis']);
+    expect(build.mutations).toEqual(['ricochet_prism', 'ricochet_prism']);
+    expect(build.coreLevels.bulletDamage).toBe(2);
+    expect(build.coreLevels.healthUpgrade).toBeUndefined();
+  });
+
+  it('sanitizes legacy and loaded entries, strips unknown catalog IDs, and sorts accurately', () => {
+    const legacy = sanitizeLeaderboardEntry('legacy-key', {
+      name: '  PilotZero\n\t  ',
+      score: 2132,
+      wave: 5,
+      timestamp: 1700000000000,
+    });
+    expect(legacy).not.toBeNull();
+    expect(legacy!.name).toBe('PilotZero');
+    expect(legacy!.hullId).toBeNull();
+    expect(legacy!.build).toBeNull();
+
+    const full = sanitizeLeaderboardEntry('full-key', {
+      name: 'Ace',
+      score: 9450,
+      wave: 8,
+      timestamp: 1700001000000,
+      hullId: 'sniper',
+      build: {
+        hullId: 'sniper',
+        level: 6,
+        sector: 2,
+        rooms: 7,
+        bossKills: 2,
+        maxCombo: 55,
+        drones: 1,
+        slots: [
+          { slot: 'wing_l1', weaponId: 'pulse_blaster', tier: 2, upgTotal: 3 },
+          { slot: 'invalid_slot', weaponId: 'pulse_blaster', tier: 1, upgTotal: 1 },
+          { slot: 'nose', weaponId: 'fake_gun', tier: 1, upgTotal: 1 },
+        ],
+        augments: ['prism_splitter', '__proto__'],
+        mutations: ['split_shrapnel', 'split_shrapnel', 'split_shrapnel', 'nonexistent_mut'],
+        coreLevels: { speedBoost: 3, healthUpgrade: 4, bogusKey: 9 },
+      },
+    });
+    expect(full).not.toBeNull();
+    expect(full!.hullId).toBe('sniper');
+    expect(full!.build).not.toBeNull();
+    expect(full!.build!.slots).toEqual([
+      { slot: 'wing_l1', weaponId: 'pulse_blaster', tier: 2, upgTotal: 3 },
+    ]);
+    expect(full!.build!.augments).toEqual(['prism_splitter']);
+    expect(full!.build!.mutations).toEqual(['split_shrapnel', 'split_shrapnel']);
+    expect(full!.build!.coreLevels).toEqual({ speedBoost: 3 });
+
+    const invalid = sanitizeLeaderboardEntry('bad', { name: 'Hacker', score: -50, wave: 1 });
+    expect(invalid).toBeNull();
+
+    const sorted = sortLeaderboardEntries([legacy!, full!]);
+    expect(sorted[0].key).toBe('full-key');
+    expect(sorted[1].key).toBe('legacy-key');
   });
 });

@@ -18,6 +18,10 @@ let app: FirebaseApp | null = null;
 let database: Database | null = null;
 let leaderboardRef: DatabaseReference | null = null;
 
+export function isFirebaseReady(): boolean {
+  return database !== null && leaderboardRef !== null;
+}
+
 export function getLeaderboardRef(): DatabaseReference | null {
   if (leaderboardRef) return leaderboardRef;
   try {
