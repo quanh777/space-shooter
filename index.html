@@ -36,12 +36,13 @@
     </div>
   </div>
 
-  <!-- Quick mute & language toggles tucked into the top corner -->
+  <!-- Quick mute, graphics & language toggles tucked into the top corner -->
   <div id="globalTopBar" class="global-top-bar">
     <button id="muteQuickBtn" class="tac-btn" type="button" aria-label="Toggle Audio">
       <span class="tac-dot"></span>
       <span id="muteQuickLabel">AUD:ON</span>
     </button>
+    <button id="gfxQuickBtn" class="tac-btn" type="button" aria-label="Graphics Quality">GFX:HIGH</button>
     <button id="langToggleBtn" class="tac-btn" type="button">LOC:VI</button>
   </div>
 
@@ -221,6 +222,7 @@
       <div class="hud-controls-row hud-interactive">
         <button id="hudAimBtn" class="hud-mini-btn" type="button" title="Tab">AIM:MOUSE</button>
         <button id="hudAutoFireBtn" class="hud-mini-btn" type="button">FIRE:HOLD</button>
+        <button id="hudQualityBtn" class="hud-mini-btn" type="button" aria-label="Graphics Quality">GFX:HIGH</button>
         <button id="hudMuteBtn" class="hud-mini-btn" type="button" aria-label="Audio">AUD:ON</button>
         <button id="hudPauseBtn" class="hud-mini-btn" type="button" aria-label="Pause">
           <svg class="tac-svg-sm" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
@@ -228,7 +230,7 @@
             <rect x="9.5" y="2" width="3.5" height="12" />
           </svg>
         </button>
-        <span id="fpsBadge" class="fps-badge">60 FPS // AGX</span>
+        <span id="fpsBadge" class="fps-badge">60 FPS · HIGH</span>
       </div>
       <div id="owKillFeed" class="ow-kill-feed" aria-live="polite"></div>
     </div>

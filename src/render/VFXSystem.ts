@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { WORLD_SCALE, arenaToWorldX, arenaToWorldZ } from '../config/constants';
-import type { BossArchetype, GameState } from '../game/types';
+import type { BossArchetype, GameState, GraphicsQuality } from '../game/types';
 import {
   createBlastDomeMaterial,
   createBossPortalMaterial,
@@ -458,6 +458,10 @@ export class VFXSystem {
   private railBeamRings: THREE.Mesh[] = [];
   private lightningLines: Array<{ line: THREE.Line; posAttr: THREE.BufferAttribute; mat: THREE.LineBasicMaterial }> = [];
   private edgeChevrons: THREE.Mesh[] = [];
+
+  private quality: GraphicsQuality = 'high';
+  private densityScale = 1.0;
+  private vfxFrameCounter = 0;
 
   private dummy = new THREE.Object3D();
   private tempColor = new THREE.Color();
@@ -1472,6 +1476,15 @@ export class VFXSystem {
     slot.mat.uniforms.uColor.value.setHex(colorHex);
   }
 
+  setQuality(q: GraphicsQuality): void {
+    this.quality = q;
+    this.densityScale = q === 'high' ? 1.0 : q === 'medium' ? 0.68 : 0.45;
+  }
+
+  private scaleFxCount(base: number, minCount = 2): number {
+    return Math.max(minCount, Math.round(base * this.densityScale));
+  }
+
   public spawnMuzzleBurst(
     arenaX: number,
     arenaY: number,
@@ -1481,7 +1494,7 @@ export class VFXSystem {
   ): void {
     const wx = arenaToWorldX(arenaX);
     const wz = arenaToWorldZ(arenaY);
-    const count = heavy ? 6 : 3;
+    const count = this.scaleFxCount(heavy ? 6 : 3, 2);
     for (let i = 0; i < count; i++) {
       if (this.sparks.length >= MAX_SPARKS) this.sparks.shift();
       const ang = angleRad + (Math.random() - 0.5) * 0.48;
@@ -1514,7 +1527,7 @@ export class VFXSystem {
         colorHex,
       });
     }
-    const count = isMajor ? 16 : 6;
+    const count = this.scaleFxCount(isMajor ? 16 : 6, isMajor ? 6 : 3);
     for (let i = 0; i < count; i++) {
       if (this.sparks.length >= MAX_SPARKS) this.sparks.shift();
       const ang = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.45;
@@ -1544,7 +1557,7 @@ export class VFXSystem {
   ): void {
     const wx = arenaToWorldX(arenaX);
     const wz = arenaToWorldZ(arenaY);
-    const count = isCrit ? 14 : 6;
+    const count = this.scaleFxCount(isCrit ? 14 : 6, isCrit ? 6 : 2);
     const hasNormal = nx !== undefined && ny !== undefined && nx * nx + ny * ny > 0.001;
     const coneCenter = hasNormal ? Math.atan2(ny!, nx!) : 0;
 
@@ -1664,7 +1677,8 @@ export class VFXSystem {
       });
     }
 
-    const sparkCount = tier === 'small' ? 14 : tier === 'medium' ? 26 : tier === 'heavy' ? 48 : 84;
+    const baseSparkCount = tier === 'small' ? 14 : tier === 'medium' ? 26 : tier === 'heavy' ? 48 : 84;
+    const sparkCount = this.scaleFxCount(baseSparkCount, tier === 'small' ? 5 : 10);
     const sparkSpeed = tier === 'small' ? 16 : tier === 'medium' ? 22 : tier === 'heavy' ? 30 : 40;
     for (let i = 0; i < sparkCount; i++) {
       if (this.sparks.length >= MAX_SPARKS) this.sparks.shift();
@@ -1684,7 +1698,8 @@ export class VFXSystem {
       });
     }
 
-    const debrisCount = tier === 'small' ? 6 : tier === 'medium' ? 12 : tier === 'heavy' ? 20 : 34;
+    const baseDebrisCount = tier === 'small' ? 6 : tier === 'medium' ? 12 : tier === 'heavy' ? 20 : 34;
+    const debrisCount = this.scaleFxCount(baseDebrisCount, tier === 'small' ? 2 : 5);
     const debrisSpeed = tier === 'small' ? 9 : tier === 'medium' ? 13 : tier === 'heavy' ? 18 : 24;
     for (let i = 0; i < debrisCount; i++) {
       if (this.debris.length >= MAX_DEBRIS) this.debris.shift();
@@ -1972,6 +1987,7 @@ export class VFXSystem {
   }
 
   update(state: GameState, elapsedSec: number, frameDt = 1 / 60): void {
+    this.vfxFrameCounter++;
     const dt = Math.min(0.05, Math.max(0.001, frameDt));
     const now = state.simTimeMs;
 
@@ -2049,9 +2065,11 @@ export class VFXSystem {
         }
       }
       if (tr) {
-        const tailX = arenaToWorldX(b.x) - Math.cos(b.angle) * 0.9;
-        const tailZ = arenaToWorldZ(b.y) - Math.sin(b.angle) * 0.9;
-        tr.update(tailX, 0.72, tailZ, 0.28, 0x38e8ff, 0.95);
+        if (this.quality !== 'low' || ((this.vfxFrameCounter + b.id) & 1) === 0 || state.bombs.length <= 4) {
+          const tailX = arenaToWorldX(b.x) - Math.cos(b.angle) * 0.9;
+          const tailZ = arenaToWorldZ(b.y) - Math.sin(b.angle) * 0.9;
+          tr.update(tailX, 0.72, tailZ, 0.28, 0x38e8ff, 0.95);
+        }
       }
     }
     for (const [id, tr] of this.missileTrailMap.entries()) {

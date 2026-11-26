@@ -15,6 +15,8 @@ export function createTacticalPostPass(): ShaderPass {
       uResolution: { value: new THREE.Vector2(1280, 800) },
       uFrame: { value: 0 },
       uTime: { value: 0 },
+      uQualityTier: { value: 2 },
+      uEmissiveGlowBoost: { value: 0.0 },
       uChromaStrength: { value: 0 },
       uDamageFlash: { value: 0 },
       uLowHpPulse: { value: 0 },
@@ -50,6 +52,8 @@ export function createTacticalPostPass(): ShaderPass {
       uniform vec2 uResolution;
       uniform int uFrame;
       uniform float uTime;
+      uniform int uQualityTier;
+      uniform float uEmissiveGlowBoost;
       uniform float uChromaStrength;
       uniform float uDamageFlash;
       uniform float uLowHpPulse;
@@ -91,7 +95,7 @@ export function createTacticalPostPass(): ShaderPass {
           }
         }
 
-        // Edge chroma split + hyperspace warp streaks (no motion blur slider needed)
+        // Edge chroma split + hyperspace warp streaks (preserve game feel at all tiers)
         vec2 fromCenter = uv - 0.5;
         float bt = saturate(uBulletTime);
         float warp = saturate(uWarpSpeed);
@@ -100,19 +104,36 @@ export function createTacticalPostPass(): ShaderPass {
         vec2 caOffset = fromCenter * ca + shockDisperse;
 
         vec3 hdrCol;
-        hdrCol.r = texture(tDiffuse, clamp(uv + caOffset, 0.0, 1.0)).r;
-        hdrCol.g = texture(tDiffuse, clamp(uv, 0.0, 1.0)).g;
-        hdrCol.b = texture(tDiffuse, clamp(uv - caOffset, 0.0, 1.0)).b;
+        bool useChroma =
+          (uQualityTier > 0) ||
+          (uChromaStrength > 0.18) ||
+          (bt > 0.05) ||
+          (warp > 0.05) ||
+          (length(shockDisperse) > 0.0015);
+
+        if (useChroma) {
+          hdrCol.r = texture(tDiffuse, clamp(uv + caOffset, 0.0, 1.0)).r;
+          hdrCol.g = texture(tDiffuse, clamp(uv, 0.0, 1.0)).g;
+          hdrCol.b = texture(tDiffuse, clamp(uv - caOffset, 0.0, 1.0)).b;
+        } else {
+          hdrCol = texture(tDiffuse, clamp(uv, 0.0, 1.0)).rgb;
+        }
 
         if (warp > 0.005) {
           vec3 blurAcc = hdrCol;
-          float stepScale = radial * warp * 0.028;
+          int blurSteps = (uQualityTier >= 2) ? 5 : (uQualityTier == 1) ? 3 : 2;
+          float stepScale = radial * warp * (0.028 * 5.0 / float(blurSteps));
           for (int i = 1; i <= 5; i++) {
+            if (i > blurSteps) break;
             vec2 sampleUv = clamp(uv - fromCenter * (float(i) * stepScale), 0.0, 1.0);
             blurAcc += texture(tDiffuse, sampleUv).rgb;
           }
-          hdrCol = mix(hdrCol, blurAcc / 6.0, warp * 0.82);
+          hdrCol = mix(hdrCol, blurAcc / float(blurSteps + 1), warp * 0.82);
           hdrCol += vec3(0.28, 0.88, 1.0) * smoothstep(0.18, 0.88, radial) * warp * 0.36;
+        }
+
+        if (uEmissiveGlowBoost > 0.001) {
+          hdrCol += max(hdrCol - vec3(0.95), vec3(0.0)) * uEmissiveGlowBoost;
         }
 
         // Optical lens vignette + angry red border when your hull is held together with tape
@@ -145,9 +166,11 @@ export function createTacticalPostPass(): ShaderPass {
           hdrCol += visorHue * edgeAlert * bt * chronoPulse * 0.34;
         }
 
-        // Subtle grain in linear space before tonemapping
-        float grainNoise = hash12(floor(gl_FragCoord.xy) + 131.0 * float(uFrame % 64)) * 2.0 - 1.0;
-        hdrCol = filmGrain(hdrCol, 0.014, grainNoise);
+        // Subtle grain in linear space before tonemapping (skipped on low tier for fill-rate savings)
+        if (uQualityTier > 0) {
+          float grainNoise = hash12(floor(gl_FragCoord.xy) + 131.0 * float(uFrame % 64)) * 2.0 - 1.0;
+          hdrCol = filmGrain(hdrCol, 0.014, grainNoise);
+        }
 
         // AgX punchy tonemap -> exact sRGB -> TPDF dither so dark space doesn't show ugly 8-bit stripes
         vec3 mapped = tonemapAgXPunchy(hdrCol * 1.08);

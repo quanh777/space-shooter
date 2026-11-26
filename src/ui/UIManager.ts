@@ -109,6 +109,17 @@ export class UIManager {
   private lang: LangCode = 'vi';
   private scoreSubmitted = false;
   private floatingEls = new Map<number, HTMLDivElement>();
+  private floatingPool: HTMLDivElement[] = [];
+  private offscreenPool: Array<{
+    el: HTMLDivElement;
+    chev: HTMLSpanElement;
+    txt: HTMLSpanElement;
+    lastText: string;
+    lastColor: string;
+    lastAngle: string;
+  }> = [];
+  private lastSkillWidgetKey = '';
+  private hudRadarFrameTick = 0;
   private toastQueue: AchievementUnlockEvent[] = [];
   private toastActive = false;
 
@@ -116,6 +127,7 @@ export class UIManager {
   private globalTopBar: HTMLElement;
   private muteQuickBtn: HTMLButtonElement;
   private muteQuickLabel: HTMLElement;
+  private gfxQuickBtn: HTMLButtonElement;
   private langToggleBtn: HTMLButtonElement;
   private fcsReticle: HTMLElement;
   private fcsTag: HTMLElement;
@@ -290,6 +302,7 @@ export class UIManager {
 
   private hudAimBtn: HTMLButtonElement;
   private hudAutoFireBtn: HTMLButtonElement;
+  private hudQualityBtn: HTMLButtonElement;
   private hudMuteBtn: HTMLButtonElement;
 
   // Post-boss screens: Draft / Armory Store / 3D Hangar refs
@@ -405,6 +418,7 @@ export class UIManager {
     this.globalTopBar = byId('globalTopBar');
     this.muteQuickBtn = byId('muteQuickBtn');
     this.muteQuickLabel = byId('muteQuickLabel');
+    this.gfxQuickBtn = byId('gfxQuickBtn');
     this.langToggleBtn = byId('langToggleBtn');
     this.fcsReticle = byId('fcsReticle');
     this.fcsTag = byId('fcsTag');
@@ -555,6 +569,7 @@ export class UIManager {
 
     this.hudAimBtn = byId('hudAimBtn');
     this.hudAutoFireBtn = byId('hudAutoFireBtn');
+    this.hudQualityBtn = byId('hudQualityBtn');
     this.hudMuteBtn = byId('hudMuteBtn');
 
     this.shopTitle = byId('shopTitle');
@@ -629,6 +644,13 @@ export class UIManager {
     this.applyLanguage();
     this.syncAudioButtons();
     this.syncControlButtons();
+    this.syncQualityButtons();
+    this.scene.setQualityChangedCallback(() => {
+      this.syncQualityButtons();
+      if (!this.pauseOverlay.classList.contains('hidden')) {
+        this.renderPause();
+      }
+    });
     this.renderMenuHulls();
 
     bus.on('PHASE_CHANGED', ({ to }) => this.onPhaseChanged(to));
@@ -822,6 +844,8 @@ export class UIManager {
 
     click('muteQuickBtn', () => this.toggleAudio());
     click('hudMuteBtn', () => this.toggleAudio());
+    click('gfxQuickBtn', () => this.cycleGraphicsQuality());
+    click('hudQualityBtn', () => this.cycleGraphicsQuality());
 
     click('playBtn', () => this.sim.startNewGame(metaProgression.getProfile().selectedHull), 'confirm');
     click(
@@ -956,9 +980,7 @@ export class UIManager {
       this.renderPause();
     });
     click('pauseQualityBtn', () => {
-      const order: GraphicsQuality[] = ['high', 'medium', 'low'];
-      const next = order[(order.indexOf(this.scene.getQuality()) + 1) % order.length];
-      this.scene.setQuality(next);
+      this.cycleGraphicsQuality();
       this.renderPause();
     });
 
@@ -1031,6 +1053,24 @@ export class UIManager {
     this.hudAutoFireBtn.classList.toggle('active', this.input.autoFire);
   }
 
+  private cycleGraphicsQuality(): void {
+    const order: GraphicsQuality[] = ['high', 'medium', 'low'];
+    const next = order[(order.indexOf(this.scene.getQuality()) + 1) % order.length];
+    this.scene.setQuality(next, true);
+    this.syncQualityButtons();
+  }
+
+  private syncQualityButtons(): void {
+    const q = this.scene.getQuality();
+    const shortTag = q === 'high' ? 'HIGH' : q === 'medium' ? 'MED' : 'LOW';
+    const label = `GFX:${shortTag}`;
+    this.gfxQuickBtn.textContent = label;
+    this.hudQualityBtn.textContent = label;
+    this.gfxQuickBtn.classList.toggle('quality-med', q === 'medium');
+    this.gfxQuickBtn.classList.toggle('quality-low', q === 'low');
+    this.hudQualityBtn.classList.toggle('active', q === 'high');
+  }
+
   applyLanguage(): void {
     const strings = this.t;
     this.langToggleBtn.textContent = this.lang === 'vi' ? 'LOC:VI' : 'LOC:EN';
@@ -1040,6 +1080,7 @@ export class UIManager {
     this.lastQuickDraftKey = '';
     this.lastRoomDoorsKey = '';
     this.lastMutationHudKey = '';
+    this.lastSkillWidgetKey = '';
     this.thermalPurgeBtn.textContent = strings.thermalPurgeReady;
     this.chronoHudBtn.textContent = strings.chronoReadyBtn;
     this.quickDraftKicker.textContent = strings.quickDraftKicker;
@@ -3512,10 +3553,14 @@ export class UIManager {
     }
 
     if (state.phase === 'PLAYING') {
-      this.renderTacticalRadar(state);
+      if ((this.hudRadarFrameTick++ & 1) === 0 || state.waveTransition.active) {
+        this.renderTacticalRadar(state);
+      }
       this.updateOffscreenMarkers(state);
     } else {
-      this.offscreenMarkers.textContent = '';
+      for (const slot of this.offscreenPool) {
+        slot.el.classList.add('hidden');
+      }
     }
 
     this.hudWave.textContent = String(state.wave).padStart(2, '0');
@@ -3540,7 +3585,9 @@ export class UIManager {
       this.lastMoneyVal = state.money;
     }
     this.hudMoney.textContent = String(state.money);
-    this.fpsBadge.textContent = `${fps} FPS // AGX`;
+    const q = this.scene.getQuality();
+    const qTag = q === 'high' ? 'HIGH' : q === 'medium' ? 'MED' : 'LOW';
+    this.fpsBadge.textContent = `${fps} FPS · ${qTag}`;
     this.updateOverwatchHud(state, frameDtSec);
 
     if (state.phase === 'PLAYING' && hpPct > 0 && hpPct <= 25) {
@@ -3717,24 +3764,30 @@ export class UIManager {
     this.skillWidget.classList.toggle('mode-salvo', mode === 'salvo');
     this.skillWidget.classList.toggle('mode-railbeam', mode === 'railbeam');
     this.skillWidget.classList.toggle('mode-emp', mode === 'emp');
-    if (skillEntry) {
-      this.skillIconImg.src = skillEntry.iconUrl;
-      this.skillIconImg.classList.remove('hidden');
-      this.skillNameLabel.textContent = this.lang === 'vi' ? skillEntry.nameVi : skillEntry.nameEn;
-    } else {
-      this.skillIconImg.classList.add('hidden');
-      this.skillNameLabel.textContent = this.t.noSkillEquipped;
-    }
-    if (mountedSkill) {
-      this.skillLvlText.textContent = '';
-      this.skillLvlText.classList.add('ui-inline-flex');
-      this.skillLvlText.append(
-        createUiIcon('star', 'ui-svg-icon ui-star-icon'),
-        document.createTextNode(String(mountedSkill.tier))
-      );
-    } else {
-      this.skillLvlText.classList.remove('ui-inline-flex');
-      this.skillLvlText.textContent = '--';
+    const skillKey = mountedSkill
+      ? `${mountedSkill.weaponId}:${mountedSkill.tier}:${this.lang}`
+      : `none:${this.lang}`;
+    if (skillKey !== this.lastSkillWidgetKey) {
+      this.lastSkillWidgetKey = skillKey;
+      if (skillEntry) {
+        this.skillIconImg.src = skillEntry.iconUrl;
+        this.skillIconImg.classList.remove('hidden');
+        this.skillNameLabel.textContent = this.lang === 'vi' ? skillEntry.nameVi : skillEntry.nameEn;
+      } else {
+        this.skillIconImg.classList.add('hidden');
+        this.skillNameLabel.textContent = this.t.noSkillEquipped;
+      }
+      if (mountedSkill) {
+        this.skillLvlText.textContent = '';
+        this.skillLvlText.classList.add('ui-inline-flex');
+        this.skillLvlText.append(
+          createUiIcon('star', 'ui-svg-icon ui-star-icon'),
+          document.createTextNode(String(mountedSkill.tier))
+        );
+      } else {
+        this.skillLvlText.classList.remove('ui-inline-flex');
+        this.skillLvlText.textContent = '--';
+      }
     }
     if (mountedSkill && skillElapsed < p.skill.cooldownMs) {
       this.skillCdText.classList.remove('hidden');
@@ -4259,11 +4312,17 @@ export class UIManager {
       activeIds.add(ft.id);
       let el = this.floatingEls.get(ft.id);
       if (!el) {
-        el = document.createElement('div');
+        const pooled = this.floatingPool.pop();
+        if (pooled) {
+          el = pooled;
+          el.classList.remove('hidden');
+        } else {
+          el = document.createElement('div');
+          this.floatingLayer.appendChild(el);
+        }
         el.className = ft.isCrit || ft.text.endsWith('!') ? 'floating-dmg crit' : 'floating-dmg';
         el.textContent = ft.text;
         el.style.color = ft.color;
-        this.floatingLayer.appendChild(el);
         this.floatingEls.set(ft.id, el);
       }
 
@@ -4286,10 +4345,8 @@ export class UIManager {
           const tailT = (ageT - 0.72) / 0.28;
           dynScale = ft.scale * Math.max(0.55, 1.0 - tailT * 0.45);
         }
-        el.style.left = `${proj.x}px`;
-        el.style.top = `${proj.y}px`;
         el.style.opacity = String(Math.min(1, ft.life / Math.min(12, ft.maxLife)));
-        el.style.transform = `translate(-50%, -50%) scale(${dynScale.toFixed(3)})`;
+        el.style.transform = `translate3d(${proj.x.toFixed(1)}px, ${proj.y.toFixed(1)}px, 0) translate(-50%, -50%) scale(${dynScale.toFixed(3)})`;
       } else {
         el.style.opacity = '0';
       }
@@ -4297,15 +4354,25 @@ export class UIManager {
 
     for (const [id, el] of this.floatingEls.entries()) {
       if (!activeIds.has(id)) {
-        el.remove();
         this.floatingEls.delete(id);
+        if (this.floatingPool.length < 48) {
+          el.classList.add('hidden');
+          this.floatingPool.push(el);
+        } else {
+          el.remove();
+        }
       }
     }
   }
 
   private clearFloatingTexts(): void {
     for (const el of this.floatingEls.values()) {
-      el.remove();
+      if (this.floatingPool.length < 48) {
+        el.classList.add('hidden');
+        this.floatingPool.push(el);
+      } else {
+        el.remove();
+      }
     }
     this.floatingEls.clear();
   }
@@ -4617,11 +4684,38 @@ export class UIManager {
       : `${Math.round(ring.radius)}m · ${this.lang === 'vi' ? state.sectorMap.nameVi : state.sectorMap.nameEn}`;
   }
 
+  private ensureOffscreenMarkerPool(): void {
+    if (this.offscreenPool.length > 0) return;
+    this.offscreenMarkers.textContent = '';
+    for (let i = 0; i < 6; i++) {
+      const el = document.createElement('div');
+      el.className = 'offscreen-arrow hidden';
+
+      const chev = document.createElement('span');
+      chev.className = 'offscreen-chevron ui-inline-flex';
+      chev.appendChild(createUiIcon('chevronRight', 'ui-svg-icon ui-chev-svg'));
+
+      const txt = document.createElement('span');
+      el.append(chev, txt);
+      this.offscreenMarkers.appendChild(el);
+      this.offscreenPool.push({
+        el,
+        chev,
+        txt,
+        lastText: '',
+        lastColor: '',
+        lastAngle: '',
+      });
+    }
+  }
+
   private updateOffscreenMarkers(state: GameState): void {
-    const stageRect = this.webglStageEl.getBoundingClientRect();
+    const stageRect = this.scene.getViewportRect();
     const w = stageRect.width;
     const h = stageRect.height;
     if (w <= 0 || h <= 0) return;
+
+    this.ensureOffscreenMarkerPool();
 
     const targets: Array<{ x: number; y: number; color: string; label: string }> = [];
     if (state.boss && !state.boss.dying) {
@@ -4646,9 +4740,10 @@ export class UIManager {
     }
 
     const pad = 34;
-    this.offscreenMarkers.textContent = '';
+    let slotIdx = 0;
 
     for (const t of targets) {
+      if (slotIdx >= this.offscreenPool.length) break;
       const proj = this.scene.projectToScreen(t.x, t.y, 0.8);
       const inside =
         proj.visible &&
@@ -4672,22 +4767,28 @@ export class UIManager {
       const py = stageRect.top + h * 0.5 + sin * factor;
       const dist = Math.round(Math.hypot(t.x - state.player.x, t.y - state.player.y));
 
-      const marker = document.createElement('div');
-      marker.className = 'offscreen-arrow';
-      marker.style.left = `${px}px`;
-      marker.style.top = `${py}px`;
-      marker.style.color = t.color;
+      const slot = this.offscreenPool[slotIdx++];
+      slot.el.classList.remove('hidden');
+      slot.el.style.transform = `translate3d(${px.toFixed(1)}px, ${py.toFixed(1)}px, 0) translate(-50%, -50%)`;
 
-      const chev = document.createElement('span');
-      chev.className = 'offscreen-chevron ui-inline-flex';
-      chev.appendChild(createUiIcon('chevronRight', 'ui-svg-icon ui-chev-svg'));
-      chev.style.transform = `rotate(${ang}rad)`;
+      if (slot.lastColor !== t.color) {
+        slot.lastColor = t.color;
+        slot.el.style.color = t.color;
+      }
+      const angRounded = ang.toFixed(2);
+      if (slot.lastAngle !== angRounded) {
+        slot.lastAngle = angRounded;
+        slot.chev.style.transform = `rotate(${angRounded}rad)`;
+      }
+      const labelText = `${t.label} ${dist}m`;
+      if (slot.lastText !== labelText) {
+        slot.lastText = labelText;
+        slot.txt.textContent = labelText;
+      }
+    }
 
-      const txt = document.createElement('span');
-      txt.textContent = `${t.label} ${dist}m`;
-
-      marker.append(chev, txt);
-      this.offscreenMarkers.appendChild(marker);
+    for (let i = slotIdx; i < this.offscreenPool.length; i++) {
+      this.offscreenPool[i].el.classList.add('hidden');
     }
   }
 

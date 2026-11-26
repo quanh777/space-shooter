@@ -63,8 +63,16 @@ vec2 quinticFade(vec2 f) { return f * f * f * (f * (f * 6.0 - 15.0) + 10.0); }
 vec3 quinticFade(vec3 f) { return f * f * f * (f * (f * 6.0 - 15.0) + 10.0); }
 
 vec2 latticeGradient(vec2 cell) {
-  float a = TAU * hash12(cell);
-  return vec2(cos(a), sin(a));
+  uvec2 q = uvec2(ivec2(floor(cell)));
+  uint h = pcgHash(q.x + pcgHash(q.y)) & 7u;
+  if (h == 0u) return vec2(1.0, 0.0);
+  if (h == 1u) return vec2(-1.0, 0.0);
+  if (h == 2u) return vec2(0.0, 1.0);
+  if (h == 3u) return vec2(0.0, -1.0);
+  if (h == 4u) return vec2(0.70710678, 0.70710678);
+  if (h == 5u) return vec2(-0.70710678, 0.70710678);
+  if (h == 6u) return vec2(0.70710678, -0.70710678);
+  return vec2(-0.70710678, -0.70710678);
 }
 
 float gradientNoise(vec2 p) {
@@ -158,9 +166,10 @@ float turbulence3(vec3 p, int octaves) {
 }
 
 float warpedFbm(vec2 p, float strength, int octaves, out vec2 q, out vec2 r) {
-  q = vec2(fbm(p, octaves), fbm(p + vec2(3.1, 7.4), octaves));
-  r = vec2(fbm(p + strength * q + vec2(9.7, 2.6), octaves),
-           fbm(p + strength * q + vec2(6.3, 1.9), octaves));
+  int subOct = max(1, octaves - 1);
+  q = vec2(fbm(p, subOct), fbm(p + vec2(3.1, 7.4), subOct));
+  r = vec2(fbm(p + strength * q + vec2(9.7, 2.6), subOct),
+           fbm(p + strength * q + vec2(6.3, 1.9), subOct));
   return fbm(p + strength * r, octaves);
 }
 `;

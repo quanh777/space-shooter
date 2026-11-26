@@ -74,6 +74,7 @@ export interface EnemyVisualRefs {
   wingRight?: THREE.Object3D;
   orbitGroup?: THREE.Group;
   evolutionHalo?: THREE.Mesh;
+  baseHaloRadius?: number;
   form1OnlyParts: THREE.Object3D[];
   form12Parts: THREE.Object3D[];
   form2OnlyParts: THREE.Object3D[];
@@ -81,9 +82,12 @@ export interface EnemyVisualRefs {
   form3Parts: THREE.Object3D[];
   flashMaterials: THREE.MeshStandardMaterial[];
   hpBarGroup: THREE.Group;
+  hpBarWidthWrap?: THREE.Object3D;
   hpFill: THREE.Mesh;
   animator?: EntityAnimator;
   usingBlenderGltf?: boolean;
+  poolKey?: string;
+  disposed?: boolean;
 }
 
 export interface BossVisualRefs {
@@ -108,6 +112,7 @@ export interface BossVisualRefs {
   phaseShiftTimerSec?: number;
   activeShiftClip?: 'ShiftToForm2' | 'ShiftToForm3' | 'PhaseShift';
   forceShiftRestart?: boolean;
+  disposed?: boolean;
 }
 
 export interface PropVisualRefs {
@@ -118,8 +123,10 @@ export interface PropVisualRefs {
   beaconRing?: THREE.Mesh;
   hpBarGroup?: THREE.Group;
   hpFill?: THREE.Mesh;
-  tintMaterials: THREE.MeshStandardMaterial[];
+  tintMaterials: Array<THREE.MeshStandardMaterial | THREE.MeshBasicMaterial>;
   flashMaterials?: THREE.MeshStandardMaterial[];
+  poolKey?: string;
+  disposed?: boolean;
 }
 
 export function createPlayerVisual(): PlayerVisualRefs {
@@ -293,26 +300,43 @@ export function createPlayerVisual(): PlayerVisualRefs {
   return refs;
 }
 
-function createEntityHpBar(width: number): { group: THREE.Group; fill: THREE.Mesh } {
+const SHARED_ENTITY_HP_BG_GEO = new THREE.PlaneGeometry(1, 0.32);
+const SHARED_ENTITY_HP_FILL_GEO = (() => {
+  const g = new THREE.PlaneGeometry(1, 0.24);
+  g.translate(0.5, 0, 0);
+  return g;
+})();
+const SHARED_WORLD_HP_BG_GEO = new THREE.PlaneGeometry(1, 0.36);
+const SHARED_WORLD_HP_FILL_GEO = new THREE.PlaneGeometry(1, 0.2);
+
+function createEntityHpBar(width: number): {
+  group: THREE.Group;
+  fill: THREE.Mesh;
+  widthWrap: THREE.Group;
+} {
   const group = new THREE.Group();
+  const widthWrap = new THREE.Group();
+  widthWrap.scale.x = width;
+  group.add(widthWrap);
+
   const bg = new THREE.Mesh(
-    new THREE.PlaneGeometry(width, 0.32),
+    SHARED_ENTITY_HP_BG_GEO,
     new THREE.MeshBasicMaterial({ color: 0x111122, transparent: true, opacity: 0.75, depthWrite: false })
   );
+  bg.userData.sharedGeo = true;
   bg.rotation.x = -Math.PI / 2;
-  group.add(bg);
+  widthWrap.add(bg);
 
-  const fillGeo = new THREE.PlaneGeometry(width, 0.24);
-  fillGeo.translate(width / 2, 0, 0);
   const fill = new THREE.Mesh(
-    fillGeo,
+    SHARED_ENTITY_HP_FILL_GEO,
     new THREE.MeshBasicMaterial({ color: 0x44ee66, depthWrite: false })
   );
+  fill.userData.sharedGeo = true;
   fill.rotation.x = -Math.PI / 2;
-  fill.position.set(-width / 2, 0.02, 0);
-  group.add(fill);
+  fill.position.set(-0.5, 0.02, 0);
+  widthWrap.add(fill);
   group.visible = false;
-  return { group, fill };
+  return { group, fill, widthWrap };
 }
 
 export function createEnemyVisual(enemy: EnemyEntity): EnemyVisualRefs {
@@ -492,6 +516,7 @@ export function createEnemyVisual(enemy: EnemyEntity): EnemyVisualRefs {
     wingRight,
     orbitGroup,
     evolutionHalo,
+    baseHaloRadius: haloRadius,
     form1OnlyParts: [],
     form12Parts: [],
     form2OnlyParts: [],
@@ -499,6 +524,7 @@ export function createEnemyVisual(enemy: EnemyEntity): EnemyVisualRefs {
     form3Parts: [],
     flashMaterials,
     hpBarGroup: hpBar.group,
+    hpBarWidthWrap: hpBar.widthWrap,
     hpFill: hpBar.fill,
     usingBlenderGltf: false,
   };
@@ -514,6 +540,7 @@ export function createEnemyVisual(enemy: EnemyEntity): EnemyVisualRefs {
           : 'enemy_elite';
 
   whenBlenderModelReady(modelId, (asset) => {
+    if (refs.disposed) return;
     for (const child of fallbackChildren) {
       child.visible = false;
     }
@@ -905,6 +932,7 @@ export function createBossVisual(
   const bossModelId = BOSS_MODEL_IDS[archetype];
 
   whenBlenderModelReady(bossModelId, (asset) => {
+    if (refs.disposed) return;
     for (const child of fallbackChildren) {
       child.visible = false;
     }
@@ -959,6 +987,7 @@ export function createBombVisual(): PropVisualRefs {
 
   const refs: PropVisualRefs = { root, tintMaterials: [] };
   whenBlenderModelReady('prop_nova_bomb', (asset) => {
+    if (refs.disposed) return;
     body.visible = false;
     ring.visible = false;
     asset.scene.scale.setScalar(0.95);
@@ -995,8 +1024,9 @@ export function createMineVisual(hex: number, homing: boolean): PropVisualRefs {
   dangerRing.rotation.x = -Math.PI / 2;
   root.add(shell, core, dangerRing);
 
-  const refs: PropVisualRefs = { root, dangerRing, tintMaterials: [] };
+  const refs: PropVisualRefs = { root, dangerRing, tintMaterials: [core.material] };
   whenBlenderModelReady(homing ? 'prop_mine_homing' : 'prop_mine_static', (asset) => {
+    if (refs.disposed) return;
     shell.visible = false;
     core.visible = false;
     asset.scene.scale.setScalar(homing ? 1.15 : 1.08);
@@ -1008,25 +1038,22 @@ export function createMineVisual(hex: number, homing: boolean): PropVisualRefs {
 
 export function createPowerUpVisual(hex: number): PropVisualRefs {
   const root = new THREE.Group();
-  const gem = new THREE.Mesh(
-    new THREE.OctahedronGeometry(1.05, 0),
-    new THREE.MeshStandardMaterial({
-      color: hex,
-      emissive: hex,
-      emissiveIntensity: 1.7,
-      metalness: 0.2,
-      roughness: 0.1,
-    })
-  );
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(1.5, 0.1, 8, 24),
-    new THREE.MeshBasicMaterial({ color: hex, transparent: true, opacity: 0.75 })
-  );
+  const gemMat = new THREE.MeshStandardMaterial({
+    color: hex,
+    emissive: hex,
+    emissiveIntensity: 1.7,
+    metalness: 0.2,
+    roughness: 0.1,
+  });
+  const gem = new THREE.Mesh(new THREE.OctahedronGeometry(1.05, 0), gemMat);
+  const ringMat = new THREE.MeshBasicMaterial({ color: hex, transparent: true, opacity: 0.75 });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.1, 8, 24), ringMat);
   ring.rotation.x = Math.PI / 2;
   root.add(gem, ring);
 
-  const refs: PropVisualRefs = { root, tintMaterials: [] };
+  const refs: PropVisualRefs = { root, tintMaterials: [gemMat, ringMat] };
   whenBlenderModelReady('prop_powerup_pod', (asset) => {
+    if (refs.disposed) return;
     gem.visible = false;
     ring.visible = false;
     for (const mat of asset.standardMaterials) {
@@ -1085,7 +1112,7 @@ function buildCompactWorldHpBar(width: number, heightY: number): {
   hpBarGroup.visible = false;
 
   const bg = new THREE.Mesh(
-    new THREE.PlaneGeometry(width + 0.24, 0.36),
+    SHARED_WORLD_HP_BG_GEO,
     new THREE.MeshBasicMaterial({
       color: 0x091322,
       transparent: true,
@@ -1094,16 +1121,24 @@ function buildCompactWorldHpBar(width: number, heightY: number): {
       depthWrite: false,
     })
   );
+  bg.userData.sharedGeo = true;
+  bg.scale.x = width + 0.24;
+
+  const fillWrap = new THREE.Group();
+  fillWrap.scale.x = width;
+  fillWrap.position.z = 0.02;
+
   const hpFill = new THREE.Mesh(
-    new THREE.PlaneGeometry(width, 0.2),
+    SHARED_WORLD_HP_FILL_GEO,
     new THREE.MeshBasicMaterial({
       color: 0x38f288,
       side: THREE.DoubleSide,
       depthWrite: false,
     })
   );
-  hpFill.position.z = 0.02;
-  hpBarGroup.add(bg, hpFill);
+  hpFill.userData.sharedGeo = true;
+  fillWrap.add(hpFill);
+  hpBarGroup.add(bg, fillWrap);
   return { hpBarGroup, hpFill };
 }
 
@@ -1160,6 +1195,7 @@ export function createArenaObstacleVisual(
   };
 
   whenBlenderModelReady(isBarrel ? 'obj_plasma_barrel' : 'obj_asteroid_ore', (asset) => {
+    if (refs.disposed) return;
     fallbackMesh.visible = false;
     asset.scene.scale.setScalar(worldR * 1.04);
     root.add(asset.scene);

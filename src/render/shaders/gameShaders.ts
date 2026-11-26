@@ -196,7 +196,7 @@ export function createProceduralPlanetMaterial(
         vec2 p = vec2(lon * 1.35 + uTime * 0.035, lat * 4.4);
 
         vec2 q, r;
-        float w = warpedFbm(p, 0.65, 3, q, r);
+        float w = warpedFbm(p, 0.65, 2, q, r);
         float band = 0.5 + 0.5 * sin(lat * 11.0 + w * 2.8 + r.x * 1.4);
 
         // Blend storm colors in Oklab so gradients never turn into muddy grey soup
@@ -404,10 +404,11 @@ export function createNebulaDriftMaterial(): THREE.ShaderMaterial {
         vec2 centered = vUv - 0.5;
         // Keep center canvas quiet so incoming bullets never camouflage in pretty dust
         float edgeMask = smoothstep(0.16, 0.56, length(centered));
+        if (edgeMask < 0.005) discard;
 
         vec2 p = centered * 4.2 + vec2(uTime * 0.018, -uTime * 0.012);
-        float n1 = 0.5 + 0.5 * fbm(p, 4);
-        float n2 = ridgedFbm(p * 1.35 + vec2(4.2, -2.7), 3);
+        float n1 = 0.5 + 0.5 * fbm(p, 2);
+        float n2 = ridgedFbm(p * 1.35 + vec2(4.2, -2.7), 2);
         float density = smoothstep(0.42, 0.88, n1 * 0.65 + n2 * 0.35) * edgeMask;
 
         vec3 amberDust = vec3(0.85, 0.42, 0.14);
@@ -970,21 +971,106 @@ export function createAtmosphericSmokeMaterial(): THREE.ShaderMaterial {
         if (edgeFade < 0.005) discard;
 
         vec2 pA = vWorldXZ * uScale + uDrift * uTime;
-        vec2 q = vec2(0.0);
-        vec2 r = vec2(0.0);
-        float billow = warpedFbm(pA, 0.85, 3, q, r);
+        float billow = 0.5 + 0.5 * fbm(pA, 2);
 
-        vec2 pB = vWorldXZ * (uScale * 1.65) - vec2(uDrift.y * 0.7, -uDrift.x * 0.7) * uTime * 1.15;
-        float detail = warpedFbm(pB, 0.6, 2, q, r);
+        vec2 pB = vWorldXZ * (uScale * 1.65) - vec2(uDrift.y * 0.7, -uDrift.x * 0.7) * uTime * 1.15 + vec2(billow * 0.65);
+        float detail = 0.5 + 0.5 * fbm(pB, 2);
 
         float smokeField = saturate(billow * 0.68 + detail * 0.44 - 0.18);
         float density = smoothstep(0.14, 0.86, smokeField);
         float alpha = saturate(density * edgeFade * uOpacity);
         if (alpha < 0.008) discard;
 
-        vec3 col = mixOklab(uColorSecondary, uColorPrimary, saturate(density * 0.85 + detail * 0.25));
+        vec3 col = mix(uColorSecondary, uColorPrimary, saturate(density * 0.85 + detail * 0.25));
         fragColor = vec4(col, alpha);
       }
     `,
+  });
+}
+
+// GPU-wrapped scrolling starfield & atmospheric ember points (zero per-frame CPU buffer uploads).
+export function createScrollingPointsMaterial(
+  size: number,
+  opacity: number,
+  additive: boolean,
+  mapTex?: THREE.Texture
+): THREE.ShaderMaterial {
+  const hasMap = Boolean(mapTex);
+  const uniforms: Record<string, THREE.IUniform> = {
+    uPlayerXZ: { value: new THREE.Vector2(0, 0) },
+    uOffsetXZ: { value: new THREE.Vector2(0, 0) },
+    uHalfSpanXZ: { value: new THREE.Vector2(120, 95) },
+    uTime: { value: 0 },
+    uWaveAmp: { value: 0 },
+    uSize: { value: size },
+    uPointScale: { value: 400 },
+    uOpacity: { value: opacity },
+  };
+  if (hasMap && mapTex) {
+    uniforms.uMap = { value: mapTex };
+  }
+
+  const fragmentShader = hasMap
+    ? /* glsl */ `
+      precision mediump float;
+      uniform float uOpacity;
+      uniform sampler2D uMap;
+
+      in vec3 vColor;
+      out vec4 fragColor;
+
+      void main() {
+        vec4 tex = texture(uMap, gl_PointCoord);
+        float alpha = uOpacity * tex.a;
+        if (alpha < 0.01) discard;
+        fragColor = vec4(vColor * tex.rgb, alpha);
+      }
+    `
+    : /* glsl */ `
+      precision mediump float;
+      uniform float uOpacity;
+
+      in vec3 vColor;
+      out vec4 fragColor;
+
+      void main() {
+        float dist = length(gl_PointCoord - 0.5) * 2.0;
+        float alpha = uOpacity * smoothstep(1.0, 0.2, dist);
+        if (alpha < 0.01) discard;
+        fragColor = vec4(vColor, alpha);
+      }
+    `;
+
+  return new THREE.ShaderMaterial({
+    glslVersion: THREE.GLSL3,
+    transparent: true,
+    depthWrite: false,
+    blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+    uniforms,
+    vertexShader: /* glsl */ `
+      in vec3 aColor;
+      in float aPhase;
+
+      uniform vec2 uPlayerXZ;
+      uniform vec2 uOffsetXZ;
+      uniform vec2 uHalfSpanXZ;
+      uniform float uTime;
+      uniform float uWaveAmp;
+      uniform float uSize;
+      uniform float uPointScale;
+
+      out vec3 vColor;
+
+      void main() {
+        vec2 span2 = uHalfSpanXZ * 2.0;
+        vec2 rel = mod(position.xz + uOffsetXZ - uPlayerXZ + uHalfSpanXZ, span2) - uHalfSpanXZ;
+        float wy = position.y + sin(uTime * 1.15 + aPhase) * uWaveAmp;
+        vec4 mvPos = modelViewMatrix * vec4(uPlayerXZ.x + rel.x, wy, uPlayerXZ.y + rel.y, 1.0);
+        gl_Position = projectionMatrix * mvPos;
+        gl_PointSize = clamp(uSize * (uPointScale / max(1.0, -mvPos.z)), 1.25, 48.0);
+        vColor = aColor;
+      }
+    `,
+    fragmentShader,
   });
 }

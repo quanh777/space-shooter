@@ -21,7 +21,14 @@ import {
   type SkillWeaponCatalogEntry,
 } from '../config/weapons';
 import type { EventBus } from '../engine/EventBus';
-import type { BossArchetype, GameState, GraphicsQuality } from '../game/types';
+import type {
+  ArenaObstacle,
+  BossArchetype,
+  EnemyEntity,
+  GamePhase,
+  GameState,
+  GraphicsQuality,
+} from '../game/types';
 import {
   FACTION_LIVERY_PALETTES,
   applyFactionLiveryToMaterials,
@@ -55,6 +62,227 @@ import { createStormWallMaterial } from './shaders/gameShaders';
 import { createTacticalPostPass } from './shaders/TacticalPostPass';
 import { VFXSystem } from './VFXSystem';
 import { metaProgression } from '../services/MetaProgressionService';
+
+const QUALITY_STORAGE_KEY = 'nv_gfx_quality';
+
+export interface QualityGovernorState {
+  quality: GraphicsQuality;
+  manualLock: boolean;
+  playWarmupSec: number;
+  lowFpsAccumSec: number;
+  highFpsAccumSec: number;
+  cooldownSec: number;
+  emaFps: number;
+  autoPromotedOnce: boolean;
+}
+
+export interface QualityGovernorDecision {
+  state: QualityGovernorState;
+  changedTo: GraphicsQuality | null;
+}
+
+export function computeEffectivePixelRatio(
+  quality: GraphicsQuality,
+  width: number,
+  height: number,
+  devicePixelRatio: number
+): number {
+  const safeW = Math.max(1, width);
+  const safeH = Math.max(1, height);
+  const dpr = Math.max(1, Number.isFinite(devicePixelRatio) ? devicePixelRatio : 1);
+  const capDpr = quality === 'high' ? Math.min(dpr, 1.5) : quality === 'medium' ? Math.min(dpr, 1.15) : 1.0;
+  const pixelBudget =
+    quality === 'high' ? 2_600_000 : quality === 'medium' ? 1_850_000 : 1_250_000;
+  const budgetRatio = Math.sqrt(pixelBudget / (safeW * safeH));
+  return Math.max(0.78, Math.min(capDpr, budgetRatio));
+}
+
+export function evaluateQualityStep(
+  prev: QualityGovernorState,
+  instFps: number,
+  frameDtSec: number,
+  isPlaying: boolean
+): QualityGovernorDecision {
+  if (!isPlaying || prev.manualLock) {
+    return { state: prev, changedTo: null };
+  }
+
+  const dt = Math.max(0, Math.min(0.25, frameDtSec));
+  const emaFps =
+    instFps > 0
+      ? prev.emaFps > 0
+        ? prev.emaFps + (instFps - prev.emaFps) * Math.min(1, dt * 2.5)
+        : instFps
+      : prev.emaFps;
+  const playWarmupSec = prev.playWarmupSec + dt;
+  const cooldownSec = Math.max(0, prev.cooldownSec - dt);
+
+  if (playWarmupSec < 4.5 || cooldownSec > 0 || instFps <= 0) {
+    return {
+      state: {
+        ...prev,
+        playWarmupSec,
+        cooldownSec,
+        emaFps,
+        lowFpsAccumSec: playWarmupSec < 4.5 ? 0 : prev.lowFpsAccumSec,
+        highFpsAccumSec: playWarmupSec < 4.5 ? 0 : prev.highFpsAccumSec,
+      },
+      changedTo: null,
+    };
+  }
+
+  let lowFpsAccumSec = prev.lowFpsAccumSec;
+  let highFpsAccumSec = prev.highFpsAccumSec;
+
+  if (prev.quality === 'high') {
+    highFpsAccumSec = 0;
+    if (emaFps < 42) {
+      lowFpsAccumSec += dt;
+      if (lowFpsAccumSec >= 5.0) {
+        return {
+          state: {
+            quality: 'medium',
+            manualLock: false,
+            playWarmupSec,
+            lowFpsAccumSec: 0,
+            highFpsAccumSec: 0,
+            cooldownSec: 7.0,
+            emaFps,
+            autoPromotedOnce: prev.autoPromotedOnce,
+          },
+          changedTo: 'medium',
+        };
+      }
+    } else {
+      lowFpsAccumSec = Math.max(0, lowFpsAccumSec - dt * 1.2);
+    }
+  } else if (prev.quality === 'medium') {
+    highFpsAccumSec = 0;
+    if (emaFps < 30) {
+      lowFpsAccumSec += dt;
+      if (lowFpsAccumSec >= 6.0) {
+        return {
+          state: {
+            quality: 'low',
+            manualLock: false,
+            playWarmupSec,
+            lowFpsAccumSec: 0,
+            highFpsAccumSec: 0,
+            cooldownSec: 10.0,
+            emaFps,
+            autoPromotedOnce: prev.autoPromotedOnce,
+          },
+          changedTo: 'low',
+        };
+      }
+    } else {
+      lowFpsAccumSec = Math.max(0, lowFpsAccumSec - dt * 1.2);
+    }
+  } else {
+    lowFpsAccumSec = 0;
+    if (!prev.autoPromotedOnce && emaFps >= 57) {
+      highFpsAccumSec += dt;
+      if (highFpsAccumSec >= 14.0) {
+        return {
+          state: {
+            quality: 'medium',
+            manualLock: false,
+            playWarmupSec,
+            lowFpsAccumSec: 0,
+            highFpsAccumSec: 0,
+            cooldownSec: 10.0,
+            emaFps,
+            autoPromotedOnce: true,
+          },
+          changedTo: 'medium',
+        };
+      }
+    } else {
+      highFpsAccumSec = Math.max(0, highFpsAccumSec - dt * 2.0);
+    }
+  }
+
+  return {
+    state: {
+      ...prev,
+      playWarmupSec,
+      lowFpsAccumSec,
+      highFpsAccumSec,
+      cooldownSec,
+      emaFps,
+    },
+    changedTo: null,
+  };
+}
+
+function loadSavedGraphicsQuality(): GraphicsQuality | null {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    const raw = localStorage.getItem(QUALITY_STORAGE_KEY);
+    return raw === 'high' || raw === 'medium' || raw === 'low' ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveManualGraphicsQuality(q: GraphicsQuality): void {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(QUALITY_STORAGE_KEY, q);
+    }
+  } catch {
+    // Storage disabled
+  }
+}
+
+function disposeObject3DResources(root: THREE.Object3D): void {
+  const matsToDispose = new Set<THREE.Material>();
+  root.traverse((node) => {
+    const mesh = node as THREE.Mesh;
+    const line = node as THREE.Line;
+    if (mesh.isMesh || line.isLine) {
+      const geo = mesh.geometry || line.geometry;
+      if (geo && !node.userData.sharedGeo && !node.userData.cachedGeo) {
+        geo.dispose();
+      }
+      const mat = mesh.material || line.material;
+      if (Array.isArray(mat)) {
+        for (const m of mat) {
+          if (m && !m.userData?.sharedMat) matsToDispose.add(m);
+        }
+      } else if (mat && !mat.userData?.sharedMat) {
+        matsToDispose.add(mat);
+      }
+    }
+  });
+  for (const m of matsToDispose) {
+    m.dispose();
+  }
+}
+
+function resetFlashMaterials(mats?: THREE.MeshStandardMaterial[]): void {
+  if (!mats) return;
+  for (const mat of mats) {
+    if (mat.userData.baseEmissiveHex !== undefined) {
+      mat.emissive.setHex(mat.userData.baseEmissiveHex as number);
+      mat.emissiveIntensity = (mat.userData.baseEmissiveIntensity as number) ?? 0;
+    }
+  }
+}
+
+function recolorTintMaterials(
+  mats: Array<THREE.MeshStandardMaterial | THREE.MeshBasicMaterial>,
+  hex: number
+): void {
+  for (const mat of mats) {
+    mat.color.setHex(hex);
+    if ((mat as THREE.MeshStandardMaterial).isMeshStandardMaterial) {
+      const std = mat as THREE.MeshStandardMaterial;
+      std.emissive.setHex(hex);
+      std.userData.baseEmissiveHex = hex;
+    }
+  }
+}
 
 function createSpaceStudioEnvScene(): { scene: THREE.Scene; dispose: () => void } {
   const env = new THREE.Scene();
@@ -128,10 +356,15 @@ export class SceneManager {
   private bossLight: THREE.PointLight;
 
   private enemyMeshes = new Map<number, EnemyVisualRefs>();
+  private enemyVisualPool = new Map<string, EnemyVisualRefs[]>();
   private bombMeshes = new Map<number, PropVisualRefs>();
+  private bombPool: PropVisualRefs[] = [];
   private mineMeshes = new Map<number, PropVisualRefs>();
+  private minePool = new Map<string, PropVisualRefs[]>();
   private powerUpMeshes = new Map<number, PropVisualRefs>();
+  private powerUpPool: PropVisualRefs[] = [];
   private obstacleMeshes = new Map<number, PropVisualRefs>();
+  private obstaclePool = new Map<string, PropVisualRefs[]>();
   private raidObjectiveVisual: { id: number; refs: PropVisualRefs } | null = null;
   private healthPickupMesh: PropVisualRefs;
   private bossVisual: { id: number; refs: BossVisualRefs } | null = null;
@@ -207,7 +440,22 @@ export class SceneManager {
   private camIntroFocus = 0;
   private elapsedSec = 0;
   private frameCounter = 0;
-  private lowFpsAccumSec = 0;
+  private viewportRect = { left: 0, top: 0, right: 1280, bottom: 800, width: 1280, height: 800 };
+  private onQualityChanged?: (q: GraphicsQuality, isManual: boolean) => void;
+  private lastRenderPhase: GamePhase | null = null;
+  private lastSimTimeMs = 0;
+  private wasWarpActive = false;
+  private hadBoss = false;
+  private governor: QualityGovernorState = {
+    quality: 'high',
+    manualLock: false,
+    playWarmupSec: 0,
+    lowFpsAccumSec: 0,
+    highFpsAccumSec: 0,
+    cooldownSec: 0,
+    emaFps: 60,
+    autoPromotedOnce: false,
+  };
 
   // Camera shake trauma & post-FX kick state - explosions deserve proper screen violence
   private chromaImpulse = 0;
@@ -249,12 +497,11 @@ export class SceneManager {
     this.camera.lookAt(this.camLookTarget);
 
     this.renderer = new THREE.WebGLRenderer({
-      antialias: true,
+      antialias: false,
       powerPreference: 'high-performance',
       alpha: false,
     });
     this.renderer.setSize(width, height);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     // AgX tonemapping + sRGB encoding run once inside TacticalPostPass - never double-bake colors
     this.renderer.toneMapping = THREE.NoToneMapping;
 
@@ -291,8 +538,8 @@ export class SceneManager {
     this.bossLight = new THREE.PointLight(0xff3344, 0, 44, 1.4);
     this.scene.add(this.bossLight);
 
-    for (let i = 0; i < 4; i++) {
-      const pl = new THREE.PointLight(0xff7722, 0, 34, 1.6);
+    for (let i = 0; i < 2; i++) {
+      const pl = new THREE.PointLight(0xff7722, 0, 24, 1.6);
       this.scene.add(pl);
       this.explosionLights.push({ light: pl, age: 10, peak: 0 });
     }
@@ -564,8 +811,17 @@ export class SceneManager {
       });
     }
 
+    this.updateViewportRect();
+    const savedQuality = loadSavedGraphicsQuality();
+    this.applyQualitySettings(savedQuality ?? 'high', savedQuality !== null, false);
     this.updateCameraFraming(width, height);
+    try {
+      this.renderer.compile(this.scene, this.camera);
+    } catch {
+      // Safe fallback in environments without full GL context
+    }
     window.addEventListener('resize', this.handleResize);
+    window.addEventListener('scroll', this.updateViewportRect, { passive: true });
   }
 
   private addTrauma(amount: number): void {
@@ -588,6 +844,7 @@ export class SceneManager {
   }
 
   private spawnExplosionLight(arenaX: number, arenaY: number, hex: number, peak: number): void {
+    if (this.quality === 'low') return;
     let target = this.explosionLights.find((e) => e.light.intensity <= 0.05);
     if (!target) {
       target = this.explosionLights.reduce((dim, cur) =>
@@ -620,28 +877,96 @@ export class SceneManager {
     return this.quality;
   }
 
-  setQuality(q: GraphicsQuality): void {
+  isManualQualityLocked(): boolean {
+    return this.governor.manualLock;
+  }
+
+  setQualityChangedCallback(cb: (q: GraphicsQuality, isManual: boolean) => void): void {
+    this.onQualityChanged = cb;
+  }
+
+  setQuality(q: GraphicsQuality, isManual = true): void {
+    this.applyQualitySettings(q, isManual, isManual);
+  }
+
+  private applyQualitySettings(
+    q: GraphicsQuality,
+    manualLock: boolean,
+    persistManual: boolean
+  ): void {
     this.quality = q;
-    const dpr = window.devicePixelRatio || 1;
-    if (q === 'high') {
-      this.renderer.setPixelRatio(Math.min(dpr, 2));
-      this.renderer.toneMapping = THREE.NoToneMapping;
-      this.bloomPass.enabled = true;
-      this.bloomPass.strength = 0.5;
-    } else if (q === 'medium') {
-      this.renderer.setPixelRatio(Math.min(dpr, 1.4));
-      this.renderer.toneMapping = THREE.NoToneMapping;
-      this.bloomPass.enabled = false;
-    } else {
-      this.renderer.setPixelRatio(1);
-      this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      this.bloomPass.enabled = false;
+    this.governor = {
+      ...this.governor,
+      quality: q,
+      manualLock,
+      lowFpsAccumSec: 0,
+      highFpsAccumSec: 0,
+      cooldownSec: manualLock ? 0 : this.governor.cooldownSec,
+    };
+    if (persistManual) {
+      saveManualGraphicsQuality(q);
     }
+
+    this.renderer.toneMapping = THREE.NoToneMapping;
+    this.backdrop.setQuality(q);
+    this.vfx.setQuality(q);
+
+    this.postPass.uniforms.uQualityTier.value = q === 'high' ? 2 : q === 'medium' ? 1 : 0;
+    this.postPass.uniforms.uEmissiveGlowBoost.value = q === 'low' ? 0.35 : 0.0;
+
+    if (q === 'high') {
+      this.bloomPass.enabled = true;
+      this.bloomPass.strength = 0.48;
+      this.bloomPass.radius = 0.4;
+    } else if (q === 'medium') {
+      this.bloomPass.enabled = true;
+      this.bloomPass.strength = 0.42;
+      this.bloomPass.radius = 0.36;
+    } else {
+      this.bloomPass.enabled = false;
+      for (const el of this.explosionLights) {
+        el.light.intensity = 0;
+      }
+    }
+
     this.handleResize();
+    this.onQualityChanged?.(q, manualLock);
+  }
+
+  private updateViewportRect = (): void => {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      this.viewportRect.left = rect.left;
+      this.viewportRect.top = rect.top;
+      this.viewportRect.right = rect.right;
+      this.viewportRect.bottom = rect.bottom;
+      this.viewportRect.width = rect.width;
+      this.viewportRect.height = rect.height;
+    } else {
+      const w = this.container.clientWidth || window.innerWidth || 1280;
+      const h = this.container.clientHeight || window.innerHeight || 800;
+      this.viewportRect.left = 0;
+      this.viewportRect.top = 0;
+      this.viewportRect.right = w;
+      this.viewportRect.bottom = h;
+      this.viewportRect.width = w;
+      this.viewportRect.height = h;
+    }
+  };
+
+  getViewportRect(): {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+    width: number;
+    height: number;
+  } {
+    return this.viewportRect;
   }
 
   screenToArena(clientX: number, clientY: number): { x: number; y: number } | null {
-    const rect = this.renderer.domElement.getBoundingClientRect();
+    const rect = this.viewportRect;
     if (rect.width <= 0 || rect.height <= 0) return null;
     this.tempNdc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     this.tempNdc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
@@ -661,7 +986,7 @@ export class SceneManager {
   ): { x: number; y: number; visible: boolean } {
     this.tempProj.set(arenaToWorldX(arenaX), yOffset, arenaToWorldZ(arenaY));
     this.tempProj.project(this.camera);
-    const rect = this.renderer.domElement.getBoundingClientRect();
+    const rect = this.viewportRect;
     return {
       x: (this.tempProj.x * 0.5 + 0.5) * rect.width + rect.left,
       y: (-this.tempProj.y * 0.5 + 0.5) * rect.height + rect.top,
@@ -673,17 +998,40 @@ export class SceneManager {
     this.elapsedSec += frameDt;
     this.frameCounter++;
 
-    if (state.phase === 'PLAYING' && this.quality === 'high') {
-      if (currentFps > 0 && currentFps < 36) {
-        this.lowFpsAccumSec += frameDt;
-        if (this.lowFpsAccumSec > 3.5) {
-          this.setQuality('low');
-          this.lowFpsAccumSec = 0;
-        }
-      } else {
-        this.lowFpsAccumSec = Math.max(0, this.lowFpsAccumSec - frameDt);
+    const isPlaying = state.phase === 'PLAYING';
+    const isRestartOrFreshRun =
+      (isPlaying && (this.lastRenderPhase === 'MENU' || this.lastRenderPhase === 'GAMEOVER')) ||
+      state.simTimeMs < this.lastSimTimeMs;
+    if (isRestartOrFreshRun) {
+      this.governor = {
+        ...this.governor,
+        playWarmupSec: 0,
+        lowFpsAccumSec: 0,
+        highFpsAccumSec: 0,
+      };
+    } else if (isPlaying) {
+      const enteredWarp = state.warpTransition.active && !this.wasWarpActive;
+      const enteredBoss = Boolean(state.boss) && !this.hadBoss;
+      if (frameDt >= 0.14) {
+        this.governor.playWarmupSec = 0;
+        this.governor.lowFpsAccumSec = 0;
+      } else if (enteredWarp || enteredBoss) {
+        // Grant a brief shader/GLB settle grace period on warp jumps & boss intros
+        this.governor.playWarmupSec = Math.min(this.governor.playWarmupSec, 3.0);
+        this.governor.lowFpsAccumSec = 0;
       }
     }
+
+    const decision = evaluateQualityStep(this.governor, currentFps, frameDt, isPlaying);
+    this.governor = decision.state;
+    if (decision.changedTo !== null) {
+      this.applyQualitySettings(decision.changedTo, false, false);
+    }
+
+    this.lastRenderPhase = state.phase;
+    this.lastSimTimeMs = state.simTimeMs;
+    this.wasWarpActive = state.warpTransition.active;
+    this.hadBoss = Boolean(state.boss);
 
     // Bleed off post-FX trauma, active shockwave rings, and fading blast lights
     this.chromaImpulse = Math.max(0, this.chromaImpulse - frameDt * 2.8);
@@ -767,31 +1115,27 @@ export class SceneManager {
     this.vfx.update(state, this.elapsedSec, frameDt);
     this.updateDynamicCamera(state, frameDt);
 
-    if (this.quality === 'low') {
-      this.renderer.render(this.scene, this.camera);
-    } else {
-      const hpRatio = state.player.health / Math.max(1, state.player.maxHealth);
-      const lowHpPulse =
-        state.phase === 'PLAYING' && hpRatio <= 0.3
-          ? 0.55 + Math.sin(this.elapsedSec * 9.5) * 0.45
-          : 0;
+    const hpRatio = state.player.health / Math.max(1, state.player.maxHealth);
+    const lowHpPulse =
+      state.phase === 'PLAYING' && hpRatio <= 0.3
+        ? 0.55 + Math.sin(this.elapsedSec * 9.5) * 0.45
+        : 0;
 
-      this.postPass.uniforms.uFrame.value = this.frameCounter;
-      this.postPass.uniforms.uTime.value = this.elapsedSec;
-      this.postPass.uniforms.uChromaStrength.value =
-        this.chromaImpulse + Math.min(0.45, state.screenShake * 0.02);
-      this.postPass.uniforms.uDamageFlash.value = this.damageFlash;
-      this.postPass.uniforms.uHitPulse.value = this.hitPulse;
-      this.postPass.uniforms.uLowHpPulse.value = lowHpPulse;
-      this.postPass.uniforms.uOverdrive.value = this.overdriveLevel;
-      (this.postPass.uniforms.uOverdriveColor.value as THREE.Color).copy(this.overdriveColor);
-      this.postPass.uniforms.uBulletTime.value = this.bulletTimeBlend;
-      this.postPass.uniforms.uWarpSpeed.value = warpBell;
-      this.postPass.uniforms.uShockProgress.value = this.shockProgress;
-      this.postPass.uniforms.uShocks.value = this.shockSlots;
+    this.postPass.uniforms.uFrame.value = this.frameCounter;
+    this.postPass.uniforms.uTime.value = this.elapsedSec;
+    this.postPass.uniforms.uChromaStrength.value =
+      this.chromaImpulse + Math.min(0.45, state.screenShake * 0.02);
+    this.postPass.uniforms.uDamageFlash.value = this.damageFlash;
+    this.postPass.uniforms.uHitPulse.value = this.hitPulse;
+    this.postPass.uniforms.uLowHpPulse.value = lowHpPulse;
+    this.postPass.uniforms.uOverdrive.value = this.overdriveLevel;
+    (this.postPass.uniforms.uOverdriveColor.value as THREE.Color).copy(this.overdriveColor);
+    this.postPass.uniforms.uBulletTime.value = this.bulletTimeBlend;
+    this.postPass.uniforms.uWarpSpeed.value = warpBell;
+    this.postPass.uniforms.uShockProgress.value = this.shockProgress;
+    this.postPass.uniforms.uShocks.value = this.shockSlots;
 
-      this.composer.render();
-    }
+    this.composer.render();
   }
 
   private createHangarDockGroup(): THREE.Group {
@@ -884,7 +1228,7 @@ export class SceneManager {
   projectShipHardpoints(
     _state: GameState
   ): Array<{ id: ShipSlotId | 'CORE'; x: number; y: number }> {
-    const rect = this.renderer.domElement.getBoundingClientRect();
+    const rect = this.viewportRect;
     const out: Array<{ id: ShipSlotId | 'CORE'; x: number; y: number }> = [];
     this.playerVisual.weaponMountGroup.updateWorldMatrix(true, false);
 
@@ -906,7 +1250,7 @@ export class SceneManager {
   }
 
   projectArenaPointToViewport(ax: number, ay: number): { x: number; y: number } {
-    const rect = this.renderer.domElement.getBoundingClientRect();
+    const rect = this.viewportRect;
     this.projVec.set(arenaToWorldX(ax), 0.75, arenaToWorldZ(ay));
     this.projVec.project(this.camera);
     return {
@@ -1248,16 +1592,61 @@ export class SceneManager {
     return state.warpTransition.elapsedMs / Math.max(1, state.warpTransition.durationMs) < 0.76;
   }
 
+  private acquireEnemyVisual(e: EnemyEntity): EnemyVisualRefs {
+    const key = `${e.type}:${e.isMinion ? 1 : 0}:${e.canDrop ? 1 : 0}`;
+    const bucket = this.enemyVisualPool.get(key);
+    let vis = bucket && bucket.length > 0 ? bucket.pop()! : undefined;
+    if (!vis) {
+      vis = createEnemyVisual(e);
+      vis.poolKey = key;
+      this.scene.add(vis.root);
+    } else {
+      vis.root.visible = true;
+      vis.bodyGroup.scale.set(1, 1, 1);
+      vis.bodyGroup.rotation.set(0, 0, 0);
+      vis.hpBarGroup.visible = false;
+      vis.hpBarGroup.position.z = -e.radius * 0.1 - 1.2;
+      if (vis.hpBarWidthWrap) {
+        vis.hpBarWidthWrap.scale.x = Math.max(2.6, e.w * 0.1);
+      }
+      resetFlashMaterials(vis.flashMaterials);
+      vis.animator?.play('Idle', 1.0);
+    }
+    return vis;
+  }
+
+  private releaseEnemyVisual(vis: EnemyVisualRefs): void {
+    vis.root.visible = false;
+    vis.hpBarGroup.visible = false;
+    if (vis.evolutionHalo) vis.evolutionHalo.visible = false;
+    resetFlashMaterials(vis.flashMaterials);
+
+    const key = vis.poolKey ?? 'default';
+    let bucket = this.enemyVisualPool.get(key);
+    if (!bucket) {
+      bucket = [];
+      this.enemyVisualPool.set(key, bucket);
+    }
+    if (bucket.length < 28) {
+      bucket.push(vis);
+    } else {
+      vis.disposed = true;
+      vis.animator?.mixer.stopAllAction();
+      this.scene.remove(vis.root);
+      disposeObject3DResources(vis.root);
+    }
+  }
+
   private syncEnemies(state: GameState, frameDt: number): void {
     const aliveIds = new Set<number>();
     const hideForWarp = this.isHyperspaceTraveling(state);
+    const throttleAnim = this.quality !== 'high' || state.enemies.length > 14;
 
     for (const e of state.enemies) {
       aliveIds.add(e.id);
       let vis = this.enemyMeshes.get(e.id);
       if (!vis) {
-        vis = createEnemyVisual(e);
-        this.scene.add(vis.root);
+        vis = this.acquireEnemyVisual(e);
         this.enemyMeshes.set(e.id, vis);
       }
       if (hideForWarp) {
@@ -1279,42 +1668,48 @@ export class SceneManager {
       }
 
       if (vis.animator) {
-        const sinceShot = state.simTimeMs - e.lastShotMs;
-        if (e.type === 'large') {
-          if (e.aiState === 'windup') {
-            vis.animator.play('Charge', 1.4);
-          } else if (e.aiState === 'dash') {
-            vis.animator.play('Attack', 2.0);
+        const shouldTickThisFrame =
+          !throttleAnim ||
+          (e.type !== 'small' && !e.isMinion) ||
+          ((this.frameCounter + e.id) & 1) === 0;
+        if (shouldTickThisFrame) {
+          const sinceShot = state.simTimeMs - e.lastShotMs;
+          if (e.type === 'large') {
+            if (e.aiState === 'windup') {
+              vis.animator.play('Charge', 1.4);
+            } else if (e.aiState === 'dash') {
+              vis.animator.play('Attack', 2.0);
+            } else {
+              vis.animator.play('Idle', 1.0);
+            }
+          } else if (e.type === 'medium') {
+            if (sinceShot > 1700 && sinceShot < 2400) {
+              vis.animator.play('Charge', 1.6);
+            } else if (sinceShot < 350) {
+              vis.animator.play('Attack', 2.0);
+            } else {
+              vis.animator.play('Idle', 1.0);
+            }
+          } else if (e.type === 'elite') {
+            if (e.warpWarmupTimer > 0 || (sinceShot > 1300 && sinceShot < 1850)) {
+              vis.animator.play('Charge', 1.8);
+            } else if (sinceShot < 350) {
+              vis.animator.play('Attack', 2.0);
+            } else {
+              vis.animator.play('Idle', 1.0);
+            }
           } else {
-            vis.animator.play('Idle', 1.0);
+            const distToPlayer = Math.hypot(state.player.x - e.x, state.player.y - e.y);
+            if (distToPlayer < 125) {
+              vis.animator.play('Attack', 1.9);
+            } else if (distToPlayer < 220 && vis.animator.hasClip('Charge')) {
+              vis.animator.play('Charge', 1.4);
+            } else {
+              vis.animator.play('Idle', 1.1);
+            }
           }
-        } else if (e.type === 'medium') {
-          if (sinceShot > 1700 && sinceShot < 2400) {
-            vis.animator.play('Charge', 1.6);
-          } else if (sinceShot < 350) {
-            vis.animator.play('Attack', 2.0);
-          } else {
-            vis.animator.play('Idle', 1.0);
-          }
-        } else if (e.type === 'elite') {
-          if (e.warpWarmupTimer > 0 || (sinceShot > 1300 && sinceShot < 1850)) {
-            vis.animator.play('Charge', 1.8);
-          } else if (sinceShot < 350) {
-            vis.animator.play('Attack', 2.0);
-          } else {
-            vis.animator.play('Idle', 1.0);
-          }
-        } else {
-          const distToPlayer = Math.hypot(state.player.x - e.x, state.player.y - e.y);
-          if (distToPlayer < 125) {
-            vis.animator.play('Attack', 1.9);
-          } else if (distToPlayer < 220 && vis.animator.hasClip('Charge')) {
-            vis.animator.play('Charge', 1.4);
-          } else {
-            vis.animator.play('Idle', 1.1);
-          }
+          vis.animator.update(throttleAnim && (e.type === 'small' || e.isMinion) ? frameDt * 2 : frameDt);
         }
-        vis.animator.update(frameDt);
       }
 
       let punch = this.enemyHitPunch.get(e.id) ?? 0;
@@ -1361,15 +1756,21 @@ export class SceneManager {
           !vis.usingBlenderGltf || (vis.form2Parts.length === 0 && vis.form2OnlyParts.length === 0);
         if (useHaloFallback && e.evolutionTier >= 2 && !e.isMinion) {
           vis.evolutionHalo.visible = true;
+          const baseHaloR = vis.baseHaloRadius || 1.35;
+          const haloRatio = Math.max(1.35, e.radius * 0.125) / baseHaloR;
           const haloMat = vis.evolutionHalo.material as THREE.MeshBasicMaterial;
           if (e.evolutionTier === 3) {
             haloMat.color.setHex(Math.sin(this.elapsedSec * 9 + e.id) > 0 ? 0xffdd55 : 0xd946ef);
             vis.evolutionHalo.rotation.z = -this.elapsedSec * 4.2;
-            vis.evolutionHalo.scale.setScalar(1.16 + Math.sin(this.elapsedSec * 7 + e.id) * 0.08);
+            vis.evolutionHalo.scale.setScalar(
+              haloRatio * (1.16 + Math.sin(this.elapsedSec * 7 + e.id) * 0.08)
+            );
           } else {
             haloMat.color.setHex(0x38e8ff);
             vis.evolutionHalo.rotation.z = this.elapsedSec * 2.4;
-            vis.evolutionHalo.scale.setScalar(1.0 + Math.sin(this.elapsedSec * 4 + e.id) * 0.05);
+            vis.evolutionHalo.scale.setScalar(
+              haloRatio * (1.0 + Math.sin(this.elapsedSec * 4 + e.id) * 0.05)
+            );
           }
         } else {
           vis.evolutionHalo.visible = false;
@@ -1413,22 +1814,29 @@ export class SceneManager {
 
     for (const [id, vis] of this.enemyMeshes.entries()) {
       if (!aliveIds.has(id)) {
-        this.scene.remove(vis.root);
+        this.releaseEnemyVisual(vis);
         this.enemyMeshes.delete(id);
         this.enemyHitPunch.delete(id);
       }
     }
   }
 
+  private disposeBossVisual(refs: BossVisualRefs): void {
+    refs.disposed = true;
+    refs.animator?.mixer.stopAllAction();
+    this.scene.remove(refs.root);
+    disposeObject3DResources(refs.root);
+  }
+
   private syncBoss(state: GameState, frameDt: number): void {
     const boss = state.boss;
     if (!boss) {
       if (this.bossVisual) {
-        this.scene.remove(this.bossVisual.refs.root);
+        this.disposeBossVisual(this.bossVisual.refs);
         this.bossVisual = null;
       }
       if (this.geminiTwinVisual) {
-        this.scene.remove(this.geminiTwinVisual.refs.root);
+        this.disposeBossVisual(this.geminiTwinVisual.refs);
         this.geminiTwinVisual = null;
       }
       for (const segMesh of this.leviathanSegMeshes) segMesh.visible = false;
@@ -1438,10 +1846,10 @@ export class SceneManager {
 
     if (!this.bossVisual || this.bossVisual.id !== boss.id) {
       if (this.bossVisual) {
-        this.scene.remove(this.bossVisual.refs.root);
+        this.disposeBossVisual(this.bossVisual.refs);
       }
       if (this.geminiTwinVisual) {
-        this.scene.remove(this.geminiTwinVisual.refs.root);
+        this.disposeBossVisual(this.geminiTwinVisual.refs);
         this.geminiTwinVisual = null;
       }
       const refs = createBossVisual(boss.archetype, boss.radius * WORLD_SCALE);
@@ -1726,7 +2134,7 @@ export class SceneManager {
     if (boss.archetype === 4 && boss.twin && !boss.dying) {
       if (!this.geminiTwinVisual || this.geminiTwinVisual.bossId !== boss.id) {
         if (this.geminiTwinVisual) {
-          this.scene.remove(this.geminiTwinVisual.refs.root);
+          this.disposeBossVisual(this.geminiTwinVisual.refs);
         }
         const twinRefs = createBossVisual(4, boss.twin.radius * WORLD_SCALE, 0xff2e88);
         this.scene.add(twinRefs.root);
@@ -1804,7 +2212,7 @@ export class SceneManager {
         }
       }
     } else if (this.geminiTwinVisual) {
-      this.scene.remove(this.geminiTwinVisual.refs.root);
+      this.disposeBossVisual(this.geminiTwinVisual.refs);
       this.geminiTwinVisual = null;
     }
 
@@ -1831,14 +2239,37 @@ export class SceneManager {
     this.bossLight.intensity = boss.entering ? introLightIntensity : 4.2 + boss.coreEnergy * 2.5 + blend * 0.9;
   }
 
+  private acquireBombVisual(): PropVisualRefs {
+    const recycled = this.bombPool.pop();
+    if (recycled) {
+      recycled.root.visible = true;
+      recycled.root.scale.setScalar(1);
+      return recycled;
+    }
+    const created = createBombVisual();
+    this.scene.add(created.root);
+    return created;
+  }
+
+  private releaseBombVisual(prop: PropVisualRefs): void {
+    prop.root.visible = false;
+    if (this.bombPool.length < 20) {
+      this.bombPool.push(prop);
+    } else {
+      prop.disposed = true;
+      prop.animator?.mixer.stopAllAction();
+      this.scene.remove(prop.root);
+      disposeObject3DResources(prop.root);
+    }
+  }
+
   private syncBombs(state: GameState, frameDt: number): void {
     const alive = new Set<number>();
     for (const b of state.bombs) {
       alive.add(b.id);
       let prop = this.bombMeshes.get(b.id);
       if (!prop) {
-        prop = createBombVisual();
-        this.scene.add(prop.root);
+        prop = this.acquireBombVisual();
         this.bombMeshes.set(b.id, prop);
       }
       prop.root.position.set(arenaToWorldX(b.x), 0.75, arenaToWorldZ(b.y));
@@ -1849,9 +2280,43 @@ export class SceneManager {
     }
     for (const [id, prop] of this.bombMeshes.entries()) {
       if (!alive.has(id)) {
-        this.scene.remove(prop.root);
+        this.releaseBombVisual(prop);
         this.bombMeshes.delete(id);
       }
+    }
+  }
+
+  private acquireMineVisual(hex: number, homing: boolean): PropVisualRefs {
+    const key = homing ? 'homing' : 'static';
+    const bucket = this.minePool.get(key);
+    const recycled = bucket && bucket.length > 0 ? bucket.pop()! : undefined;
+    if (recycled) {
+      recycled.root.visible = true;
+      recycled.root.scale.setScalar(1);
+      recolorTintMaterials(recycled.tintMaterials, hex);
+      return recycled;
+    }
+    const created = createMineVisual(hex, homing);
+    created.poolKey = key;
+    this.scene.add(created.root);
+    return created;
+  }
+
+  private releaseMineVisual(prop: PropVisualRefs): void {
+    prop.root.visible = false;
+    const key = prop.poolKey ?? 'static';
+    let bucket = this.minePool.get(key);
+    if (!bucket) {
+      bucket = [];
+      this.minePool.set(key, bucket);
+    }
+    if (bucket.length < 24) {
+      bucket.push(prop);
+    } else {
+      prop.disposed = true;
+      prop.animator?.mixer.stopAllAction();
+      this.scene.remove(prop.root);
+      disposeObject3DResources(prop.root);
     }
   }
 
@@ -1862,8 +2327,7 @@ export class SceneManager {
       alive.add(m.id);
       let prop = this.mineMeshes.get(m.id);
       if (!prop) {
-        prop = createMineVisual(m.hex, m.homing);
-        this.scene.add(prop.root);
+        prop = this.acquireMineVisual(m.hex, m.homing);
         this.mineMeshes.set(m.id, prop);
       }
       const danger = m.timerMs < 1100;
@@ -1881,9 +2345,33 @@ export class SceneManager {
     }
     for (const [id, prop] of this.mineMeshes.entries()) {
       if (!alive.has(id)) {
-        this.scene.remove(prop.root);
+        this.releaseMineVisual(prop);
         this.mineMeshes.delete(id);
       }
+    }
+  }
+
+  private acquirePowerUpVisual(hex: number): PropVisualRefs {
+    const recycled = this.powerUpPool.pop();
+    if (recycled) {
+      recycled.root.visible = true;
+      recolorTintMaterials(recycled.tintMaterials, hex);
+      return recycled;
+    }
+    const created = createPowerUpVisual(hex);
+    this.scene.add(created.root);
+    return created;
+  }
+
+  private releasePowerUpVisual(prop: PropVisualRefs): void {
+    prop.root.visible = false;
+    if (this.powerUpPool.length < 12) {
+      this.powerUpPool.push(prop);
+    } else {
+      prop.disposed = true;
+      prop.animator?.mixer.stopAllAction();
+      this.scene.remove(prop.root);
+      disposeObject3DResources(prop.root);
     }
   }
 
@@ -1894,8 +2382,7 @@ export class SceneManager {
       alive.add(pu.id);
       let prop = this.powerUpMeshes.get(pu.id);
       if (!prop) {
-        prop = createPowerUpVisual(POWER_UP_CONFIG[pu.type].hex);
-        this.scene.add(prop.root);
+        prop = this.acquirePowerUpVisual(POWER_UP_CONFIG[pu.type].hex);
         this.powerUpMeshes.set(pu.id, prop);
       }
       prop.root.visible = !hideForWarp;
@@ -1910,7 +2397,7 @@ export class SceneManager {
     }
     for (const [id, prop] of this.powerUpMeshes.entries()) {
       if (!alive.has(id)) {
-        this.scene.remove(prop.root);
+        this.releasePowerUpVisual(prop);
         this.powerUpMeshes.delete(id);
       }
     }
@@ -1960,7 +2447,11 @@ export class SceneManager {
     }
     for (const [id, g] of this.floatingModuleMeshes.entries()) {
       if (!aliveMods.has(id)) {
+        g.traverse((node) => {
+          node.userData.disposed = true;
+        });
         this.scene.remove(g);
+        disposeObject3DResources(g);
         this.floatingModuleMeshes.delete(id);
       }
     }
@@ -2011,6 +2502,42 @@ export class SceneManager {
     }
   }
 
+  private acquireObstacleVisual(ob: ArenaObstacle): PropVisualRefs {
+    const key = `${ob.kind}:${Math.round(ob.radius)}`;
+    const bucket = this.obstaclePool.get(key);
+    const recycled = bucket && bucket.length > 0 ? bucket.pop()! : undefined;
+    if (recycled) {
+      recycled.root.visible = true;
+      if (recycled.hpBarGroup) recycled.hpBarGroup.visible = false;
+      resetFlashMaterials(recycled.flashMaterials);
+      return recycled;
+    }
+    const created = createArenaObstacleVisual(ob.kind, ob.radius);
+    created.poolKey = key;
+    this.scene.add(created.root);
+    return created;
+  }
+
+  private releaseObstacleVisual(prop: PropVisualRefs): void {
+    prop.root.visible = false;
+    if (prop.hpBarGroup) prop.hpBarGroup.visible = false;
+    resetFlashMaterials(prop.flashMaterials);
+    const key = prop.poolKey ?? 'default';
+    let bucket = this.obstaclePool.get(key);
+    if (!bucket) {
+      bucket = [];
+      this.obstaclePool.set(key, bucket);
+    }
+    if (bucket.length < 18) {
+      bucket.push(prop);
+    } else {
+      prop.disposed = true;
+      prop.animator?.mixer.stopAllAction();
+      this.scene.remove(prop.root);
+      disposeObject3DResources(prop.root);
+    }
+  }
+
   private syncRaidWorldObjects(state: GameState, frameDt: number): void {
     const showWorld =
       !this.isHyperspaceTraveling(state) &&
@@ -2022,8 +2549,7 @@ export class SceneManager {
         aliveObs.add(ob.id);
         let prop = this.obstacleMeshes.get(ob.id);
         if (!prop) {
-          prop = createArenaObstacleVisual(ob.kind, ob.radius);
-          this.scene.add(prop.root);
+          prop = this.acquireObstacleVisual(ob);
           this.obstacleMeshes.set(ob.id, prop);
         }
         prop.root.position.set(arenaToWorldX(ob.x), 0.65, arenaToWorldZ(ob.y));
@@ -2078,7 +2604,7 @@ export class SceneManager {
 
     for (const [id, prop] of this.obstacleMeshes.entries()) {
       if (!aliveObs.has(id)) {
-        this.scene.remove(prop.root);
+        this.releaseObstacleVisual(prop);
         this.obstacleMeshes.delete(id);
       }
     }
@@ -2090,7 +2616,10 @@ export class SceneManager {
 
     if (!obj) {
       if (this.raidObjectiveVisual) {
+        this.raidObjectiveVisual.refs.disposed = true;
+        this.raidObjectiveVisual.refs.animator?.mixer.stopAllAction();
         this.scene.remove(this.raidObjectiveVisual.refs.root);
+        disposeObject3DResources(this.raidObjectiveVisual.refs.root);
         this.raidObjectiveVisual = null;
       }
       return;
@@ -2098,7 +2627,10 @@ export class SceneManager {
 
     if (!this.raidObjectiveVisual || this.raidObjectiveVisual.id !== obj.id) {
       if (this.raidObjectiveVisual) {
+        this.raidObjectiveVisual.refs.disposed = true;
+        this.raidObjectiveVisual.refs.animator?.mixer.stopAllAction();
         this.scene.remove(this.raidObjectiveVisual.refs.root);
+        disposeObject3DResources(this.raidObjectiveVisual.refs.root);
       }
       const refs = createRaidObjectiveVisual(obj.kind, obj.radius, obj.accentHex);
       this.scene.add(refs.root);
@@ -2560,7 +3092,14 @@ export class SceneManager {
           e.healTargetId !== null &&
           medicIdx < this.medicBeamPool.length
         ) {
-          const target = state.enemies.find((cand) => cand.id === e.healTargetId && cand.hp > 0);
+          let target: EnemyEntity | undefined;
+          for (let j = 0; j < state.enemies.length; j++) {
+            const cand = state.enemies[j];
+            if (cand.id === e.healTargetId && cand.hp > 0) {
+              target = cand;
+              break;
+            }
+          }
           if (target) {
             const beam = this.medicBeamPool[medicIdx++];
             beam.visible = true;
@@ -2780,21 +3319,44 @@ export class SceneManager {
   }
 
   private handleResize = (): void => {
-    const width = this.container.clientWidth || window.innerWidth;
-    const height = this.container.clientHeight || window.innerHeight;
+    const width = this.container.clientWidth || window.innerWidth || 1280;
+    const height = this.container.clientHeight || window.innerHeight || 800;
+    const effDpr = computeEffectivePixelRatio(
+      this.quality,
+      width,
+      height,
+      window.devicePixelRatio || 1
+    );
+    const effW = Math.max(1, Math.round(width * effDpr));
+    const effH = Math.max(1, Math.round(height * effDpr));
+
+    this.renderer.setPixelRatio(effDpr);
     this.renderer.setSize(width, height);
+    this.composer.setPixelRatio(effDpr);
     this.composer.setSize(width, height);
-    this.bloomPass.setSize(width, height);
-    this.postPass.uniforms.uResolution.value.set(width, height);
+
+    if (this.bloomPass.enabled) {
+      const bloomScale = this.quality === 'high' ? 0.5 : 0.35;
+      this.bloomPass.setSize(
+        Math.max(64, Math.round(effW * bloomScale)),
+        Math.max(64, Math.round(effH * bloomScale))
+      );
+    }
+
+    this.postPass.uniforms.uResolution.value.set(effW, effH);
+    this.backdrop.setPointScale(effH);
+    this.updateViewportRect();
     this.updateCameraFraming(width, height);
   };
 
   destroy(): void {
     window.removeEventListener('resize', this.handleResize);
+    window.removeEventListener('scroll', this.updateViewportRect);
     if (this.scene.environment) {
       this.scene.environment.dispose();
       this.scene.environment = null;
     }
+    this.composer.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }

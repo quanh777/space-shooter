@@ -58,10 +58,17 @@ import {
   createNebulaDriftMaterial,
   createPlasmaProjectileMaterial,
   createProceduralPlanetMaterial,
+  createScrollingPointsMaterial,
   createShockwaveRingMaterial,
   createStormWallMaterial,
   createThrusterPlumeMaterial,
 } from '../render/shaders/gameShaders';
+import { GLSL3_NOISE } from '../render/shaders/shaderLib';
+import {
+  computeEffectivePixelRatio,
+  evaluateQualityStep,
+  type QualityGovernorState,
+} from '../render/SceneManager';
 import {
   FACTION_LIVERY_PALETTES,
   applyFactionLiveryToMaterials,
@@ -3509,5 +3516,133 @@ describe('Firebase Leaderboard Loadout Snapshot & Sanitization Tests', () => {
         delete (globalThis as { localStorage?: unknown }).localStorage;
       }
     }
+  });
+});
+
+describe('Graphics Optimization & Adaptive Quality Governor Tests', () => {
+  it('validates GPU scrolling starfield shader, sin/cos-free latticeGradient, and tiered TacticalPostPass uniforms', () => {
+    const pointsNoMap = createScrollingPointsMaterial(0.45, 0.85, true);
+    const pointsWithMap = createScrollingPointsMaterial(0.62, 0.66, true, new THREE.Texture());
+    expect(pointsNoMap.fragmentShader).not.toContain('sampler2D');
+    expect(pointsWithMap.fragmentShader).toContain('sampler2D uMap');
+
+    for (const pointsMat of [pointsNoMap, pointsWithMap]) {
+      expect(pointsMat.glslVersion).toBe(THREE.GLSL3);
+      expect(pointsMat.vertexShader).toContain('void main()');
+      expect(pointsMat.fragmentShader).toContain('out vec4 fragColor;');
+      expect(pointsMat.fragmentShader).not.toMatch(/fract\s*\(\s*sin\s*\(/);
+      expect((pointsMat.vertexShader.match(/\{/g) ?? []).length).toBe(
+        (pointsMat.vertexShader.match(/\}/g) ?? []).length
+      );
+      expect((pointsMat.fragmentShader.match(/\{/g) ?? []).length).toBe(
+        (pointsMat.fragmentShader.match(/\}/g) ?? []).length
+      );
+    }
+
+    const latticeMatch = GLSL3_NOISE.match(/vec2 latticeGradient\(vec2 cell\)[\s\S]*?\n\}/);
+    expect(latticeMatch).not.toBeNull();
+    expect(latticeMatch![0]).not.toMatch(/\b(sin|cos)\s*\(/);
+
+    const postPass = createTacticalPostPass();
+    expect(postPass.uniforms.uQualityTier.value).toBe(2);
+    expect(postPass.uniforms.uEmissiveGlowBoost.value).toBe(0);
+    expect((postPass.material as THREE.ShaderMaterial).fragmentShader).toContain('uQualityTier');
+    expect((postPass.material as THREE.ShaderMaterial).fragmentShader).toContain('uEmissiveGlowBoost');
+  });
+
+  it('caps pixel ratios by pixel budget and steps Adaptive Quality Governor smoothly without skipping medium', () => {
+    // HiDPI 1080p laptop with 2x OS scaling stays within pixel budgets instead of 4x oversampling
+    const hiDpr = computeEffectivePixelRatio('high', 1920, 1080, 2);
+    const medDpr = computeEffectivePixelRatio('medium', 1920, 1080, 2);
+    const lowDpr = computeEffectivePixelRatio('low', 1920, 1080, 2);
+    expect(hiDpr).toBeLessThanOrEqual(1.5);
+    expect(hiDpr).toBeGreaterThan(medDpr);
+    expect(medDpr).toBeGreaterThanOrEqual(lowDpr);
+    expect(computeEffectivePixelRatio('low', 3840, 2160, 2)).toBeGreaterThanOrEqual(0.78);
+
+    let gov: QualityGovernorState = {
+      quality: 'high',
+      manualLock: false,
+      playWarmupSec: 0,
+      lowFpsAccumSec: 0,
+      highFpsAccumSec: 0,
+      cooldownSec: 0,
+      emaFps: 60,
+      autoPromotedOnce: false,
+    };
+
+    // Never downgrade during initial 4.5s shader/asset warmup even at 20 FPS
+    for (let i = 0; i < 40; i++) {
+      const res = evaluateQualityStep(gov, 20, 0.1, true);
+      gov = res.state;
+      expect(res.changedTo).toBeNull();
+      expect(gov.quality).toBe('high');
+    }
+
+    // Prolonged FPS below 42 steps down cleanly high -> medium (never skipping directly to low)
+    let transitionedToMedium = false;
+    for (let i = 0; i < 80; i++) {
+      const res = evaluateQualityStep(gov, 32, 0.1, true);
+      gov = res.state;
+      if (res.changedTo !== null) {
+        expect(res.changedTo).toBe('medium');
+        transitionedToMedium = true;
+        break;
+      }
+    }
+    expect(transitionedToMedium).toBe(true);
+    expect(gov.cooldownSec).toBeCloseTo(7.0, 2);
+
+    // Cooldown protects against cascading drops before 7.0s elapse
+    for (let i = 0; i < 50; i++) {
+      const res = evaluateQualityStep(gov, 18, 0.1, true);
+      gov = res.state;
+      expect(res.changedTo).toBeNull();
+    }
+
+    // Only after cooldown and sustained sub-30 FPS does it step medium -> low
+    let transitionedToLow = false;
+    for (let i = 0; i < 120; i++) {
+      const res = evaluateQualityStep(gov, 22, 0.1, true);
+      gov = res.state;
+      if (res.changedTo !== null) {
+        expect(res.changedTo).toBe('low');
+        transitionedToLow = true;
+        break;
+      }
+    }
+    expect(transitionedToLow).toBe(true);
+
+    // Sustained 60 FPS cooldown + 14s stability promotes back from low -> medium once
+    for (let i = 0; i < 120; i++) {
+      const res = evaluateQualityStep(gov, 60, 0.1, true);
+      gov = res.state;
+      expect(res.changedTo).toBeNull();
+    }
+    let promotedToMedium = false;
+    for (let i = 0; i < 170; i++) {
+      const res = evaluateQualityStep(gov, 60, 0.1, true);
+      gov = res.state;
+      if (res.changedTo !== null) {
+        expect(res.changedTo).toBe('medium');
+        promotedToMedium = true;
+        break;
+      }
+    }
+    expect(promotedToMedium).toBe(true);
+    expect(gov.autoPromotedOnce).toBe(true);
+
+    // Manual lock prevents automatic quality switches regardless of FPS
+    const locked: QualityGovernorState = {
+      ...gov,
+      quality: 'high',
+      manualLock: true,
+      playWarmupSec: 20,
+      cooldownSec: 0,
+      emaFps: 15,
+    };
+    const lockedStep = evaluateQualityStep(locked, 15, 2.0, true);
+    expect(lockedStep.changedTo).toBeNull();
+    expect(lockedStep.state.quality).toBe('high');
   });
 });

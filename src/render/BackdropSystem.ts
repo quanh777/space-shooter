@@ -4,12 +4,13 @@ import {
   arenaToWorldX,
   arenaToWorldZ,
 } from '../config/constants';
-import type { GameState, SectorMapProp } from '../game/types';
+import type { GameState, GraphicsQuality, SectorMapProp } from '../game/types';
 import {
   createArenaDeckMaterial,
   createAtmosphericSmokeMaterial,
   createNebulaDriftMaterial,
   createProceduralPlanetMaterial,
+  createScrollingPointsMaterial,
 } from './shaders/gameShaders';
 
 const ATMO_PARTICLE_COUNT = 340;
@@ -19,26 +20,30 @@ const ATMO_HALF_Z = 90;
 export class BackdropSystem {
   public readonly group = new THREE.Group();
 
+  private quality: GraphicsQuality = 'high';
   private nebulaMesh: THREE.Mesh;
   private nebulaMeshMat: THREE.MeshBasicMaterial;
   private driftPlane: THREE.Mesh;
   private nebulaDriftMat: THREE.ShaderMaterial;
   private smokeNearMat: THREE.ShaderMaterial;
   private smokeNearPlane: THREE.Mesh;
-  private smokeMidMat: THREE.ShaderMaterial;
-  private smokeMidPlane: THREE.Mesh;
   private atmoParticles: THREE.Points;
-  private atmoParticleMat: THREE.PointsMaterial;
-  private atmoParticleBaseY = new Float32Array(ATMO_PARTICLE_COUNT);
-  private atmoParticlePhases = new Float32Array(ATMO_PARTICLE_COUNT);
-  private atmoParticleSpeeds = new Float32Array(ATMO_PARTICLE_COUNT);
+  private atmoParticleMat: THREE.ShaderMaterial;
   private atmoDriftX = 0.85;
   private atmoDriftZ = 2.35;
+  private atmoOffsetX = 0;
+  private atmoOffsetZ = 0;
 
   private arenaDeckMat: THREE.ShaderMaterial;
   private deckPlane: THREE.Mesh;
   private starLayerNear: THREE.Points;
+  private starLayerNearMat: THREE.ShaderMaterial;
+  private starNearOffsetX = 0;
+  private starNearOffsetZ = 0;
   private starLayerFar: THREE.Points;
+  private starLayerFarMat: THREE.ShaderMaterial;
+  private starFarOffsetX = 0;
+  private starFarOffsetZ = 0;
   private planetA: THREE.Group;
   private planetAMat: THREE.ShaderMaterial;
   private planetB: THREE.Mesh;
@@ -90,28 +95,27 @@ export class BackdropSystem {
     this.driftPlane.position.set(0, -37, -4);
     this.group.add(this.driftPlane);
 
-    // Two parallax star layers that wrap forever around the player
-    this.starLayerFar = this.createStarLayer(520, -30, -16, 0.34, 0.72);
-    this.starLayerNear = this.createStarLayer(260, -14, -4, 0.48, 0.9);
+    // Two parallax star layers wrapped on GPU around the player
+    const farBuilt = this.createStarLayer(520, -30, -16, 0.34, 0.72);
+    this.starLayerFar = farBuilt.points;
+    this.starLayerFarMat = farBuilt.mat;
+    const nearBuilt = this.createStarLayer(260, -14, -4, 0.48, 0.9);
+    this.starLayerNear = nearBuilt.points;
+    this.starLayerNearMat = nearBuilt.mat;
     this.group.add(this.starLayerFar, this.starLayerNear);
 
-    // Counter-drifting cosmic smoke sheets so warp speed feels real
-    this.smokeMidMat = createAtmosphericSmokeMaterial();
-    this.smokeMidPlane = new THREE.Mesh(new THREE.PlaneGeometry(360, 360), this.smokeMidMat);
-    this.smokeMidPlane.rotation.x = -Math.PI / 2;
-    this.smokeMidPlane.position.set(0, -19.5, 0);
-    this.smokeMidPlane.renderOrder = 2;
-
+    // Single dual-octave atmospheric cosmic smoke veil so fill-rate stays lean
     this.smokeNearMat = createAtmosphericSmokeMaterial();
     this.smokeNearPlane = new THREE.Mesh(new THREE.PlaneGeometry(290, 290), this.smokeNearMat);
     this.smokeNearPlane.rotation.x = -Math.PI / 2;
     this.smokeNearPlane.position.set(0, -6.8, 0);
     this.smokeNearPlane.renderOrder = 3;
-    this.group.add(this.smokeMidPlane, this.smokeNearPlane);
+    this.group.add(this.smokeNearPlane);
 
-    // Floating space dust / embers — wrapped in a box around the camera so we don't spawn a million points
+    // Floating space dust / embers — wrapped on GPU in a box around the ship
     const pPos = new Float32Array(ATMO_PARTICLE_COUNT * 3);
     const pCol = new Float32Array(ATMO_PARTICLE_COUNT * 3);
+    const pPhase = new Float32Array(ATMO_PARTICLE_COUNT);
     for (let i = 0; i < ATMO_PARTICLE_COUNT; i++) {
       const rx = ((i * 73 + 19) % 997) / 997;
       const ry = ((i * 137 + 41) % 991) / 991;
@@ -120,26 +124,18 @@ export class BackdropSystem {
       pPos[i * 3] = (rx - 0.5) * ATMO_HALF_X * 2;
       pPos[i * 3 + 1] = baseY;
       pPos[i * 3 + 2] = (rz - 0.5) * ATMO_HALF_Z * 2;
-      this.atmoParticleBaseY[i] = baseY;
-      this.atmoParticlePhases[i] = (i * 0.618033988) % (Math.PI * 2);
-      this.atmoParticleSpeeds[i] = 0.65 + ((i * 37) % 100) * 0.0075;
+      pPhase[i] = (i * 0.618033988) % (Math.PI * 2);
       pCol[i * 3] = 0.6;
       pCol[i * 3 + 1] = 0.85;
       pCol[i * 3 + 2] = 1.0;
     }
     const atmoGeo = new THREE.BufferGeometry();
     atmoGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-    atmoGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 3));
-    this.atmoParticleMat = new THREE.PointsMaterial({
-      size: 0.62,
-      map: this.createSoftParticleTexture(),
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.66,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      fog: false,
-    });
+    atmoGeo.setAttribute('aColor', new THREE.BufferAttribute(pCol, 3));
+    atmoGeo.setAttribute('aPhase', new THREE.BufferAttribute(pPhase, 1));
+    this.atmoParticleMat = createScrollingPointsMaterial(0.62, 0.66, true, this.createSoftParticleTexture());
+    this.atmoParticleMat.uniforms.uHalfSpanXZ.value.set(ATMO_HALF_X, ATMO_HALF_Z);
+    this.atmoParticleMat.uniforms.uWaveAmp.value = 0.42;
     this.atmoParticles = new THREE.Points(atmoGeo, this.atmoParticleMat);
     this.atmoParticles.frustumCulled = false;
     this.atmoParticles.renderOrder = 4;
@@ -312,15 +308,33 @@ export class BackdropSystem {
     this.floorPulseAge = 0;
   }
 
+  setQuality(q: GraphicsQuality): void {
+    this.quality = q;
+    this.driftPlane.visible = q === 'high';
+    if (q === 'high') {
+      this.atmoParticles.geometry.setDrawRange(0, ATMO_PARTICLE_COUNT);
+    } else if (q === 'medium') {
+      this.atmoParticles.geometry.setDrawRange(0, Math.floor(ATMO_PARTICLE_COUNT * 0.5));
+    }
+  }
+
+  setPointScale(framebufferHeight: number): void {
+    const scale = Math.max(120, framebufferHeight * 0.5);
+    this.starLayerFarMat.uniforms.uPointScale.value = scale;
+    this.starLayerNearMat.uniforms.uPointScale.value = scale;
+    this.atmoParticleMat.uniforms.uPointScale.value = scale;
+  }
+
   private createStarLayer(
     count: number,
     yMin: number,
     yMax: number,
     size: number,
     opacity: number
-  ): THREE.Points {
+  ): { points: THREE.Points; mat: THREE.ShaderMaterial } {
     const positions = new Float32Array(count * 3);
     const colors = new Float32Array(count * 3);
+    const phases = new Float32Array(count);
     const palette = [
       new THREE.Color(0xf4f7ff),
       new THREE.Color(0x99ddff),
@@ -332,6 +346,7 @@ export class BackdropSystem {
       positions[i * 3] = (Math.random() - 0.5) * 240;
       positions[i * 3 + 1] = yMin + Math.random() * (yMax - yMin);
       positions[i * 3 + 2] = (Math.random() - 0.5) * 190;
+      phases[i] = i * 0.43;
 
       const c = palette[i % palette.length];
       colors[i * 3] = c.r;
@@ -341,20 +356,14 @@ export class BackdropSystem {
 
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geo.setAttribute('aColor', new THREE.BufferAttribute(colors, 3));
+    geo.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1));
 
-    return new THREE.Points(
-      geo,
-      new THREE.PointsMaterial({
-        size,
-        vertexColors: true,
-        transparent: true,
-        opacity,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-        fog: false,
-      })
-    );
+    const mat = createScrollingPointsMaterial(size, opacity, true);
+    mat.uniforms.uHalfSpanXZ.value.set(120, 95);
+    const points = new THREE.Points(geo, mat);
+    points.frustumCulled = false;
+    return { points, mat };
   }
 
   private buildLandmarkVisual(p: SectorMapProp): THREE.Object3D {
@@ -526,24 +535,15 @@ export class BackdropSystem {
     this.planetA.scale.setScalar(map.planetAOffset.scale);
     this.planetB.scale.setScalar(map.planetBOffset.scale);
 
-    // Retint drifting smoke sheets & space dust for the new sector
+    // Retint drifting smoke sheet & space dust for the new sector
     const atmo = map.atmosphere;
     (this.smokeNearMat.uniforms.uColorPrimary.value as THREE.Color).setHex(atmo.smokePrimaryHex);
     (this.smokeNearMat.uniforms.uColorSecondary.value as THREE.Color).setHex(atmo.smokeSecondaryHex);
-    this.smokeNearMat.uniforms.uOpacity.value = atmo.smokeOpacity * 0.55;
+    this.smokeNearMat.uniforms.uOpacity.value = atmo.smokeOpacity * 0.58;
     this.smokeNearMat.uniforms.uScale.value = atmo.smokeScale;
     (this.smokeNearMat.uniforms.uDrift.value as THREE.Vector2).set(atmo.smokeSpeedX, atmo.smokeSpeedZ);
 
-    (this.smokeMidMat.uniforms.uColorPrimary.value as THREE.Color).setHex(atmo.smokeSecondaryHex);
-    (this.smokeMidMat.uniforms.uColorSecondary.value as THREE.Color).setHex(atmo.fogHex);
-    this.smokeMidMat.uniforms.uOpacity.value = atmo.smokeOpacity * 0.42;
-    this.smokeMidMat.uniforms.uScale.value = atmo.smokeScale * 0.65;
-    (this.smokeMidMat.uniforms.uDrift.value as THREE.Vector2).set(
-      -atmo.smokeSpeedX * 0.65,
-      atmo.smokeSpeedZ * 0.45
-    );
-
-    const colAttr = this.atmoParticles.geometry.getAttribute('color') as THREE.BufferAttribute;
+    const colAttr = this.atmoParticles.geometry.getAttribute('aColor') as THREE.BufferAttribute;
     const cPrim = new THREE.Color(atmo.particleHex);
     const cAlt = new THREE.Color(atmo.particleAltHex);
     for (let i = 0; i < ATMO_PARTICLE_COUNT; i++) {
@@ -551,8 +551,8 @@ export class BackdropSystem {
       colAttr.setXYZ(i, c.r, c.g, c.b);
     }
     colAttr.needsUpdate = true;
-    this.atmoParticleMat.size = atmo.particleSize;
-    this.atmoParticleMat.opacity = Math.min(0.22, atmo.particleOpacity * 0.52);
+    this.atmoParticleMat.uniforms.uSize.value = atmo.particleSize;
+    this.atmoParticleMat.uniforms.uOpacity.value = Math.min(0.22, atmo.particleOpacity * 0.52);
     const nextBlending =
       atmo.particleKind === 'ash' ? THREE.NormalBlending : THREE.AdditiveBlending;
     if (this.atmoParticleMat.blending !== nextBlending) {
@@ -579,10 +579,11 @@ export class BackdropSystem {
   update(state: GameState, elapsedSec: number, dtSec: number): void {
     this.syncSectorMap(state);
     const inMenu = state.phase === 'MENU';
+    const isLow = this.quality === 'low';
     this.mapPropsGroup.visible = false;
-    this.smokeNearPlane.visible = !inMenu;
-    this.smokeMidPlane.visible = !inMenu;
-    this.atmoParticles.visible = !inMenu;
+    this.driftPlane.visible = this.quality === 'high';
+    this.smokeNearPlane.visible = !inMenu && !isLow;
+    this.atmoParticles.visible = !inMenu && !isLow;
 
     const playerWX = inMenu ? 0 : arenaToWorldX(state.player.x);
     const playerWZ = inMenu ? 0 : arenaToWorldZ(state.player.y);
@@ -610,52 +611,41 @@ export class BackdropSystem {
       bp.mat.emissiveIntensity = 0.45 + 0.75 * (0.5 + 0.5 * Math.sin(elapsedSec * 3.4 + bp.phase));
     }
 
-    const wrapStars = (points: THREE.Points, speed: number, warpMult: number) => {
-      const attr = points.geometry.getAttribute('position') as THREE.BufferAttribute;
-      const halfSpanX = 120;
-      const halfSpanZ = 95;
-      const spanX2 = halfSpanX * 2;
-      const spanZ2 = halfSpanZ * 2;
-      const warpVx = -shipDirX * warpBell * 185 * warpMult;
-      const warpVz = -shipDirZ * warpBell * 185 * warpMult;
-      for (let i = 0; i < attr.count; i++) {
-        let x = attr.getX(i) + warpVx * dtSec;
-        let z = attr.getZ(i) + (speed + warpVz) * dtSec;
-        while (x - playerWX > halfSpanX) x -= spanX2;
-        while (x - playerWX < -halfSpanX) x += spanX2;
-        while (z - playerWZ > halfSpanZ) z -= spanZ2;
-        while (z - playerWZ < -halfSpanZ) z += spanZ2;
-        attr.setX(i, x);
-        attr.setZ(i, z);
-      }
-      attr.needsUpdate = true;
-    };
+    // Wrap stars purely on GPU via uniform offsets (zero CPU per-particle buffer uploads)
+    const starFarWarpVx = -shipDirX * warpBell * 185 * 0.68;
+    const starFarWarpVz = -shipDirZ * warpBell * 185 * 0.68;
+    this.starFarOffsetX = (this.starFarOffsetX + starFarWarpVx * dtSec) % 240;
+    this.starFarOffsetZ = (this.starFarOffsetZ + (1.35 + starFarWarpVz) * dtSec) % 190;
+    (this.starLayerFarMat.uniforms.uPlayerXZ.value as THREE.Vector2).set(playerWX, playerWZ);
+    (this.starLayerFarMat.uniforms.uOffsetXZ.value as THREE.Vector2).set(
+      this.starFarOffsetX,
+      this.starFarOffsetZ
+    );
 
-    wrapStars(this.starLayerFar, 1.35, 0.68);
-    wrapStars(this.starLayerNear, 3.4, 1.2);
+    const starNearWarpVx = -shipDirX * warpBell * 185 * 1.2;
+    const starNearWarpVz = -shipDirZ * warpBell * 185 * 1.2;
+    this.starNearOffsetX = (this.starNearOffsetX + starNearWarpVx * dtSec) % 240;
+    this.starNearOffsetZ = (this.starNearOffsetZ + (3.4 + starNearWarpVz) * dtSec) % 190;
+    (this.starLayerNearMat.uniforms.uPlayerXZ.value as THREE.Vector2).set(playerWX, playerWZ);
+    (this.starLayerNearMat.uniforms.uOffsetXZ.value as THREE.Vector2).set(
+      this.starNearOffsetX,
+      this.starNearOffsetZ
+    );
 
-    if (!inMenu) {
-      // Push atmospheric dust past the ship (and crank it to 11 during hyperspace warps)
-      const pAttr = this.atmoParticles.geometry.getAttribute('position') as THREE.BufferAttribute;
+    if (!inMenu && !isLow) {
       const atmoWarpVx = -shipDirX * warpBell * 150;
       const atmoWarpVz = -shipDirZ * warpBell * 150;
-      for (let i = 0; i < ATMO_PARTICLE_COUNT; i++) {
-        const sp = this.atmoParticleSpeeds[i];
-        let x = pAttr.getX(i) + (this.atmoDriftX * sp + atmoWarpVx) * dtSec;
-        let z = pAttr.getZ(i) + (this.atmoDriftZ * sp + atmoWarpVz) * dtSec;
-        while (x - playerWX > ATMO_HALF_X) x -= ATMO_HALF_X * 2;
-        while (x - playerWX < -ATMO_HALF_X) x += ATMO_HALF_X * 2;
-        while (z - playerWZ > ATMO_HALF_Z) z -= ATMO_HALF_Z * 2;
-        while (z - playerWZ < -ATMO_HALF_Z) z += ATMO_HALF_Z * 2;
-        const y = this.atmoParticleBaseY[i] + Math.sin(elapsedSec * 1.15 + this.atmoParticlePhases[i]) * 0.42;
-        pAttr.setXYZ(i, x, y, z);
-      }
-      pAttr.needsUpdate = true;
+      this.atmoOffsetX = (this.atmoOffsetX + (this.atmoDriftX + atmoWarpVx) * dtSec) % (ATMO_HALF_X * 2);
+      this.atmoOffsetZ = (this.atmoOffsetZ + (this.atmoDriftZ + atmoWarpVz) * dtSec) % (ATMO_HALF_Z * 2);
+      (this.atmoParticleMat.uniforms.uPlayerXZ.value as THREE.Vector2).set(playerWX, playerWZ);
+      (this.atmoParticleMat.uniforms.uOffsetXZ.value as THREE.Vector2).set(
+        this.atmoOffsetX,
+        this.atmoOffsetZ
+      );
+      this.atmoParticleMat.uniforms.uTime.value = elapsedSec;
 
       this.smokeNearPlane.position.set(playerWX, -6.8, playerWZ);
-      this.smokeMidPlane.position.set(playerWX, -19.5, playerWZ);
       this.smokeNearMat.uniforms.uTime.value = this.warpSmokeTime;
-      this.smokeMidMat.uniforms.uTime.value = this.warpSmokeTime;
     }
 
     // Wrap exoplanets smoothly around the infinite scrolling backdrop so warp travel actually passes planets
