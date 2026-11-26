@@ -12,10 +12,10 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&family=JetBrains+Mono:wght@500;700;800&display=swap"
     rel="stylesheet" />
-  <script type="module" crossorigin src="./assets/index-CCcoVAzw.js"></script>
+  <script type="module" crossorigin src="./assets/index-5JIi_rpo.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/three-CzrI9pao.js">
-  <link rel="modulepreload" crossorigin href="./assets/firebase-B4j5SGmZ.js">
-  <link rel="stylesheet" crossorigin href="./assets/index-CuvmWoQd.css">
+  <link rel="modulepreload" crossorigin href="./assets/firebase-B4I1TZlS.js">
+  <link rel="stylesheet" crossorigin href="./assets/index-Sy-DmVQW.css">
 </head>
 
 <body>
@@ -571,28 +571,31 @@
 
       <div class="gameover-grid">
         <div class="gameover-left">
-          <div class="stats-summary">
-            <div class="stat-row">
-              <span data-lang="score">Điểm</span>
-              <strong id="finalScore" class="stat-highlight">0</strong>
+          <div class="go-score-hero">
+            <div class="go-score-kicker" data-lang="goHeroScoreLabel">TỔNG ĐIỂM CHIẾN DỊCH</div>
+            <div class="go-score-main-row">
+              <strong id="finalScore" class="go-hero-score">0</strong>
+              <span class="go-combo-pill">MAX COMBO <strong id="finalCombo">0</strong>x</span>
             </div>
-            <div class="stat-row">
+            <div id="goDopamineBanner" class="go-dopamine-banner">
+              <span id="rankPreview" class="rank-preview"></span>
+            </div>
+          </div>
+
+          <div class="go-mini-stats">
+            <div class="go-mini-stat">
               <span data-lang="wave">Wave</span>
-              <strong id="finalWave" class="stat-highlight">0</strong>
+              <strong id="finalWave">0</strong>
             </div>
-            <div class="stat-row">
-              <span data-lang="maxCombo">Combo Tối Đa</span>
-              <strong id="finalCombo">0</strong>
-            </div>
-            <div class="stat-row">
-              <span data-lang="bossesSlain">Boss Đã Hạ</span>
-              <strong id="finalBosses">0</strong>
-            </div>
-            <div class="stat-row">
+            <div class="go-mini-stat">
               <span data-lang="roomsCleared">Phòng Đã Vượt</span>
               <strong id="finalRooms">0</strong>
             </div>
-            <div class="stat-row">
+            <div class="go-mini-stat">
+              <span data-lang="bossesSlain">Boss Đã Hạ</span>
+              <strong id="finalBosses">0</strong>
+            </div>
+            <div class="go-mini-stat">
               <span data-lang="shardsEarned">Scrap Shards</span>
               <strong id="finalShards" class="stat-highlight">+0</strong>
             </div>
@@ -601,26 +604,30 @@
           <div id="gameOverLoadoutCard" class="gameover-loadout-card"></div>
 
           <div class="submit-box">
-            <p class="submit-encourage" data-lang="encourageSubmit">Ghi danh lên Bảng Xếp Hạng Thiên Hà!</p>
-            <p id="rankPreview" class="rank-preview"></p>
-            <input id="playerNameInput" class="pilot-input" type="text" maxlength="20" data-lang-placeholder="enterName"
-              placeholder="Nhập tên phi công..." />
-            <button id="submitScoreBtn" class="btn btn-amber" type="button">
-              <span data-lang="submitScore">GỬI ĐIỂM</span>
-            </button>
+            <p class="submit-encourage" id="submitEncourageMsg" data-lang="encourageSubmit">Ghi tên lên Bảng Vàng trước khi kẻ khác vượt mặt!</p>
+            <p id="savedPilotHint" class="go-saved-hint hidden" data-lang="lbSavedPilotHint">Đã tự điền biệt danh của bạn — nhấn Enter hoặc nút bên cạnh để lưu</p>
+            <div class="submit-inline-row">
+              <input id="playerNameInput" class="pilot-input" type="text" maxlength="20" autocomplete="nickname"
+                data-lang-placeholder="enterName" placeholder="Nhập biệt danh phi công..." />
+              <button id="submitScoreBtn" class="btn btn-amber" type="button">
+                <span id="submitScoreLabel" data-lang="submitScore">GỬI ĐIỂM</span>
+              </button>
+            </div>
             <p id="submitStatusMsg" class="submit-status"></p>
           </div>
 
           <div class="gameover-actions">
-            <button id="playAgainBtn" class="btn btn-steel" type="button">
+            <button id="playAgainBtn" class="btn btn-steel go-play-primary" type="button">
               <span data-lang="playAgain">CHƠI LẠI</span>
             </button>
-            <button id="gameOverForgeBtn" class="btn btn-wire" type="button">
-              <span data-lang="metaForgeBtn">XƯỞNG META</span>
-            </button>
-            <button id="gameOverMenuBtn" class="btn btn-wire" type="button">
-              <span data-lang="mainMenu">MENU CHÍNH</span>
-            </button>
+            <div class="go-secondary-actions">
+              <button id="gameOverForgeBtn" class="btn btn-wire" type="button">
+                <span data-lang="metaForgeBtn">XƯỞNG META</span>
+              </button>
+              <button id="gameOverMenuBtn" class="btn btn-wire" type="button">
+                <span data-lang="mainMenu">MENU CHÍNH</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -632,8 +639,7 @@
               <span id="gameOverLbStatusLabel">ĐANG ĐỒNG BỘ...</span>
             </span>
           </div>
-          <div id="gameOverLeaderboardBody" class="leaderboard-scroll"></div>
-          <div id="gameOverLbInspector" class="lb-inspector compact"></div>
+          <div id="gameOverLeaderboardBody" class="leaderboard-scroll go-lb-list-scroll"></div>
         </div>
       </div>
     </div>
@@ -645,7 +651,10 @@
       <div class="console-header">
         <div>
           <div class="panel-kicker" data-lang="lbKicker">MẠNG QUỸ ĐẠO // BẢNG XẾP HẠNG TRỰC TUYẾN</div>
-          <h2 class="modal-title" data-lang="leaderboardTitle">BẢNG XẾP HẠNG</h2>
+          <div class="lb-title-row">
+            <h2 class="modal-title" data-lang="leaderboardTitle">BẢNG XẾP HẠNG</h2>
+            <span id="lbSubtitleMeta" class="lb-subtitle-meta"></span>
+          </div>
         </div>
         <div class="lb-header-actions">
           <div id="lbConnBadge" class="lb-conn-badge state-connecting">
@@ -658,17 +667,10 @@
         </div>
       </div>
 
-      <div class="lb-toolbar">
-        <div id="lbHullFilters" class="lb-hull-filters"></div>
-        <div id="lbSummaryStats" class="lb-summary-stats"></div>
-      </div>
-
-      <div class="lb-split-layout">
-        <div class="lb-list-pane">
-          <div class="lb-pane-hint" data-lang="lbClickInspectHint">Chọn một phi công trong danh sách để xem chi tiết tàu và 6 ổ cứng trang bị</div>
-          <div id="leaderboardBody" class="leaderboard-scroll tall"></div>
-        </div>
-        <aside id="leaderboardInspector" class="lb-detail-pane"></aside>
+      <div class="console-scroll lb-console-scroll">
+        <div id="lbPodium" class="lb-podium"></div>
+        <div id="lbRivalBanner" class="lb-rival-banner hidden"></div>
+        <div id="leaderboardBody" class="lb-clean-body"></div>
       </div>
 
       <div class="console-footer">
