@@ -25,7 +25,7 @@ import type {
   GameState,
 } from '../types';
 import { registerComboKill } from './ComboSystem';
-import { createEnemy } from './EnemySystem';
+import { computeOffscreenSpawnPoint, computePerimeterBandPoint, createEnemy } from './EnemySystem';
 import { damagePlayer } from './PlayerSystem';
 import { startStormTransition } from './WaveSystem';
 
@@ -360,6 +360,7 @@ export function hitBoss(
   if (shielded) {
     finalDmg = Math.max(1, Math.floor(damage * 0.35));
     spawnParticleBurst(state, hitX, hitY, 0x34d399, 3, 2.0, 2.5, 12);
+    bus.emit('ARMOR_DEFLECTED', { x: hitX, y: hitY });
   } else if (staggered) {
     finalDmg = Math.floor(damage * 1.35);
     spawnParticleBurst(state, hitX, hitY, 0x34d399, 6, 2.8, 3.4, 16);
@@ -370,6 +371,9 @@ export function hitBoss(
     const mult = boss.armorPlates >= 3 ? 0.65 : 0.85;
     finalDmg = Math.max(1, Math.floor(damage * mult));
     spawnParticleBurst(state, hitX, hitY, 0xffaa44, 4, 2.2, 2.6, 12);
+    if (boss.armorPlates >= 3) {
+      bus.emit('ARMOR_DEFLECTED', { x: hitX, y: hitY });
+    }
   } else if (bastionExposed) {
     finalDmg = Math.floor(damage * 1.2);
     spawnParticleBurst(state, hitX, hitY, 0xffdd55, 5, 2.6, 3.2, 16);
@@ -473,6 +477,7 @@ export function hitBossPylon(
     addScreenShake(state, 10);
     spawnShockwave(state, pylon.x, pylon.y, 110, 0x34d399, 22);
     spawnParticleBurst(state, pylon.x, pylon.y, 0x34d399, 26, 4.5, 4.5, 24);
+    bus.emit('SHIELD_BROKEN', { x: pylon.x, y: pylon.y, major: boss.pylons.length === 0 });
 
     if (boss.pylons.length === 0) {
       // Smash all 3 emerald pylons and the Boss drops its shield into a juicy stun window
@@ -533,6 +538,7 @@ export function hitBossClone(
     addScreenShake(state, 7);
     spawnShockwave(state, clone.x, clone.y, 95, 0x22d3ee, 18);
     spawnParticleBurst(state, clone.x, clone.y, 0x22d3ee, 22, 4.0, 4.0, 22);
+    bus.emit('SHIELD_BROKEN', { x: clone.x, y: clone.y, major: false });
     state.player.energy = Math.min(state.player.maxEnergy, state.player.energy + 20);
     state.player.heat = Math.max(0, state.player.heat - 20);
     state.player.isOverloaded = state.player.heat >= state.player.maxHeat;
@@ -1063,23 +1069,18 @@ function executeBossSkill(state: GameState, boss: BossEntity, bus: EventBus, for
     const count = 2 + boss.phase;
     for (let i = 0; i < count; i++) {
       const ang = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
-      const sideSign = i % 2 === 0 ? -1 : 1;
-      const bayX = boss.x + sideSign * 26;
-      const bayY = boss.y + 12;
-      const targetPt = clampPointToStorm(
-        boss.x + Math.cos(ang) * 165,
-        boss.y + Math.sin(ang) * 145,
-        state.stormRing,
-        55
-      );
-      const minion = createEnemy(state, 'small', true, { x: bayX, y: bayY }, i, count);
+      const off = computeOffscreenSpawnPoint(state, ang, (i % 2) * 45);
+      const targetPt = computePerimeterBandPoint(state, ang, 0.88 + (i % 2) * 0.08);
+      const minion = createEnemy(state, 'small', true, { x: off.x, y: off.y }, i, count);
       minion.ingressActive = true;
       minion.ingressTargetX = targetPt.x;
       minion.ingressTargetY = targetPt.y;
+      minion.sectorAngle = targetPt.angle;
+      minion.faceAngle = Math.atan2(targetPt.y - minion.y, targetPt.x - minion.x);
       minion.maxHp = 180 + boss.phase * 90;
       minion.hp = minion.maxHp;
       state.enemies.push(minion);
-      spawnParticleBurst(state, bayX, bayY, 0xaa44ff, 12, 2.5, 3.5, 20);
+      spawnParticleBurst(state, boss.x, boss.y, 0xaa44ff, 8, 2.2, 3.2, 16);
     }
   } else if (attack === 'lotusSpiral') {
     const count = 14 + boss.phase * 6;
@@ -1591,6 +1592,7 @@ function updateBossHazardZones(
         addScreenShake(state, 11);
         spawnShockwave(state, z.x, z.y, z.radius * 1.15, z.hex, 22);
         spawnParticleBurst(state, z.x, z.y, z.hex, 24, 5.2, 4.4, 24);
+        bus.emit('HAZARD_EXPLODED', { x: z.x, y: z.y, radius: z.radius });
         const dist = Math.hypot(p.x - z.x, p.y - z.y);
         if (!isDashing && dist <= z.radius + p.radius * 0.5) {
           damagePlayer(state, bus, z.damage, true, triggerGameOver);
@@ -1919,6 +1921,7 @@ export function updateBossSystem(
         boss.armorPlates = 2;
         spawnShockwave(state, boss.x, boss.y, 230, 0xff9922, 26);
         spawnFloatingText(state, boss.x, boss.y - 58, 'PLATES SHATTERED! [2/4]', '#ffaa33', 1.35, 56);
+        bus.emit('SHIELD_BROKEN', { x: boss.x, y: boss.y, major: true });
         for (let i = 0; i < 12; i++) {
           state.scheduledBullets.push({
             x: boss.x,
@@ -1944,6 +1947,7 @@ export function updateBossSystem(
         boss.armorPlates = 0;
         spawnShockwave(state, boss.x, boss.y, 270, 0xffdd44, 30);
         spawnFloatingText(state, boss.x, boss.y - 62, 'CORE EXPOSED! +20% DMG', '#ffdd55', 1.4, 62);
+        bus.emit('SHIELD_BROKEN', { x: boss.x, y: boss.y, major: true });
         for (let i = 0; i < 18; i++) {
           state.scheduledBullets.push({
             x: boss.x,
@@ -2082,6 +2086,7 @@ export function updateBossSystem(
       boss.attackFlash = 1;
       boss.bodyRecoil = 1;
       boss.sniperShotsFired++;
+      bus.emit('SNIPER_FIRED', { x: boss.x, y: boss.y, isBoss: true });
       if (boss.sniperShotsFired >= boss.sniperMaxShots) {
         boss.sniperActive = false;
       }
@@ -2229,6 +2234,7 @@ export function updateBossSystem(
       spawnShockwave(state, m.x, m.y, 92, m.hex, 20);
       spawnParticleBurst(state, m.x, m.y, m.hex, 20, 4, 4, 24);
       addScreenShake(state, 9);
+      bus.emit('HAZARD_EXPLODED', { x: m.x, y: m.y, radius: 92 });
       if (pDist < 88) {
         damagePlayer(state, bus, getBossDamage(boss, 14), true, triggerGameOver);
       }
@@ -2262,6 +2268,7 @@ export function updateBossSystem(
       addScreenShake(state, 12);
       spawnShockwave(state, boss.x, boss.y, 125, isChronoSlash ? 0xc084fc : boss.hex, 22);
       spawnParticleBurst(state, boss.x, boss.y, isChronoSlash ? 0xc084fc : boss.hex, 28, 4.2, 4.4, 24);
+      bus.emit('ENTITY_TELEPORTED', { x: boss.x, y: boss.y, isBoss: true });
 
       if (isChronoSlash) {
         const aim = Math.atan2(state.player.y - boss.y, state.player.x - boss.x);

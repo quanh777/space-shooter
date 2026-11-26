@@ -1,4 +1,4 @@
-import { PLAYER_BASE, SKILL_BASE } from '../../config/constants';
+import { OVERHEAT_FIRE_CD_MULT, PLAYER_BASE, SKILL_BASE } from '../../config/constants';
 import { countMutationStacks } from '../../config/mutations';
 import { ALL_SHOP_ITEM_IDS, SHOP_ITEMS, type ShopItemId } from '../../config/shopItems';
 import { generateSectorMap } from '../map/SectorMapGenerator';
@@ -469,7 +469,7 @@ export function computeMountedPrimaryStats(
   const aetherSpdMult = syn.tiers.AETHER >= 2 ? 1.15 : 1.0;
   const aetherPierceBonus = syn.tiers.AETHER >= 3 ? 1 : 0;
 
-  // Three thermal zones: Cool (<60%), Redline (60-99%: +18% DMG risk-reward), Overheat (>=100%: +30% DMG, sluggish fire)
+  // Three thermal zones: Cool (<60%), Redline (60-99%: +18% DMG risk-reward), Overheat (>=100%: +30% DMG, heavily penalized fire & flight)
   const heatRatio = Math.max(0, player.heat / Math.max(1, player.maxHeat));
   let overloadMult = player.isOverloaded
     ? syn.tiers.IRONFORGE >= 3
@@ -478,7 +478,7 @@ export function computeMountedPrimaryStats(
     : heatRatio >= 0.6
       ? 1.18
       : 1.0;
-  const heatCdMult = player.isOverloaded ? 1.4 : 1.0;
+  const heatCdMult = player.isOverloaded ? OVERHEAT_FIRE_CD_MULT : 1.0;
 
   if (player.loadout.activeAugments.includes('hellfire_reactor')) {
     overloadMult *= 1 + Math.min(1, heatRatio) * 0.55;

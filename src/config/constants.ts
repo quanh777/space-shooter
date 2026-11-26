@@ -34,6 +34,15 @@ export const PLAYER_BASE = {
   critMultiplier: 2.0,
 } as const;
 
+// Thermal, movement and manual-aim balance constants
+export const OVERHEAT_FIRE_CD_MULT = 1.95;
+export const OVERHEAT_MOVE_SPEED_MULT = 0.58;
+export const FIRING_MOVE_SPEED_MULT = 0.76;
+export const MANUAL_AIM_DAMAGE_MULT = 1.18;
+export const MANUAL_AIM_CRIT_BONUS = 0.10;
+export const MANUAL_AIM_BULLET_SPEED_MULT = 1.15;
+export const MANUAL_AIM_SPREAD_MULT = 0.82;
+
 export const SKILL_BASE = {
   level: 1,
   maxLevel: 99,

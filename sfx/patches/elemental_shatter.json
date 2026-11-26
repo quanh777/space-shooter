@@ -1,0 +1,111 @@
+{
+  "name": "elemental_shatter",
+  "description": "Elemental Shatter / Overload reaction: crystalline burst + resonant shock thump.",
+  "layers": [
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          230
+        ],
+        [
+          0.28,
+          42
+        ]
+      ],
+      "drive": 1.7,
+      "env": {
+        "attack": 0.002,
+        "hold": 0.03,
+        "release": 0.25,
+        "curve": 2.0
+      },
+      "gain_db": -2
+    },
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          1650
+        ],
+        [
+          0.18,
+          560
+        ]
+      ],
+      "fm": {
+        "ratio": 1.6,
+        "index": [
+          [
+            0,
+            2.2
+          ],
+          [
+            0.15,
+            0.3
+          ]
+        ]
+      },
+      "env": {
+        "attack": 0.001,
+        "hold": 0.02,
+        "release": 0.19,
+        "curve": 2.6
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": 6800
+        }
+      ],
+      "gain_db": -3
+    },
+    {
+      "wave": "noise",
+      "env": {
+        "attack": 0.001,
+        "hold": 0.01,
+        "release": 0.18,
+        "curve": 2.4
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": [
+            [
+              0,
+              3100
+            ],
+            [
+              0.18,
+              820
+            ]
+          ],
+          "q": 1.4
+        }
+      ],
+      "gain_db": -4
+    }
+  ],
+  "master": {
+    "lufs": -14,
+    "peak_db": -1,
+    "highpass": 42,
+    "reverb": {
+      "mix": 0.15,
+      "decay": 0.42
+    }
+  },
+  "expect": {
+    "duration": [
+      0.2,
+      0.72
+    ],
+    "centroid": [
+      220,
+      2800
+    ]
+  }
+}

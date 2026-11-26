@@ -57,6 +57,7 @@ import type { SoundEngine } from '../audio/SoundEngine';
 import type { EventBus } from '../engine/EventBus';
 import type { InputManager } from '../engine/InputManager';
 import type { GameSimulation } from '../game/GameSimulation';
+import { spawnFloatingText } from '../game/GameState';
 import {
   computeActiveSynergies,
   computeMountedPrimaryStats,
@@ -1047,7 +1048,7 @@ export class UIManager {
     click('hudPauseBtn', () => this.sim.togglePause());
     click('hudAimBtn', () => {
       this.input.aimMode = this.input.aimMode === 'auto' ? 'mouse' : 'auto';
-      this.syncControlButtons();
+      this.announceAimModeSwitch();
     });
     click('hudAutoFireBtn', () => {
       this.input.autoFire = !this.input.autoFire;
@@ -1064,7 +1065,7 @@ export class UIManager {
     });
     click('pauseAimBtn', () => {
       this.input.aimMode = this.input.aimMode === 'auto' ? 'mouse' : 'auto';
-      this.syncControlButtons();
+      this.announceAimModeSwitch();
       this.renderPause();
     });
     click('pauseAutoFireBtn', () => {
@@ -1140,8 +1141,25 @@ export class UIManager {
     this.hudMuteBtn.textContent = label;
   }
 
+  announceAimModeSwitch(): void {
+    this.syncControlButtons();
+    const s = this.sim.state;
+    if (s.phase === 'PLAYING') {
+      const isMouse = this.input.aimMode === 'mouse';
+      spawnFloatingText(
+        s,
+        s.player.x,
+        s.player.y - 34,
+        isMouse ? 'MANUAL AIM · +18% DMG +10% CRIT' : 'AUTO-AIM FCS',
+        isMouse ? '#fbbf24' : '#38e8ff',
+        1.08,
+        36
+      );
+    }
+  }
+
   syncControlButtons(): void {
-    this.hudAimBtn.textContent = this.input.aimMode === 'auto' ? 'FCS:AUTO' : 'AIM:MOUSE';
+    this.hudAimBtn.textContent = this.input.aimMode === 'auto' ? 'FCS:AUTO' : 'AIM:MOUSE +18%';
     this.hudAimBtn.classList.toggle('active', this.input.aimMode === 'mouse');
     this.hudAutoFireBtn.textContent = this.input.autoFire ? 'FIRE:AUTO' : 'FIRE:HOLD';
     this.hudAutoFireBtn.classList.toggle('active', this.input.autoFire);

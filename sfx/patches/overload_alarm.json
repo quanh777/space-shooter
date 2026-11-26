@@ -1,0 +1,69 @@
+{
+  "name": "overload_alarm",
+  "description": "Cockpit overheat klaxon + pressurized thermal hiss.",
+  "layers": [
+    {
+      "wave": "saw",
+      "at": [
+        0,
+        0.14
+      ],
+      "freq": [
+        [
+          0,
+          520
+        ],
+        [
+          0.11,
+          250
+        ]
+      ],
+      "detune_cents": 10,
+      "env": {
+        "attack": 0.003,
+        "hold": 0.025,
+        "release": 0.09,
+        "curve": 2.3
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": 2600
+        }
+      ],
+      "gain_db": -2
+    },
+    {
+      "wave": "noise",
+      "env": {
+        "attack": 0.004,
+        "hold": 0.05,
+        "release": 0.22,
+        "curve": 2.2
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": 1900,
+          "q": 1.4
+        }
+      ],
+      "gain_db": -7
+    }
+  ],
+  "master": {
+    "lufs": -16,
+    "peak_db": -1,
+    "highpass": 110
+  },
+  "expect": {
+    "duration": [
+      0.22,
+      0.58
+    ],
+    "centroid": [
+      260,
+      2200
+    ]
+  }
+}

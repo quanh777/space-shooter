@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import * as THREE from 'three';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { SFX_MANIFEST } from '../audio/SoundEngine';
-import { PLAYER_BASE } from '../config/constants';
+import { SFX_MANIFEST, SoundEngine } from '../audio/SoundEngine';
+import { MANUAL_AIM_CRIT_BONUS, MANUAL_AIM_DAMAGE_MULT, PLAYER_BASE } from '../config/constants';
 import { ALL_SHOP_ITEM_IDS } from '../config/shopItems';
 import { SECTOR_HAZARDS, WEAPON_CATALOG, type PrimaryWeaponCatalogEntry } from '../config/weapons';
 import { EventBus } from '../engine/EventBus';
@@ -12,7 +12,7 @@ import { GameSimulation } from '../game/GameSimulation';
 import { spawnFloatingText } from '../game/GameState';
 import { generateSectorMap } from '../game/map/SectorMapGenerator';
 import { createBoss, hitBoss, hitBossClone, hitBossPylon } from '../game/systems/BossSystem';
-import { applyElementalImpact } from '../game/systems/CombatSystem';
+import { applyElementalImpact, damageArenaObstacle } from '../game/systems/CombatSystem';
 import { registerComboKill, updateComboSystem } from '../game/systems/ComboSystem';
 import { createEnemy, updateEnemySystem } from '../game/systems/EnemySystem';
 import { damagePlayer } from '../game/systems/PlayerSystem';
@@ -2947,7 +2947,7 @@ describe('Combat Balance, Spatial Warp & Anti-IDM Sound Bank Tests', () => {
     expect(warpArrived).toBe(1);
   });
 
-  it('packs all 56 procedural SFX clips into public/assets/sfx-bank.json without loose .wav files and keeps valid WAVs in sfx/rendered/', () => {
+  it('packs all 70 procedural SFX clips into public/assets/sfx-bank.json without loose .wav files and keeps valid WAVs in sfx/rendered/', () => {
     const publicDir = path.resolve(process.cwd(), 'public');
     const bankPath = path.join(publicDir, 'assets', 'sfx-bank.json');
     expect(fs.existsSync(bankPath), 'Missing public/assets/sfx-bank.json').toBe(true);
@@ -2974,7 +2974,7 @@ describe('Combat Balance, Spatial Warp & Anti-IDM Sound Bank Tests', () => {
     expect(bank.sampleRate).toBe(44100);
 
     const manifestEntries = Object.entries(SFX_MANIFEST);
-    expect(manifestEntries.length).toBe(44);
+    expect(manifestEntries.length).toBe(56);
     let totalClips = 0;
     for (const [key, files] of manifestEntries) {
       const encoded = bank.clips[key];
@@ -2987,12 +2987,12 @@ describe('Combat Balance, Spatial Warp & Anti-IDM Sound Bank Tests', () => {
         totalClips++;
       }
     }
-    expect(totalClips).toBe(56);
+    expect(totalClips).toBe(70);
 
-    // Verify all 56 doctor-checked WAV sources exist cleanly inside sfx/rendered/
+    // Verify all 70 QA-verified WAV sources exist cleanly inside sfx/rendered/
     const renderedDir = path.resolve(process.cwd(), 'sfx', 'rendered');
     const allFiles = Object.values(SFX_MANIFEST).flat();
-    expect(allFiles.length).toBe(56);
+    expect(allFiles.length).toBe(70);
     for (const filename of allFiles) {
       const fullPath = path.join(renderedDir, filename);
       expect(fs.existsSync(fullPath), `Missing rendered WAV: ${filename}`).toBe(true);
@@ -3823,5 +3823,323 @@ describe('Graphics Optimization & Adaptive Quality Governor Tests', () => {
     expect(sim.state.onboarding.active).toBe(false);
     expect(completedCount).toBe(2);
     expect(sim.state.enemies.length).toBeGreaterThan(0);
+  });
+});
+
+describe('Combat Balance, Sound Events & Perimeter Enemy AI Tests', () => {
+  beforeEach(() => {
+    metaProgression.resetForTests(0);
+  });
+
+  it('emits dedicated audio events for barrels, lightning arcs, sniper fire, bomber warning, hazards, shield breaks, teleports, and deflects', () => {
+    const bus = new EventBus();
+    const sound = new SoundEngine(bus);
+    const sim = new GameSimulation(bus);
+    sim.startNewGame('interceptor');
+    const s = sim.state;
+
+    let barrelCount = 0;
+    let lightningCount = 0;
+    let sniperFiredCount = 0;
+    let bomberPrimedCount = 0;
+    let hazardCount = 0;
+    let shieldBrokenCount = 0;
+    let teleportCount = 0;
+    let deflectCount = 0;
+
+    bus.on('BARREL_EXPLODED', () => barrelCount++);
+    bus.on('LIGHTNING_ARC', () => lightningCount++);
+    bus.on('SNIPER_FIRED', () => sniperFiredCount++);
+    bus.on('BOMBER_PRIMED', () => bomberPrimedCount++);
+    bus.on('HAZARD_EXPLODED', () => hazardCount++);
+    bus.on('SHIELD_BROKEN', () => shieldBrokenCount++);
+    bus.on('ENTITY_TELEPORTED', () => teleportCount++);
+    bus.on('ARMOR_DEFLECTED', () => deflectCount++);
+
+    // 1. TNT / Plasma barrel blast
+    s.enemies = [];
+    s.arenaObstacles = [
+      {
+        id: 88001,
+        kind: 'plasma_barrel',
+        x: s.player.x + 120,
+        y: s.player.y,
+        radius: 20,
+        hp: 10,
+        maxHp: 20,
+        rotAngle: 0,
+        rotSpeed: 0,
+        flash: 0,
+        hex: 0xff5a1f,
+      },
+    ];
+    damageArenaObstacle(s, s.arenaObstacles[0], 50, bus);
+    expect(barrelCount).toBe(1);
+
+    // 2. Lightning arcs (Ion EMP skill + Graze lightning mutation)
+    s.hitStopMs = 0;
+    s.money = 1000;
+    const arcTarget = createEnemy(s, 'medium', false, { x: s.player.x + 150, y: s.player.y });
+    s.enemies = [arcTarget];
+    expect(sim.mountWeapon('skill_1', 'skill_emp').ok).toBe(true);
+    s.player.energy = 100;
+    s.player.skill.lastUseMs = -10000;
+    sim.step(idleInput({ bomb: true }), 1 / 60);
+    expect(lightningCount).toBeGreaterThanOrEqual(1);
+
+    // 3. Bomber prime + Bomber blast
+    const bomber = createEnemy(s, 'small', false, { x: s.player.x + 40, y: s.player.y }, 0, 1, 'bomber');
+    s.enemies = [bomber];
+    for (let i = 0; i < 60 && bomber.hp > 0; i++) {
+      s.simTimeMs += 1000 / 60;
+      updateEnemySystem(s, 1000 / 60, bus);
+    }
+    expect(bomberPrimedCount).toBeGreaterThanOrEqual(1);
+    expect(barrelCount).toBeGreaterThanOrEqual(2);
+
+    // 4. Sniper shot & Elite teleport
+    const sniper = createEnemy(s, 'small', false, { x: s.player.x + 240, y: s.player.y }, 0, 1, 'sniper');
+    sniper.lastShotMs = -10000;
+    const elite = createEnemy(s, 'elite', false, { x: s.player.x - 240, y: s.player.y });
+    elite.hp = 10;
+    elite.maxHp = 100;
+    elite.teleportCooldown = 0;
+    elite.warpWarmupTimer = 1;
+    s.enemies = [sniper, elite];
+    for (let i = 0; i < 180 && (sniperFiredCount === 0 || teleportCount === 0); i++) {
+      s.simTimeMs += 1000 / 60;
+      updateEnemySystem(s, 1000 / 60, bus);
+    }
+    expect(sniperFiredCount).toBeGreaterThanOrEqual(1);
+    expect(teleportCount).toBeGreaterThanOrEqual(1);
+
+    // 5. Boss pylon armor deflect, pylon shield break & orbital hazard detonation
+    s.wave = 5;
+    s.enemies = [];
+    const boss = createBoss(s, 0);
+    boss.entering = false;
+    boss.pylons.push({
+      id: 88010,
+      x: boss.x + 60,
+      y: boss.y,
+      hp: 10,
+      maxHp: 100,
+      radius: 20,
+      angle: 0,
+      orbitRadius: 60,
+      hitFlash: 0,
+      fireTimerMs: 5000,
+      hex: 0x34d399,
+    });
+    boss.hazardZones.push({
+      id: 88011,
+      x: boss.x,
+      y: boss.y,
+      radius: 75,
+      warningMs: 10,
+      maxWarningMs: 100,
+      detonateFlashMs: 0,
+      damage: 15,
+      hex: 0xfb7185,
+      detonated: false,
+    });
+    s.boss = boss;
+    hitBoss(s, boss, 50, false, boss.x, boss.y, bus);
+    hitBossPylon(s, boss, boss.pylons[0], 50, false, bus);
+    s.hitStopMs = 0;
+    sim.step(idleInput(), 1 / 60);
+    expect(deflectCount).toBeGreaterThanOrEqual(1);
+    expect(shieldBrokenCount).toBeGreaterThanOrEqual(1);
+    expect(hazardCount).toBeGreaterThanOrEqual(1);
+    sound.destroy();
+  });
+
+  it('heavily penalizes fire rate and movement speed during Overheat and slows movement while firing', () => {
+    const bus = new EventBus();
+    const sim = new GameSimulation(bus);
+    sim.startNewGame('interceptor');
+    const s = sim.state;
+    s.enemies = [];
+    s.arenaObstacles = [];
+
+    const mounted = s.player.loadout.slots.wing_l1!;
+    s.player.heat = 0;
+    s.player.isOverloaded = false;
+    const coolStats = computeMountedPrimaryStats(mounted, s.player, 'wing_l1');
+
+    s.player.heat = s.player.maxHeat;
+    s.player.isOverloaded = true;
+    const overheatStats = computeMountedPrimaryStats(mounted, s.player, 'wing_l1');
+    expect(overheatStats.cooldownMs).toBeGreaterThanOrEqual(Math.round(coolStats.cooldownMs * 1.9));
+
+    const measureMoveX = (shoot: boolean, overloaded: boolean): number => {
+      sim.startNewGame('interceptor');
+      sim.state.enemies = [];
+      sim.state.arenaObstacles = [];
+      sim.state.player.heat = overloaded ? sim.state.player.maxHeat + 10 : 0;
+      sim.state.player.isOverloaded = overloaded;
+      sim.state.player.lastShotMs = -10000;
+      const startX = sim.state.player.x;
+      for (let i = 0; i < 40; i++) {
+        if (overloaded) {
+          sim.state.player.heat = sim.state.player.maxHeat + 10;
+          sim.state.player.isOverloaded = true;
+        } else {
+          sim.state.player.heat = 0;
+          sim.state.player.isOverloaded = false;
+        }
+        sim.step(idleInput({ moveX: 1, moveY: 0, shoot }), 1 / 60);
+      }
+      return sim.state.player.x - startX;
+    };
+
+    const normalDist = measureMoveX(false, false);
+    const firingMoveDist = measureMoveX(true, false);
+    const overheatIdleDist = measureMoveX(false, true);
+    const overheatFiringDist = measureMoveX(true, true);
+
+    expect(firingMoveDist).toBeLessThan(normalDist * 0.85);
+    expect(overheatIdleDist).toBeLessThan(normalDist * 0.65);
+    expect(overheatFiringDist).toBeLessThan(overheatIdleDist);
+  });
+
+  it('rewards manual mouse aiming over Auto-Aim with +18% damage, +15% projectile speed, +10% crit bonus, and true manual direction', () => {
+    const bus = new EventBus();
+    const sim = new GameSimulation(bus);
+    sim.startNewGame('interceptor');
+    const s = sim.state;
+    s.arenaObstacles = [];
+    // Place enemy behind the player while mouse cursor points forward (+X)
+    const enemyBehind = createEnemy(s, 'large', false, { x: s.player.x - 180, y: s.player.y });
+    enemyBehind.speed = 0;
+    s.enemies = [enemyBehind];
+
+    // Auto-Aim targets nearest enemy (-X) with baseline damage/speed
+    s.bullets = [];
+    s.player.loadout.slots.wing_l1!.lastFireMs = -10000;
+    sim.step(idleInput({ shoot: true, aimMode: 'auto' }), 1 / 60);
+    const autoBullet = s.bullets.find((b) => !b.isEnemy)!;
+    expect(autoBullet).toBeDefined();
+    expect(autoBullet.dx).toBeLessThan(-0.9);
+    expect(autoBullet.manualAim).toBe(false);
+
+    // Manual Mouse Aim fires toward cursor (+X), ignores enemy behind, and grants damage/speed bonuses
+    s.bullets = [];
+    s.player.heat = 0;
+    s.player.isOverloaded = false;
+    s.player.loadout.slots.wing_l1!.lastFireMs = -10000;
+    sim.step(
+      idleInput({
+        shoot: true,
+        aimMode: 'mouse',
+        mouseActive: true,
+        mouseArenaX: s.player.x + 260,
+        mouseArenaY: s.player.y,
+      }),
+      1 / 60
+    );
+    const manualBullet = s.bullets.find((b) => !b.isEnemy)!;
+    expect(manualBullet).toBeDefined();
+    expect(manualBullet.dx).toBeGreaterThan(0.95);
+    expect(manualBullet.manualAim).toBe(true);
+    expect(manualBullet.damage).toBe(Math.round(autoBullet.damage * MANUAL_AIM_DAMAGE_MULT));
+    expect(manualBullet.speed).toBeCloseTo(autoBullet.speed * 1.15, 2);
+
+    // Verify +10% Crit bonus triggers when random roll is between base critChance and base + MANUAL_AIM_CRIT_BONUS
+    let hitCrit: boolean | null = null;
+    bus.on('ENEMY_HIT', ({ isCrit }) => {
+      if (hitCrit === null) hitCrit = isCrit;
+    });
+    const rollSpy = vi
+      .spyOn(Math, 'random')
+      .mockReturnValue(PLAYER_BASE.critChance + MANUAL_AIM_CRIT_BONUS * 0.5);
+    try {
+      const dummy = createEnemy(s, 'large', false, { x: s.player.x + 40, y: s.player.y });
+      dummy.speed = 0;
+      s.enemies = [dummy];
+      s.bullets = [
+        {
+          id: 99955,
+          x: dummy.x,
+          y: dummy.y,
+          dx: 1,
+          dy: 0,
+          speed: 0,
+          radius: 8,
+          damage: 20,
+          color: '#fff',
+          hex: 0xffffff,
+          isEnemy: false,
+          pierceLeft: 0,
+          hitIds: new Set<number>(),
+          age: 0,
+          bounces: 0,
+          isCritVisual: false,
+          manualAim: true,
+        },
+      ];
+      sim.step(idleInput(), 1 / 60);
+      expect(hitCrit).toBe(true);
+    } finally {
+      rollSpy.mockRestore();
+    }
+  });
+
+  it('spawns enemies offscreen and keeps active enemy roles patrolling along the viewport perimeter rather than hugging the player', () => {
+    const bus = new EventBus();
+    const sim = new GameSimulation(bus);
+    sim.startNewGame('interceptor');
+    const s = sim.state;
+    s.player.health = 9999;
+    s.player.maxHealth = 9999;
+    s.arenaObstacles = [];
+    s.wave = 4;
+    s.stormRing.radius = 850;
+    s.stormRing.targetRadius = 850;
+
+    const specs: Array<{ type: 'small' | 'medium' | 'large' | 'elite'; special: 'none' | 'bomber' }> = [
+      { type: 'small', special: 'none' },
+      { type: 'medium', special: 'none' },
+      { type: 'large', special: 'none' },
+      { type: 'elite', special: 'none' },
+      { type: 'small', special: 'bomber' },
+    ];
+    s.enemies = specs.map((sp, i) => {
+      const e = createEnemy(s, sp.type, false, undefined, i, specs.length, sp.special);
+      e.lastShotMs = 1e9;
+      return e;
+    });
+    const minion = createEnemy(s, 'small', true, undefined, 5, 6);
+    minion.lastShotMs = 1e9;
+    s.enemies.push(minion);
+
+    for (const e of s.enemies) {
+      expect(e.ingressActive).toBe(true);
+      expect(Math.hypot(e.x - s.player.x, e.y - s.player.y)).toBeGreaterThanOrEqual(580);
+    }
+
+    // Complete offscreen ingress glide to perimeter band
+    for (let t = 0; t < 130; t++) {
+      sim.step(idleInput(), 1 / 60);
+    }
+
+    for (const e of s.enemies) {
+      expect(e.ingressActive).toBe(false);
+      const dist = Math.hypot(e.x - s.player.x, e.y - s.player.y);
+      expect(dist).toBeGreaterThanOrEqual(195);
+      expect(dist).toBeLessThanOrEqual(425);
+    }
+
+    // Continue active patrol for 240 ticks with stationary player -> no enemy closes in to hug the ship
+    let minObservedDist = Infinity;
+    for (let t = 0; t < 240; t++) {
+      sim.step(idleInput(), 1 / 60);
+      for (const e of s.enemies) {
+        e.lastShotMs = 1e9;
+        const d = Math.hypot(e.x - s.player.x, e.y - s.player.y);
+        if (d < minObservedDist) minObservedDist = d;
+      }
+    }
+    expect(minObservedDist).toBeGreaterThanOrEqual(185);
   });
 });

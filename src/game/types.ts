@@ -267,6 +267,7 @@ export interface BulletEntity {
   visualStyle?: BulletVisualStyle;
   grazed?: boolean;
   homing?: boolean;
+  manualAim?: boolean;
   element?: 'kinetic' | 'burn' | 'ion' | 'parried';
 }
 

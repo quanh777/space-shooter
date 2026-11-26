@@ -30,7 +30,7 @@ import type {
   RaidObjectiveKind,
 } from '../types';
 import { createBoss } from './BossSystem';
-import { computeOffscreenSpawnPoint, createEnemy } from './EnemySystem';
+import { computeOffscreenSpawnPoint, computePerimeterBandPoint, createEnemy } from './EnemySystem';
 import { buildRoomQuickDraft } from './RoomSystem';
 import {
   applyShopUpgrade,
@@ -129,7 +129,7 @@ function spawnSquadFormation(
 ): void {
   for (let i = 0; i < types.length; i++) {
     const ang = (i / Math.max(1, types.length)) * Math.PI * 2 + Math.random() * 0.45;
-    const target = clampPointToStorm(
+    let target = clampPointToStorm(
       centerX + Math.cos(ang) * ringDist,
       centerY + Math.sin(ang) * ringDist,
       state.stormRing,
@@ -137,12 +137,17 @@ function spawnSquadFormation(
     );
     const e = createEnemy(state, types[i], false, undefined, i, types.length);
     const approachAng = Math.atan2(target.y - state.player.y, target.x - state.player.x);
+    if (Math.hypot(target.x - state.player.x, target.y - state.player.y) < 225) {
+      const perim = computePerimeterBandPoint(state, approachAng, 0.94);
+      target = { x: perim.x, y: perim.y };
+    }
     const off = computeOffscreenSpawnPoint(state, approachAng, (i % 2) * 50);
     e.x = off.x;
     e.y = off.y;
     e.ingressTargetX = target.x;
     e.ingressTargetY = target.y;
     e.ingressActive = true;
+    e.sectorAngle = Math.atan2(target.y - state.player.y, target.x - state.player.x);
     e.faceAngle = Math.atan2(target.y - e.y, target.x - e.x);
     state.enemies.push(e);
   }

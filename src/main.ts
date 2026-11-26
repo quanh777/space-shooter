@@ -78,7 +78,7 @@ function bootstrap(): void {
   input.setCallbacks({
     onToggleAimMode: () => {
       sound.playUiClick(820);
-      ui.syncControlButtons();
+      ui.announceAimModeSwitch();
     },
   });
 

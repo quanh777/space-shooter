@@ -1,0 +1,91 @@
+{
+  "name": "asteroid_shatter",
+  "description": "Ore asteroid fracture: rocky sub thump + staggered crystal chunk impacts.",
+  "layers": [
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          140
+        ],
+        [
+          0.24,
+          38
+        ]
+      ],
+      "drive": 1.6,
+      "env": {
+        "attack": 0.002,
+        "hold": 0.025,
+        "release": 0.22,
+        "curve": 2.1
+      },
+      "gain_db": -2
+    },
+    {
+      "wave": "noise",
+      "at": [
+        0,
+        0.035,
+        0.075
+      ],
+      "env": {
+        "attack": 0.001,
+        "hold": 0.005,
+        "release": 0.04,
+        "curve": 2.8
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": 1450,
+          "q": 1.5
+        }
+      ],
+      "gain_db": -2
+    },
+    {
+      "wave": "triangle",
+      "at": [
+        0.02
+      ],
+      "freq": [
+        [
+          0,
+          1180
+        ],
+        [
+          0.14,
+          720
+        ]
+      ],
+      "env": {
+        "attack": 0.001,
+        "hold": 0.01,
+        "release": 0.13,
+        "curve": 2.8
+      },
+      "gain_db": -8
+    }
+  ],
+  "master": {
+    "lufs": -15,
+    "peak_db": -1,
+    "highpass": 40,
+    "reverb": {
+      "mix": 0.12,
+      "decay": 0.38
+    }
+  },
+  "expect": {
+    "duration": [
+      0.18,
+      0.65
+    ],
+    "centroid": [
+      140,
+      2200
+    ]
+  }
+}

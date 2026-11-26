@@ -1,0 +1,73 @@
+{
+  "name": "bomber_warn",
+  "description": "Rapid bomb countdown alarm from approaching Bomber drone.",
+  "layers": [
+    {
+      "wave": "triangle",
+      "at": [
+        0,
+        0.095,
+        0.19
+      ],
+      "freq": [
+        [
+          0,
+          820
+        ],
+        [
+          0.06,
+          1080
+        ]
+      ],
+      "env": {
+        "attack": 0.002,
+        "hold": 0.02,
+        "release": 0.05,
+        "curve": 2.6
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": 4800
+        }
+      ]
+    },
+    {
+      "wave": "noise",
+      "at": [
+        0,
+        0.095,
+        0.19
+      ],
+      "env": {
+        "attack": 0.001,
+        "hold": 0.001,
+        "release": 0.012,
+        "curve": 3
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": 2600,
+          "q": 1.8
+        }
+      ],
+      "gain_db": -9
+    }
+  ],
+  "master": {
+    "lufs": -17,
+    "peak_db": -1,
+    "highpass": 180
+  },
+  "expect": {
+    "duration": [
+      0.22,
+      0.55
+    ],
+    "centroid": [
+      550,
+      2400
+    ]
+  }
+}

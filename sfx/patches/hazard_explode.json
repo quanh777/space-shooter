@@ -1,0 +1,71 @@
+{
+  "name": "hazard_explode",
+  "description": "Orbital barrage mortar & space mine detonation: heavy bass blast + low rumble.",
+  "layers": [
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          138
+        ],
+        [
+          0.38,
+          30
+        ]
+      ],
+      "drive": 1.9,
+      "env": {
+        "attack": 0.002,
+        "hold": 0.045,
+        "release": 0.34,
+        "curve": 2.0
+      }
+    },
+    {
+      "wave": "noise",
+      "env": {
+        "attack": 0.002,
+        "hold": 0.035,
+        "release": 0.36,
+        "curve": 2.0
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": [
+            [
+              0,
+              2400
+            ],
+            [
+              0.36,
+              180
+            ]
+          ],
+          "q": 0.9
+        }
+      ],
+      "gain_db": -2
+    }
+  ],
+  "master": {
+    "lufs": -13,
+    "peak_db": -1,
+    "highpass": 34,
+    "reverb": {
+      "mix": 0.14,
+      "decay": 0.45
+    }
+  },
+  "expect": {
+    "duration": [
+      0.28,
+      0.78
+    ],
+    "centroid": [
+      80,
+      1100
+    ]
+  }
+}

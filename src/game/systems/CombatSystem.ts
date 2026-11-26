@@ -1,4 +1,5 @@
 import {
+  MANUAL_AIM_CRIT_BONUS,
   PLAYER_BASE,
   type PowerUpType,
 } from '../../config/constants';
@@ -166,6 +167,7 @@ function handleEnemyKilled(
     );
     triggerBlastAoe(state, enemy.x, enemy.y, bomberRad, bomberDmg, 0xfb923c, '#fb923c', bus, enemy.id);
     spawnFloatingText(state, enemy.x, enemy.y - 24, 'BOMBER CHAIN!', '#fb923c', 1.15, 32);
+    bus.emit('BARREL_EXPLODED', { x: enemy.x, y: enemy.y, radius: bomberRad });
   }
 
   // Split Shrapnel turns dead ships into tiny flying problems for their buddies
@@ -861,6 +863,7 @@ export function updateCombatSystem(
             const zapDmg = Math.round(24 * grazeZapStacks * (state.metaBonuses?.dmgMult ?? 1));
             applyElementalImpact(state, bestTarget, zapDmg, 'ion', bus);
             applyDirectEnemyDamage(state, bestTarget, zapDmg, false, bus, '#38e8ff', 0x38e8ff);
+            bus.emit('LIGHTNING_ARC', { x: p.x, y: p.y, intensity: 'zap' });
           }
         }
         bus.emit('PLAYER_GRAZE', { x: b.x, y: b.y });
@@ -870,13 +873,14 @@ export function updateCombatSystem(
     }
 
     // Player bullets vs hostiles
+    const bulletCritChance = effectiveCritChance + (b.manualAim ? MANUAL_AIM_CRIT_BONUS : 0);
     let consumed = false;
     for (const e of state.enemies) {
       if (e.hp <= 0 || b.hitIds.has(e.id)) continue;
       const hitDist = e.radius + b.radius;
       if (Math.hypot(b.x - e.x, b.y - e.y) <= hitDist) {
         b.hitIds.add(e.id);
-        const isCrit = Math.random() < effectiveCritChance;
+        const isCrit = Math.random() < bulletCritChance;
         let shieldMult = 1.0;
         let blockedFront = false;
         if (e.specialKind === 'shielder' && b.element !== 'parried') {
@@ -888,6 +892,7 @@ export function updateCombatSystem(
           if (Math.abs(diff) <= halfArc) {
             shieldMult = 0.45;
             blockedFront = true;
+            bus.emit('ARMOR_DEFLECTED', { x: b.x, y: b.y });
           } else if (Math.abs(diff) >= Math.PI * 0.65) {
             shieldMult = 1.25;
           }
@@ -962,7 +967,10 @@ export function updateCombatSystem(
             }
           }
           if (nextTarget) {
-            const ang = Math.atan2(nextTarget.y - b.y, nextTarget.x - b.x);
+            const leadT = Math.min(28, bestDist / Math.max(1, b.speed));
+            const predX = nextTarget.x + nextTarget.vx * leadT;
+            const predY = nextTarget.y + nextTarget.vy * leadT;
+            const ang = Math.atan2(predY - b.y, predX - b.x);
             b.dx = Math.cos(ang);
             b.dy = Math.sin(ang);
             b.bounces--;
@@ -986,7 +994,7 @@ export function updateCombatSystem(
         if (ob.hp <= 0 || b.hitIds.has(ob.id)) continue;
         if (Math.hypot(b.x - ob.x, b.y - ob.y) <= ob.radius + b.radius) {
           b.hitIds.add(ob.id);
-          const isCrit = Math.random() < effectiveCritChance;
+          const isCrit = Math.random() < bulletCritChance;
           const dmg = Math.floor(b.damage * dmgBuff * (isCrit ? PLAYER_BASE.critMultiplier : 1));
           damageArenaObstacle(state, ob, dmg, bus);
           if (b.pierceLeft > 0) b.pierceLeft--;
@@ -1008,7 +1016,7 @@ export function updateCombatSystem(
       const obj = state.raid.activeObjective;
       if (Math.hypot(b.x - obj.x, b.y - obj.y) <= obj.radius + b.radius) {
         b.hitIds.add(obj.id);
-        const isCrit = Math.random() < effectiveCritChance;
+        const isCrit = Math.random() < bulletCritChance;
         const dmg = Math.floor(b.damage * dmgBuff * (isCrit ? PLAYER_BASE.critMultiplier : 1));
         damageRaidObjective(state, dmg, b.x, b.y, bus, isCrit);
         if (b.pierceLeft > 0) b.pierceLeft--;
@@ -1023,7 +1031,7 @@ export function updateCombatSystem(
         if (py.hp <= 0 || b.hitIds.has(py.id)) continue;
         if (Math.hypot(b.x - py.x, b.y - py.y) <= py.radius + b.radius) {
           b.hitIds.add(py.id);
-          const isCrit = Math.random() < effectiveCritChance;
+          const isCrit = Math.random() < bulletCritChance;
           const dmg = Math.floor(
             b.damage * dmgBuff * (isCrit ? PLAYER_BASE.critMultiplier : 1)
           );
@@ -1041,7 +1049,7 @@ export function updateCombatSystem(
           if (cl.hp <= 0 || b.hitIds.has(cl.id)) continue;
           if (Math.hypot(b.x - cl.x, b.y - cl.y) <= cl.radius + b.radius) {
             b.hitIds.add(cl.id);
-            const isCrit = Math.random() < effectiveCritChance;
+            const isCrit = Math.random() < bulletCritChance;
             const dmg = Math.floor(
               b.damage * dmgBuff * (isCrit ? PLAYER_BASE.critMultiplier : 1)
             );
@@ -1059,7 +1067,7 @@ export function updateCombatSystem(
         const hitDist = boss.radius + b.radius;
         if (Math.hypot(b.x - boss.x, b.y - boss.y) <= hitDist) {
           b.hitIds.add(boss.id);
-          const isCrit = Math.random() < effectiveCritChance;
+          const isCrit = Math.random() < bulletCritChance;
           const dmg = Math.floor(
             b.damage * dmgBuff * (isCrit ? PLAYER_BASE.critMultiplier : 1)
           );
@@ -1078,7 +1086,7 @@ export function updateCombatSystem(
         const hitDist = boss.twin.radius + b.radius;
         if (Math.hypot(b.x - boss.twin.x, b.y - boss.twin.y) <= hitDist) {
           b.hitIds.add(twinHitKey);
-          const isCrit = Math.random() < effectiveCritChance;
+          const isCrit = Math.random() < bulletCritChance;
           const dmg = Math.floor(
             b.damage * dmgBuff * (isCrit ? PLAYER_BASE.critMultiplier : 1)
           );
@@ -1138,6 +1146,7 @@ export function updateCombatSystem(
         applyDirectEnemyDamage(state, e, ramDmg, true, bus, '#f59e0b', 0xf59e0b);
         p.dashInvulnUntilMs = Math.max(p.dashInvulnUntilMs, state.simTimeMs + 140);
         spawnShockwave(state, e.x, e.y, 58, 0xf59e0b, 14);
+        bus.emit('ARMOR_DEFLECTED', { x: e.x, y: e.y });
         continue;
       }
       damagePlayer(state, bus, e.contactDamage, e.contactDamage > 10, triggerGameOver);
@@ -1596,6 +1605,7 @@ function updateDrones(state: GameState, bus: EventBus, dtMs: number): void {
         if (pointToSegmentDist(e.x, e.y, p.x, p.y, d.x, d.y) <= e.radius + 14) {
           applyElementalImpact(state, e, tetherDmg, 'ion', bus);
           applyDirectEnemyDamage(state, e, tetherDmg, false, bus, '#2dd4bf', 0x2dd4bf);
+          bus.emit('LIGHTNING_ARC', { x: d.x, y: d.y, intensity: 'zap' });
         }
       }
     }

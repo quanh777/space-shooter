@@ -39,7 +39,7 @@ import type {
   RoomDoorOption,
 } from '../types';
 import { createBoss } from './BossSystem';
-import { computeOffscreenSpawnPoint, createEnemy } from './EnemySystem';
+import { computeOffscreenSpawnPoint, computePerimeterBandPoint, createEnemy } from './EnemySystem';
 import {
   applyShopUpgrade,
   getMountedWeaponUpgradePrice,
@@ -208,8 +208,6 @@ export function spawnTacticalSquad(
   specs: Array<{ type: Exclude<EnemyType, 'boss'>; special: EnemySpecialKind }>,
   anchorPos?: { x: number; y: number }
 ): void {
-  const anchorX = anchorPos ? anchorPos.x : state.player.x;
-  const anchorY = anchorPos ? anchorPos.y : state.player.y;
   const baseAng = Math.random() * Math.PI * 2;
   for (let i = 0; i < specs.length; i++) {
     const ang = baseAng + (i / Math.max(1, specs.length)) * Math.PI * 2 + (Math.random() - 0.5) * 0.22;
@@ -217,17 +215,26 @@ export function spawnTacticalSquad(
     const off = computeOffscreenSpawnPoint(state, ang, (i % 2) * 55);
     enemy.x = off.x;
     enemy.y = off.y;
-    const targetDist = 235 + (i % 3) * 38;
-    const target = clampPointToStorm(
-      anchorX + Math.cos(ang) * targetDist,
-      anchorY + Math.sin(ang) * targetDist,
-      state.stormRing,
-      65
-    );
+    let target = computePerimeterBandPoint(state, ang, 0.92 + (i % 3) * 0.05);
+    if (anchorPos) {
+      const candidate = clampPointToStorm(
+        anchorPos.x + Math.cos(ang) * (165 + (i % 2) * 35),
+        anchorPos.y + Math.sin(ang) * (165 + (i % 2) * 35),
+        state.stormRing,
+        65
+      );
+      if (Math.hypot(candidate.x - state.player.x, candidate.y - state.player.y) >= 225) {
+        target = {
+          x: candidate.x,
+          y: candidate.y,
+          angle: Math.atan2(candidate.y - state.player.y, candidate.x - state.player.x),
+        };
+      }
+    }
     enemy.ingressTargetX = target.x;
     enemy.ingressTargetY = target.y;
     enemy.ingressActive = true;
-    enemy.sectorAngle = ang;
+    enemy.sectorAngle = target.angle;
     enemy.faceAngle = Math.atan2(target.y - enemy.y, target.x - enemy.x);
     state.enemies.push(enemy);
   }

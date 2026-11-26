@@ -1,0 +1,106 @@
+{
+  "name": "shield_break",
+  "description": "Aegis pylon / Mirage clone / Bastion armor plate shatter.",
+  "layers": [
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          960
+        ],
+        [
+          0.26,
+          210
+        ]
+      ],
+      "fm": {
+        "ratio": 1.4,
+        "index": [
+          [
+            0,
+            2.0
+          ],
+          [
+            0.2,
+            0.2
+          ]
+        ]
+      },
+      "env": {
+        "attack": 0.001,
+        "hold": 0.025,
+        "release": 0.24,
+        "curve": 2.4
+      },
+      "filters": [
+        {
+          "type": "lowpass",
+          "cutoff": 5800
+        }
+      ]
+    },
+    {
+      "wave": "noise",
+      "at": [
+        0,
+        0.038,
+        0.078
+      ],
+      "env": {
+        "attack": 0.001,
+        "hold": 0.004,
+        "release": 0.04,
+        "curve": 2.8
+      },
+      "filters": [
+        {
+          "type": "bandpass",
+          "cutoff": 2800,
+          "q": 1.5
+        }
+      ],
+      "gain_db": -3
+    },
+    {
+      "wave": "sine",
+      "freq": [
+        [
+          0,
+          170
+        ],
+        [
+          0.22,
+          42
+        ]
+      ],
+      "drive": 1.6,
+      "env": {
+        "attack": 0.002,
+        "hold": 0.02,
+        "release": 0.2,
+        "curve": 2.0
+      },
+      "gain_db": -3
+    }
+  ],
+  "master": {
+    "lufs": -13,
+    "peak_db": -1,
+    "highpass": 42,
+    "reverb": {
+      "mix": 0.15,
+      "decay": 0.45
+    }
+  },
+  "expect": {
+    "duration": [
+      0.22,
+      0.75
+    ],
+    "centroid": [
+      200,
+      2800
+    ]
+  }
+}

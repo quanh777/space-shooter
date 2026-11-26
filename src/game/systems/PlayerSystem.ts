@@ -1,4 +1,11 @@
-import { PLAYER_BASE } from '../../config/constants';
+import {
+  FIRING_MOVE_SPEED_MULT,
+  MANUAL_AIM_BULLET_SPEED_MULT,
+  MANUAL_AIM_DAMAGE_MULT,
+  MANUAL_AIM_SPREAD_MULT,
+  OVERHEAT_MOVE_SPEED_MULT,
+  PLAYER_BASE,
+} from '../../config/constants';
 import { HULL_CATALOG } from '../../config/hulls';
 import { computeMutationArchetypeCounts, countMutationStacks } from '../../config/mutations';
 import {
@@ -157,12 +164,14 @@ function findNearestTarget(
 function getAimVector(state: GameState, input: InputSnapshot): { x: number; y: number; angle: number } {
   const p = state.player;
 
-  if (input.aimMode === 'mouse' && input.mouseActive) {
-    const dx = input.mouseArenaX - p.x;
-    const dy = input.mouseArenaY - p.y;
-    const d = Math.hypot(dx, dy);
-    if (d > 2) {
-      return { x: dx / d, y: dy / d, angle: Math.atan2(dy, dx) };
+  if (input.aimMode === 'mouse') {
+    if (input.mouseActive) {
+      const dx = input.mouseArenaX - p.x;
+      const dy = input.mouseArenaY - p.y;
+      const d = Math.hypot(dx, dy);
+      if (d > 2) {
+        return { x: dx / d, y: dy / d, angle: Math.atan2(dy, dx) };
+      }
     }
   } else {
     const target = findNearestTarget(state);
@@ -238,9 +247,15 @@ function firePlayerWeapons(state: GameState, input: InputSnapshot, bus: EventBus
   const chronoSpdBonus = p.chronoActiveMs > 0 && archCounts.chrono >= 4 ? 1.6 : 1.0;
   const chronoPierceBonus = p.chronoActiveMs > 0 && archCounts.chrono >= 4 ? 1 : 0;
 
+  const isManualAim = input.aimMode === 'mouse';
+  const dmgScale = isManualAim ? MANUAL_AIM_DAMAGE_MULT : 1.0;
+  const speedScale = isManualAim ? MANUAL_AIM_BULLET_SPEED_MULT : 1.0;
+  const spreadScale = isManualAim ? MANUAL_AIM_SPREAD_MULT : 1.0;
+
   let rapidMult = hasBuff(state, 'rapid') ? 0.5 : 1.0;
   if (p.overclockBuffMs > 0) rapidMult *= 0.78;
   if (glassCannon) rapidMult *= 0.8;
+  if (p.isOverloaded) rapidMult = Math.max(rapidMult, 0.85);
 
   let totalBulletsSpawned = 0;
   let anyPiercing = false;
@@ -270,9 +285,11 @@ function firePlayerWeapons(state: GameState, input: InputSnapshot, bus: EventBus
     const my = p.y + slotDef.fireOffset.x * sinF + slotDef.fireOffset.z * cosF;
 
     const count = Math.max(1, stats.projectiles);
+    const spreadRad = stats.spreadRad * spreadScale;
+    const bulletDmg = Math.max(1, Math.round(stats.damage * dmgScale));
     for (let i = 0; i < count; i++) {
       const t = count === 1 ? 0 : i / (count - 1) - 0.5;
-      const offsetAngle = t * stats.spreadRad;
+      const offsetAngle = t * spreadRad;
       const fireAngle = aim.angle + offsetAngle;
       const dx = Math.cos(fireAngle);
       const dy = Math.sin(fireAngle);
@@ -283,9 +300,9 @@ function firePlayerWeapons(state: GameState, input: InputSnapshot, bus: EventBus
         y: my,
         dx,
         dy,
-        speed: stats.bulletSpeed * chronoSpdBonus,
+        speed: stats.bulletSpeed * chronoSpdBonus * speedScale,
         radius: stats.bulletRadius,
-        damage: stats.damage,
+        damage: bulletDmg,
         color: `#${stats.hex.toString(16).padStart(6, '0')}`,
         hex: stats.hex,
         isEnemy: false,
@@ -296,6 +313,7 @@ function firePlayerWeapons(state: GameState, input: InputSnapshot, bus: EventBus
         isCritVisual: false,
         visualStyle: mapBulletVisualStyle(stats.bulletStyle),
         homing: stats.homing,
+        manualAim: isManualAim,
         element: weaponElementFor(mounted.weaponId, archCounts.solar),
       });
       totalBulletsSpawned++;
@@ -317,9 +335,9 @@ function firePlayerWeapons(state: GameState, input: InputSnapshot, bus: EventBus
           y: p.y,
           dx: Math.cos(ang),
           dy: Math.sin(ang),
-          speed: 8.4,
+          speed: 8.4 * speedScale,
           radius: 5.5,
-          damage: Math.round(24 * (state.metaBonuses?.dmgMult ?? 1)),
+          damage: Math.round(24 * (state.metaBonuses?.dmgMult ?? 1) * dmgScale),
           color: '#2dd4bf',
           hex: 0x2dd4bf,
           isEnemy: false,
@@ -330,6 +348,7 @@ function firePlayerWeapons(state: GameState, input: InputSnapshot, bus: EventBus
           isCritVisual: false,
           visualStyle: 'petal',
           homing: true,
+          manualAim: isManualAim,
           element: 'ion',
         });
       }
@@ -444,7 +463,8 @@ function activateRailBeamSkill(state: GameState, input: InputSnapshot, bus: Even
   const length = 980;
   const width = 28 + s.level * 5;
   const dmgMult = hasBuff(state, 'damage') ? 1.5 : 1.0;
-  const beamDamage = Math.floor(s.damage * 1.15 * dmgMult);
+  const manualMult = input.aimMode === 'mouse' ? MANUAL_AIM_DAMAGE_MULT : 1.0;
+  const beamDamage = Math.floor(s.damage * 1.15 * dmgMult * manualMult);
 
   state.playerBeams.push({
     id: nextId(state),
@@ -712,6 +732,7 @@ function activateEmpSkill(state: GameState, bus: EventBus): void {
       maxLife: 26,
       hex: 0x66f0ff,
     });
+    bus.emit('LIGHTNING_ARC', { x: p.x, y: p.y, intensity: 'chain' });
   }
 
   addScreenShake(state, 16);
@@ -778,6 +799,7 @@ function triggerShieldNovaBlast(state: GameState, bus: EventBus, stacks: number)
     }
   }
   spawnShockwave(state, p.x, p.y, radius, 0x38e8ff, 18);
+  bus.emit('SHIELD_BROKEN', { x: p.x, y: p.y, major: false });
 }
 
 export function activateChronoOverdrive(state: GameState, bus: EventBus): boolean {
@@ -1081,10 +1103,19 @@ export function updatePlayerSystem(
 
   if (!p.dashActive) {
     const hullSpeedMult = HULL_CATALOG[p.hullId]?.speedMult ?? 1.0;
+    const isFiringSlow = input.shoot || (p.lastShotMs > 0 && now - p.lastShotMs < 140);
+    const overheatMoveMult = p.isOverloaded
+      ? countMutationStacks(p.activeMutations, 'comet_overheat') > 0
+        ? 0.74
+        : OVERHEAT_MOVE_SPEED_MULT
+      : 1.0;
+    const firingMoveMult = isFiringSlow ? FIRING_MOVE_SPEED_MULT : 1.0;
+    const movePenaltyMult = Math.max(0.44, overheatMoveMult * firingMoveMult);
     const speedMult =
       (hasBuff(state, 'speed') ? 1.45 : 1.0) *
       hullSpeedMult *
-      (p.chronoActiveMs > 0 ? 1.18 : 1.0);
+      (p.chronoActiveMs > 0 ? 1.18 : 1.0) *
+      movePenaltyMult;
     const moveSpeed = p.speed * speedMult;
     const targetVx = hasMoveInput ? input.moveX * moveSpeed : 0;
     const targetVy = hasMoveInput ? input.moveY * moveSpeed : 0;
@@ -1097,6 +1128,9 @@ export function updatePlayerSystem(
       vy = 0;
     }
     p.moving = hasMoveInput || Math.hypot(vx, vy) > 0.12;
+    if (p.isOverloaded && p.moving && Math.random() < 0.35) {
+      spawnParticleBurst(state, p.x, p.y, 0xff5522, 1, 1.0, 2.2, 10, 0.35);
+    }
     if (hasMoveInput && input.aimMode === 'auto' && !input.shoot) {
       p.targetAngle = Math.atan2(input.moveY, input.moveX);
     }

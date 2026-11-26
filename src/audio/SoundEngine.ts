@@ -50,6 +50,18 @@ export const SFX_MANIFEST = {
   roulette_claim: ['roulette_claim.wav'],
   augment_install: ['augment_install.wav'],
   game_over: ['game_over.wav'],
+  barrel_explode: ['barrel_explode_01.wav', 'barrel_explode_02.wav'],
+  lightning_zap: ['lightning_zap_01.wav', 'lightning_zap_02.wav'],
+  elemental_shatter: ['elemental_shatter.wav'],
+  asteroid_shatter: ['asteroid_shatter.wav'],
+  sniper_lock: ['sniper_lock.wav'],
+  sniper_fire: ['sniper_fire.wav'],
+  bomber_warn: ['bomber_warn.wav'],
+  hazard_explode: ['hazard_explode.wav'],
+  shield_break: ['shield_break.wav'],
+  overload_alarm: ['overload_alarm.wav'],
+  enemy_teleport: ['enemy_teleport.wav'],
+  armor_deflect: ['armor_deflect.wav'],
 } as const;
 
 export type SfxKey = keyof typeof SFX_MANIFEST;
@@ -78,6 +90,9 @@ export class SoundEngine {
   private lastDroneShotTime = 0;
   private lastSniperLockTime = 0;
   private lastStormBurnTime = 0;
+  private lastLightningTime = 0;
+  private lastHazardBlastTime = 0;
+  private lastDeflectTime = 0;
 
   constructor(bus: EventBus) {
     try {
@@ -130,7 +145,7 @@ export class SoundEngine {
     bus.on('THERMAL_PURGE', () => this.playThermalPurge());
     bus.on('ELEMENTAL_COMBO', ({ kind }) => this.playElementalCombo(kind));
     bus.on('BARREL_EXPLODED', () => this.playBarrelExplode());
-    bus.on('ASTEROID_SHATTERED', () => this.playEnemyExplode('medium'));
+    bus.on('ASTEROID_SHATTERED', () => this.playAsteroidShatter());
     bus.on('RAID_OBJECTIVE_SPAWNED', () => this.playUiClick(740));
     bus.on('RAID_OBJECTIVE_COMPLETED', () => this.playRaidComplete());
     bus.on('QUICK_DRAFT_OPENED', () => this.playQuickDraftOpen());
@@ -142,6 +157,13 @@ export class SoundEngine {
     bus.on('ROOM_DOORS_OPENED', () => this.playRoomDoorsOpen());
     bus.on('ROOM_ENTERED', () => this.playRoomEnter());
     bus.on('SNIPER_LOCK', () => this.playSniperLock());
+    bus.on('SNIPER_FIRED', ({ isBoss }) => this.playSniperFire(isBoss));
+    bus.on('LIGHTNING_ARC', ({ intensity }) => this.playLightningArc(intensity ?? 'zap'));
+    bus.on('BOMBER_PRIMED', () => this.playBomberWarn());
+    bus.on('HAZARD_EXPLODED', () => this.playHazardExplode());
+    bus.on('SHIELD_BROKEN', ({ major }) => this.playShieldBreak(major));
+    bus.on('ENTITY_TELEPORTED', ({ isBoss }) => this.playEntityTeleport(isBoss));
+    bus.on('ARMOR_DEFLECTED', () => this.playArmorDeflect());
     bus.on('SINGULARITY_DETONATED', () => this.playSingularityDetonate());
     bus.on('DRONE_SHOT', () => this.playDroneShot());
     bus.on('GAME_STARTED', () => this.playSortieLaunch());
@@ -226,7 +248,7 @@ export class SoundEngine {
     const ctx = this.ctx;
     this.loadingPromise = (async () => {
       try {
-        // Pack all 56 clips into one JSON payload because IDM still tries to hijack every .wav request like it's 2009
+        // Pack all SFX clips into one JSON payload because IDM still tries to hijack every .wav request like it's 2009
         const res = await fetch('./assets/sfx-bank.json', {
           headers: { Accept: 'application/json' },
         });
@@ -1424,14 +1446,16 @@ export class SoundEngine {
 
   private playOverloadWarn(): void {
     if (this.muted || !this.ctx || !this.sfxGain) return;
+    if (this.playSample('overload_alarm', 0.96, 0.3)) return;
     const now = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(420, now);
     osc.frequency.linearRampToValueAtTime(220, now + 0.16);
-    gain.gain.setValueAtTime(0.16, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.16, now + 0.006);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
     osc.connect(gain).connect(this.sfxGain);
     osc.start(now);
     osc.stop(now + 0.2);
@@ -1558,15 +1582,21 @@ export class SoundEngine {
 
   private playElementalCombo(kind: 'shatter' | 'arc_chain' | 'overload'): void {
     if (this.muted || !this.ctx || !this.sfxGain) return;
+    if (kind === 'arc_chain') {
+      this.playLightningArc('chain');
+      return;
+    }
+    if (this.playSample('elemental_shatter', kind === 'overload' ? 1.08 : 0.95, 0.5)) return;
     const now = this.ctx.currentTime;
-    const base = kind === 'shatter' ? 540 : kind === 'arc_chain' ? 880 : 420;
+    const base = kind === 'shatter' ? 540 : 420;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
-    osc.type = kind === 'arc_chain' ? 'sine' : 'sawtooth';
+    osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(base, now);
     osc.frequency.exponentialRampToValueAtTime(base * 1.65, now + 0.12);
-    gain.gain.setValueAtTime(0.2, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.2, now + 0.006);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
     osc.connect(gain).connect(this.sfxGain);
     osc.start(now);
     osc.stop(now + 0.16);
@@ -1574,18 +1604,20 @@ export class SoundEngine {
 
   private playBarrelExplode(): void {
     if (this.muted || !this.ctx || !this.sfxGain) return;
+    if (this.playSample('barrel_explode', 1.12, 0.8)) return;
     const now = this.ctx.currentTime;
     const sub = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     sub.type = 'sine';
-    sub.frequency.setValueAtTime(145, now);
-    sub.frequency.exponentialRampToValueAtTime(32, now + 0.38);
-    gain.gain.setValueAtTime(0.36, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+    sub.frequency.setValueAtTime(155, now);
+    sub.frequency.exponentialRampToValueAtTime(28, now + 0.44);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.42, now + 0.006);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.46);
     sub.connect(gain).connect(this.sfxGain);
     sub.start(now);
-    sub.stop(now + 0.42);
-    this.playNoiseBurst(0.28, 0.24, 1100);
+    sub.stop(now + 0.48);
+    this.playNoiseBurst(0.36, 0.28, 1250);
   }
 
   private playRaidComplete(): void {
@@ -1665,10 +1697,11 @@ export class SoundEngine {
   }
 
   private playSniperLock(): void {
-    if (!this.ctx) return;
+    if (this.muted || !this.ctx || !this.sfxGain) return;
     const now = this.ctx.currentTime;
     if (now - this.lastSniperLockTime < 0.08) return;
     this.lastSniperLockTime = now;
+    if (this.playSample('sniper_lock', 0.9, 0.3)) return;
     this.playEnvelopeOsc('sine', 1320, 1760, 0.2, 0.006, 0.085, 0);
     this.playEnvelopeOsc('triangle', 1760, 1980, 0.14, 0.005, 0.08, 0.065);
   }
@@ -1782,6 +1815,72 @@ export class SoundEngine {
     this.lastStormBurnTime = now;
     if (this.playSample('storm_burn', 0.65, 0.8)) return;
     this.playEnvelopeOsc('sawtooth', 180, 110, 0.1, 0.008, 0.09, 0);
+  }
+
+  private playAsteroidShatter(): void {
+    if (this.muted || !this.ctx || !this.sfxGain) return;
+    if (this.playSample('asteroid_shatter', 0.95, 0.9)) return;
+    this.playEnvelopeOsc('sine', 145, 42, 0.24, 0.006, 0.22, 0);
+    this.playNoiseBurst(0.18, 0.16, 1300);
+  }
+
+  private playLightningArc(intensity: 'zap' | 'chain'): void {
+    if (this.muted || !this.ctx || !this.sfxGain) return;
+    const now = this.ctx.currentTime;
+    if (now - this.lastLightningTime < 0.065) return;
+    this.lastLightningTime = now;
+    if (this.playSample('lightning_zap', intensity === 'chain' ? 1.05 : 0.88, 1.0)) return;
+    this.playEnvelopeOsc('sawtooth', 1850, 420, 0.16, 0.005, 0.14, 0);
+    this.playNoiseBurst(0.12, 0.16, 2800);
+  }
+
+  private playBomberWarn(): void {
+    if (this.muted || !this.ctx || !this.sfxGain) return;
+    if (this.playSample('bomber_warn', 0.96, 0.4)) return;
+    this.playEnvelopeOsc('triangle', 820, 1080, 0.16, 0.005, 0.075, 0);
+    this.playEnvelopeOsc('triangle', 880, 1140, 0.16, 0.005, 0.075, 0.09);
+    this.playEnvelopeOsc('triangle', 940, 1220, 0.16, 0.005, 0.075, 0.18);
+  }
+
+  private playHazardExplode(): void {
+    if (this.muted || !this.ctx || !this.sfxGain) return;
+    const now = this.ctx.currentTime;
+    if (now - this.lastHazardBlastTime < 0.07) return;
+    this.lastHazardBlastTime = now;
+    if (this.playSample('hazard_explode', 1.05, 0.7)) return;
+    this.playEnvelopeOsc('sine', 135, 32, 0.34, 0.006, 0.36, 0);
+    this.playNoiseBurst(0.28, 0.22, 1100);
+  }
+
+  private playSniperFire(isBoss: boolean): void {
+    if (this.muted || !this.ctx || !this.sfxGain) return;
+    if (this.playSample('sniper_fire', isBoss ? 1.08 : 0.94, 0.5, isBoss ? 0.9 : 1.0)) return;
+    this.playEnvelopeOsc('sawtooth', 1600, 220, 0.22, 0.005, 0.16, 0);
+    this.playNoiseBurst(0.08, 0.18, 2600);
+  }
+
+  private playShieldBreak(major: boolean): void {
+    if (this.muted || !this.ctx || !this.sfxGain) return;
+    if (this.playSample('shield_break', major ? 1.12 : 0.95, 0.5, major ? 0.88 : 1.05)) return;
+    this.playEnvelopeOsc('sine', 920, 210, 0.22, 0.006, 0.24, 0);
+    this.playEnvelopeOsc('sine', 170, 42, 0.28, 0.006, 0.22, 0);
+    this.playNoiseBurst(0.16, 0.2, 2200);
+  }
+
+  private playEntityTeleport(isBoss: boolean): void {
+    if (this.muted || !this.ctx || !this.sfxGain) return;
+    if (this.playSample('enemy_teleport', isBoss ? 1.02 : 0.88, 0.6, isBoss ? 0.86 : 1.0)) return;
+    this.playEnvelopeOsc('triangle', 320, 1280, 0.16, 0.006, 0.14, 0);
+    this.playEnvelopeOsc('sine', 960, 380, 0.14, 0.008, 0.16, 0.08);
+  }
+
+  private playArmorDeflect(): void {
+    if (this.muted || !this.ctx || !this.sfxGain) return;
+    const now = this.ctx.currentTime;
+    if (now - this.lastDeflectTime < 0.065) return;
+    this.lastDeflectTime = now;
+    if (this.playSample('armor_deflect', 0.82, 0.8)) return;
+    this.playEnvelopeOsc('sine', 820, 1240, 0.12, 0.005, 0.09, 0);
   }
 
   destroy(): void {

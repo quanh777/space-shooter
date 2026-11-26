@@ -25,6 +25,13 @@ export interface GameEvents {
   ELEMENTAL_COMBO: { kind: 'shatter' | 'arc_chain' | 'overload'; x: number; y: number };
   BARREL_EXPLODED: { x: number; y: number; radius: number };
   ASTEROID_SHATTERED: { x: number; y: number };
+  LIGHTNING_ARC: { x: number; y: number; intensity?: 'zap' | 'chain' };
+  BOMBER_PRIMED: { x: number; y: number };
+  HAZARD_EXPLODED: { x: number; y: number; radius: number };
+  SNIPER_FIRED: { x: number; y: number; isBoss: boolean };
+  SHIELD_BROKEN: { x: number; y: number; major: boolean };
+  ENTITY_TELEPORTED: { x: number; y: number; isBoss: boolean };
+  ARMOR_DEFLECTED: { x: number; y: number };
   RAID_OBJECTIVE_SPAWNED: { kind: RaidObjectiveKind; x: number; y: number };
   RAID_OBJECTIVE_COMPLETED: { kind: RaidObjectiveKind; completedCount: number; totalRequired: number };
   QUICK_DRAFT_OPENED: { options: QuickDraftOption[] };

@@ -59,6 +59,9 @@ const MONEY_RANGES: Record<Exclude<EnemyType, 'boss'>, [number, number]> = {
   elite: [28, 42],
 };
 
+const PERIMETER_RX = 330;
+const PERIMETER_RY = 235;
+
 function isEnemyCombatReady(e: EnemyEntity, state: GameState): boolean {
   const distPlayer = Math.hypot(e.x - state.player.x, e.y - state.player.y);
   const distRing = Math.hypot(e.x - state.stormRing.centerX, e.y - state.stormRing.centerY);
@@ -71,12 +74,88 @@ export function computeOffscreenSpawnPoint(
   angleRad: number,
   extraMargin = 0
 ): { x: number; y: number } {
-  const rx = 830 + extraMargin + Math.random() * 90;
-  const ry = 590 + extraMargin + Math.random() * 80;
+  const rx = 835 + extraMargin + Math.random() * 85;
+  const ry = 595 + extraMargin + Math.random() * 80;
   return {
     x: state.player.x + Math.cos(angleRad) * rx,
     y: state.player.y + Math.sin(angleRad) * ry,
   };
+}
+
+// Anchors incoming and patrolling enemies along the visible viewport perimeter rather than hugging the ship.
+export function computePerimeterBandPoint(
+  state: GameState,
+  angleRad: number,
+  radialScale = 1.0
+): { x: number; y: number; angle: number } {
+  const px = state.player.x;
+  const py = state.player.y;
+  const candidateOffsets = [0, 0.72, -0.72, 1.44, -1.44, Math.PI];
+  let bestX = px + Math.cos(angleRad) * PERIMETER_RX * radialScale;
+  let bestY = py + Math.sin(angleRad) * PERIMETER_RY * radialScale;
+  let bestAng = angleRad;
+  let bestScore = -Infinity;
+
+  for (const offset of candidateOffsets) {
+    const ang = angleRad + offset;
+    const rawX = px + Math.cos(ang) * PERIMETER_RX * radialScale;
+    const rawY = py + Math.sin(ang) * PERIMETER_RY * radialScale;
+    const pt = clampPointToStorm(rawX, rawY, state.stormRing, 52);
+    const d = Math.hypot(pt.x - px, pt.y - py);
+    const penalty = d < 215 ? (215 - d) * 3.0 : d > 390 ? (d - 390) * 1.5 : 0;
+    const score = d - penalty - Math.abs(offset) * 12;
+    if (score > bestScore) {
+      bestScore = score;
+      bestX = pt.x;
+      bestY = pt.y;
+      bestAng = Math.atan2(pt.y - py, pt.x - px);
+    }
+    if (d >= 235 && offset === 0) break;
+  }
+
+  return { x: bestX, y: bestY, angle: bestAng };
+}
+
+function moveTowardPerimeterAnchor(
+  state: GameState,
+  e: EnemyEntity,
+  desiredRadiusScale: number,
+  orbitRateRad: number,
+  moveMult: number,
+  stepScale: number
+): void {
+  if (e.speed <= 0) return;
+  const px = state.player.x;
+  const py = state.player.y;
+  e.sectorAngle += orbitRateRad * e.flankSign * stepScale;
+  const waveMod = 1 + Math.sin(e.aiTimer * 0.032 + e.id) * 0.06;
+  const anchor = computePerimeterBandPoint(state, e.sectorAngle, desiredRadiusScale * waveMod);
+  const adx = anchor.x - e.x;
+  const ady = anchor.y - e.y;
+  const ad = Math.hypot(adx, ady);
+  const step = e.speed * moveMult;
+  if (ad > 4) {
+    const moveStep = Math.min(ad, step);
+    e.x += (adx / ad) * moveStep;
+    e.y += (ady / ad) * moveStep;
+  }
+
+  // Keep a clear perimeter cushion so foes strafe along screen edges instead of crowding the cockpit
+  const pdx = e.x - px;
+  const pdy = e.y - py;
+  const pd = Math.hypot(pdx, pdy);
+  const keepOutMin = 205;
+  if (pd > 0.001 && pd < keepOutMin) {
+    const pushOut = Math.min(step * 1.25, keepOutMin - pd);
+    const outPt = clampPointToStorm(
+      e.x + (pdx / pd) * pushOut,
+      e.y + (pdy / pd) * pushOut,
+      state.stormRing,
+      46
+    );
+    e.x = outPt.x;
+    e.y = outPt.y;
+  }
 }
 
 function predictAimAngle(
@@ -131,21 +210,15 @@ export function createEnemy(
     ingressTargetX = overridePos.x;
     ingressTargetY = overridePos.y;
   } else {
-    // Throw mobs off-screen around the 360-degree perimeter and let them commute in
+    // Throw mobs off-screen around the 360-degree perimeter and let them commute to the screen edge
     const spawnAngle = sectorAngle + (Math.random() - 0.5) * 0.32;
     const rawSpawn = computeOffscreenSpawnPoint(state, spawnAngle);
     x = rawSpawn.x;
     y = rawSpawn.y;
 
-    const targetDist = 245 + Math.random() * 85;
-    const clampedTarget = clampPointToStorm(
-      state.player.x + Math.cos(spawnAngle) * targetDist,
-      state.player.y + Math.sin(spawnAngle) * targetDist,
-      state.stormRing,
-      65
-    );
-    ingressTargetX = clampedTarget.x;
-    ingressTargetY = clampedTarget.y;
+    const perimeterTarget = computePerimeterBandPoint(state, spawnAngle, 0.9 + Math.random() * 0.14);
+    ingressTargetX = perimeterTarget.x;
+    ingressTargetY = perimeterTarget.y;
     ingressActive = true;
   }
 
@@ -258,8 +331,6 @@ export function updateEnemySystem(
     const dx = px - e.x;
     const dy = py - e.y;
     const dist = Math.hypot(dx, dy);
-    const dirX = dist > 0.001 ? dx / dist : 0;
-    const dirY = dist > 0.001 ? dy / dist : 1;
 
     e.aiTimer += stepScale;
     e.anim += 0.1 * stepScale;
@@ -272,7 +343,7 @@ export function updateEnemySystem(
       const tx = e.ingressTargetX - e.x;
       const ty = e.ingressTargetY - e.y;
       const td = Math.hypot(tx, ty);
-      const stepSpeed = (td > 150 ? Math.max(5.4, e.speed * 3.8) : Math.max(2.6, e.speed * 2.0)) * stepScale;
+      const stepSpeed = (td > 140 ? Math.max(6.4, e.speed * 4.4) : Math.max(2.9, e.speed * 2.1)) * stepScale;
       if (td > 1) {
         e.x += (tx / td) * Math.min(td, stepSpeed);
         e.y += (ty / td) * Math.min(td, stepSpeed);
@@ -281,8 +352,9 @@ export function updateEnemySystem(
       if (e.ingressTicks % 5 === 0) {
         spawnParticleBurst(state, e.x, e.y, getEnemyAccentColor(e).hex, 1, 0.8, 2.0, 10);
       }
-      if (td <= 28 || (e.ingressTicks >= 95 && isEnemyCombatReady(e, state))) {
+      if (td <= 26 || (e.ingressTicks >= 95 && isEnemyCombatReady(e, state))) {
         e.ingressActive = false;
+        e.sectorAngle = Math.atan2(e.y - py, e.x - px);
         e.lastShotMs = Math.max(e.lastShotMs, now - Math.random() * 650);
       }
       e.vx = e.x - prevX;
@@ -305,35 +377,29 @@ export function updateEnemySystem(
     const inBounds = isEnemyCombatReady(e, state);
     const cdMult = e.evolutionTier === 3 ? 0.74 : e.evolutionTier === 2 ? 0.86 : 1.0;
 
-    // Telegraph special toys: Bomber wind-up rings, Sniper laser sights, and Medic green healing tethers
-    if (e.specialKind === 'bomber') {
-      if (e.telegraphTimerMs > 0 || (inBounds && dist <= 95)) {
-        const prevT = e.telegraphTimerMs;
-        e.telegraphMaxMs = 750;
-        e.telegraphTimerMs += scaledDtMs;
-        if (prevT === 0) {
-          spawnShockwave(state, e.x, e.y, 44, 0xff5a1f, 12);
+    // Telegraph special roles: Bomber proximity charge, Sniper laser sights, and Medic healing tethers
+    if (e.specialKind === 'bomber' && (e.telegraphTimerMs > 0 || (inBounds && dist <= 95))) {
+      const prevT = e.telegraphTimerMs;
+      e.telegraphMaxMs = 750;
+      e.telegraphTimerMs += scaledDtMs;
+      if (prevT === 0) {
+        spawnShockwave(state, e.x, e.y, 44, 0xff5a1f, 12);
+        bus?.emit('BOMBER_PRIMED', { x: e.x, y: e.y });
+      }
+      if (e.telegraphTimerMs >= 750) {
+        e.hp = 0;
+        const blastR = 105;
+        spawnShockwave(state, e.x, e.y, blastR, 0xff4422, 22);
+        spawnParticleBurst(state, e.x, e.y, 0xff5a1f, 26, 4.8, 4.2, 24);
+        addScreenShake(state, 10);
+        bus?.emit('BARREL_EXPLODED', { x: e.x, y: e.y, radius: blastR });
+        if (dist <= blastR + state.player.radius) {
+          onPlayerHurt?.(24 + state.raid.sectorNumber * 4);
         }
-        if (e.telegraphTimerMs >= 750) {
-          e.hp = 0;
-          const blastR = 105;
-          spawnShockwave(state, e.x, e.y, blastR, 0xff4422, 22);
-          spawnParticleBurst(state, e.x, e.y, 0xff5a1f, 26, 4.8, 4.2, 24);
-          addScreenShake(state, 10);
-          if (dist <= blastR + state.player.radius) {
-            onPlayerHurt?.(24 + state.raid.sectorNumber * 4);
-          }
-          continue;
-        }
-        e.vx = 0;
-        e.vy = 0;
         continue;
       }
-      // Subtle hint on what the Bomber wants to hug
-      e.x += dirX * e.speed * 1.22 * stepScale;
-      e.y += dirY * e.speed * 1.22 * stepScale;
-      e.vx = e.x - prevX;
-      e.vy = e.y - prevY;
+      e.vx = 0;
+      e.vy = 0;
       continue;
     }
 
@@ -398,6 +464,7 @@ export function updateEnemySystem(
             visualStyle: 'needle',
           });
           spawnParticleBurst(state, e.x, e.y, 0xff2255, 8, 2.8, 3.0, 14);
+          bus?.emit('SNIPER_FIRED', { x: e.x, y: e.y, isBoss: false });
         }
         e.vx = 0;
         e.vy = 0;
@@ -414,95 +481,76 @@ export function updateEnemySystem(
       }
     }
 
-    // Role-based steering so squads flank instead of forming a sad conga line
-    if (e.isMinion) {
-      e.sectorAngle += 0.015 * e.flankSign * stepScale;
-      const desiredRadius = Math.max(46, Math.min(140, dist * 0.78));
-      const anchor = clampPointToStorm(
-        px + Math.cos(e.sectorAngle) * desiredRadius,
-        py + Math.sin(e.sectorAngle) * desiredRadius,
-        state.stormRing,
-        32
-      );
-      const adx = anchor.x - e.x;
-      const ady = anchor.y - e.y;
-      const ad = Math.hypot(adx, ady) || 1;
-      e.x += (adx / ad) * e.speed * 1.18;
-      e.y += (ady / ad) * e.speed * 1.18;
+    // Perimeter patrol AI: units enter to the outer viewport ring and weave along the edges instead of colliding
+    if (e.specialKind === 'bomber') {
+      moveTowardPerimeterAnchor(state, e, 0.85, 0.011, 1.16, stepScale);
+      if (inBounds && dist > 140 && dist < 460 && now - e.lastShotMs > 2600 * cdMult) {
+        e.lastShotMs = now;
+        const aim = predictAimAngle(e.x, e.y, px, py, pvx, pvy, 3.1, 0.45);
+        state.bullets.push({
+          id: nextId(state),
+          x: e.x,
+          y: e.y,
+          dx: Math.cos(aim),
+          dy: Math.sin(aim),
+          speed: 3.1,
+          radius: 5.5,
+          damage: Math.floor(14 * (1 + state.wave * 0.06)),
+          color: '#ff6b2b',
+          hex: 0xff6b2b,
+          isEnemy: true,
+          pierceLeft: 0,
+          hitIds: new Set<number>(),
+          age: 0,
+          bounces: 0,
+          isCritVisual: false,
+          visualStyle: 'orb',
+        });
+      }
+    } else if (e.isMinion) {
+      moveTowardPerimeterAnchor(state, e, 0.82, 0.015, 1.18, stepScale);
     } else if (e.type === 'small') {
-      // Scouts lead your velocity for a cheap flank shot, then peel away before bumping noses
-      if (e.strafeTimer > 0) {
-        e.strafeTimer--;
-        const awayAng = Math.atan2(-dy, -dx) + e.flankSign * 0.95;
-        e.x += Math.cos(awayAng) * e.speed * 1.28;
-        e.y += Math.sin(awayAng) * e.speed * 1.28;
-      } else {
-        const perpX = -dirY * e.flankSign;
-        const perpY = dirX * e.flankSign;
-        const lead = clampPointToStorm(
-          px + pvx * 24 + perpX * 82,
-          py + pvy * 24 + perpY * 82,
-          state.stormRing,
-          36
-        );
-        const ldx = lead.x - e.x;
-        const ldy = lead.y - e.y;
-        const ld = Math.hypot(ldx, ldy) || 1;
-        e.x += (ldx / ld) * e.speed * 1.12;
-        e.y += (ldy / ld) * e.speed * 1.12;
-
-        if (dist < 76) {
-          e.strafeTimer = 44;
-          e.flankSign = e.flankSign === 1 ? -1 : 1;
-          if (e.specialKind !== 'sniper' && state.wave >= 1 && inBounds && now - e.lastShotMs > 2100 * cdMult) {
-            e.lastShotMs = now;
-            const projSpd = e.evolutionTier === 3 ? 3.7 : 3.3;
-            const aim = predictAimAngle(e.x, e.y, px, py, pvx, pvy, projSpd, 0.55);
-            const fan =
-              e.evolutionTier === 3 ? [-0.2, 0, 0.2] : e.evolutionTier === 2 ? [-0.12, 0.12] : [0];
-            for (const offset of fan) {
-              state.bullets.push({
-                id: nextId(state),
-                x: e.x,
-                y: e.y,
-                dx: Math.cos(aim + offset),
-                dy: Math.sin(aim + offset),
-                speed: projSpd,
-                radius: 5.0,
-                damage: Math.floor(13 * (1 + state.wave * 0.06)),
-                color: e.evolutionTier === 3 ? '#ff77aa' : '#ff5555',
-                hex: e.evolutionTier === 3 ? 0xff77aa : 0xff5555,
-                isEnemy: true,
-                pierceLeft: 0,
-                hitIds: new Set<number>(),
-                age: 0,
-                bounces: 0,
-                isCritVisual: false,
-                visualStyle: 'bolt',
-              });
-            }
-          }
+      moveTowardPerimeterAnchor(state, e, 0.88, 0.013, 1.12, stepScale);
+      if (
+        e.specialKind !== 'sniper' &&
+        state.wave >= 1 &&
+        inBounds &&
+        dist > 130 &&
+        dist < 460 &&
+        now - e.lastShotMs > 2050 * cdMult
+      ) {
+        e.lastShotMs = now;
+        const projSpd = e.evolutionTier === 3 ? 3.7 : 3.3;
+        const aim = predictAimAngle(e.x, e.y, px, py, pvx, pvy, projSpd, 0.55);
+        const fan =
+          e.evolutionTier === 3 ? [-0.2, 0, 0.2] : e.evolutionTier === 2 ? [-0.12, 0.12] : [0];
+        for (const offset of fan) {
+          state.bullets.push({
+            id: nextId(state),
+            x: e.x,
+            y: e.y,
+            dx: Math.cos(aim + offset),
+            dy: Math.sin(aim + offset),
+            speed: projSpd,
+            radius: 5.0,
+            damage: Math.floor(13 * (1 + state.wave * 0.06)),
+            color: e.evolutionTier === 3 ? '#ff77aa' : '#ff5555',
+            hex: e.evolutionTier === 3 ? 0xff77aa : 0xff5555,
+            isEnemy: true,
+            pierceLeft: 0,
+            hitIds: new Set<number>(),
+            age: 0,
+            bounces: 0,
+            isCritVisual: false,
+            visualStyle: 'bolt',
+          });
         }
       }
     } else if (e.type === 'medium') {
-      // Artillery campers park on a ring around you and lob annoying lead fans
-      e.sectorAngle += 0.008 * e.flankSign;
-      const targetR = 232 + Math.sin(e.aiTimer * 0.03 + e.id) * 24;
-      const anchor = clampPointToStorm(
-        px + Math.cos(e.sectorAngle) * targetR,
-        py + Math.sin(e.sectorAngle) * targetR,
-        state.stormRing,
-        46
-      );
-      const adx = anchor.x - e.x;
-      const ady = anchor.y - e.y;
-      const ad = Math.hypot(adx, ady);
-      if (ad > 10) {
-        e.x += (adx / ad) * Math.min(ad, e.speed * 1.05);
-        e.y += (ady / ad) * Math.min(ad, e.speed * 1.05);
-      }
+      // Artillery patrols the perimeter band and fires aimed spread fans
+      moveTowardPerimeterAnchor(state, e, 0.96, 0.0085, 1.05, stepScale);
 
-      if (e.specialKind !== 'sniper' && inBounds && now - e.lastShotMs > 1850 * cdMult && dist < 440 && dist > 65) {
+      if (e.specialKind !== 'sniper' && inBounds && now - e.lastShotMs > 1850 * cdMult && dist < 460 && dist > 110) {
         e.lastShotMs = now;
         const projSpd = e.evolutionTier === 3 ? 3.9 : 3.6;
         const leadAng = predictAimAngle(e.x, e.y, px, py, pvx, pvy, projSpd, 0.78);
@@ -537,32 +585,24 @@ export function updateEnemySystem(
         }
       }
     } else if (e.type === 'large') {
-      // Heavy brutes: stalk -> rev engines -> ram into the arena and throw a parting nova
+      // Heavy brutes patrol the perimeter, wind up, sweep tangentially along the rim, and fire a nova
       if (e.dashCooldown > 0) e.dashCooldown--;
       if (e.aiState === 'chase') {
-        const intercept = clampPointToStorm(
-          px + pvx * 26 + Math.cos(e.sectorAngle) * 58,
-          py + pvy * 26 + Math.sin(e.sectorAngle) * 58,
-          state.stormRing,
-          48
-        );
-        const idx = intercept.x - e.x;
-        const idy = intercept.y - e.y;
-        const idist = Math.hypot(idx, idy) || 1;
-        e.x += (idx / idist) * e.speed * 0.78;
-        e.y += (idy / idist) * e.speed * 0.78;
-        if (inBounds && dist < 225 && dist > 72 && e.dashCooldown <= 0 && Math.random() < 0.032) {
+        moveTowardPerimeterAnchor(state, e, 0.92, 0.0065, 0.9, stepScale);
+        if (inBounds && dist < 410 && dist > 170 && e.dashCooldown <= 0 && Math.random() < 0.032) {
           e.aiState = 'windup';
-          const leadAng = predictAimAngle(e.x, e.y, px, py, pvx, pvy, e.speed * 4.1, 0.45);
-          e.dashDirX = Math.cos(leadAng);
-          e.dashDirY = Math.sin(leadAng);
+          const radialAng = Math.atan2(e.y - py, e.x - px);
+          const sweepAng = radialAng + e.flankSign * (Math.PI * 0.48);
+          e.dashDirX = Math.cos(sweepAng);
+          e.dashDirY = Math.sin(sweepAng);
           e.dashTimer = 28;
         }
       } else if (e.aiState === 'windup') {
         if (e.dashTimer > 12) {
-          const leadAng = predictAimAngle(e.x, e.y, px, py, pvx, pvy, e.speed * 4.1, 0.48);
-          e.dashDirX = Math.cos(leadAng);
-          e.dashDirY = Math.sin(leadAng);
+          const radialAng = Math.atan2(e.y - py, e.x - px);
+          const sweepAng = radialAng + e.flankSign * (Math.PI * 0.48);
+          e.dashDirX = Math.cos(sweepAng);
+          e.dashDirY = Math.sin(sweepAng);
         }
         e.faceAngle = Math.atan2(e.dashDirY, e.dashDirX);
         e.dashTimer--;
@@ -583,15 +623,14 @@ export function updateEnemySystem(
           e.dashTimer = 22;
         }
       } else {
-        e.x += e.dashDirX * e.speed * 4.1;
-        e.y += e.dashDirY * e.speed * 4.1;
+        e.x += e.dashDirX * e.speed * 3.8;
+        e.y += e.dashDirY * e.speed * 3.8;
         e.faceAngle = Math.atan2(e.dashDirY, e.dashDirX);
         e.dashTimer--;
         if (e.dashTimer % 3 === 0) {
           spawnParticleBurst(state, e.x, e.y, 0xff55ff, 2, 1.2, 3.2, 14);
         }
         if (e.dashTimer <= 0) {
-          // Cough up a ring of bolts whenever the brute slams on the brakes
           if (isEnemyCombatReady(e, state)) {
             const baseRot = e.faceAngle;
             const ringCount = e.evolutionTier === 3 ? 10 : e.evolutionTier === 2 ? 8 : 6;
@@ -619,11 +658,12 @@ export function updateEnemySystem(
             }
           }
           e.aiState = 'chase';
+          e.flankSign = e.flankSign === 1 ? -1 : 1;
           e.dashCooldown = Math.round(115 * cdMult);
         }
       }
     } else if (e.type === 'elite') {
-      // Elites kite at long range and panic-blink away once they dip under 45% HP
+      // Elites kite along the far perimeter band and blink along the edge under 45% HP
       if (e.teleportCooldown > 0) e.teleportCooldown--;
       if (e.warpWarmupTimer > 0) {
         e.warpWarmupTimer--;
@@ -632,12 +672,12 @@ export function updateEnemySystem(
           e.warpStartY = e.y;
           e.warpLineTimer = 32;
 
-          const fallback = randomPointInStorm(state.stormRing, px, py, 190, 320, 65);
+          const fallback = computePerimeterBandPoint(state, Math.random() * Math.PI * 2, 1.04);
           let bestX = fallback.x;
           let bestY = fallback.y;
           let bestScore = -Infinity;
           for (let c = 0; c < 6; c++) {
-            const cand = randomPointInStorm(state.stormRing, px, py, 175, 360, 65);
+            const cand = randomPointInStorm(state.stormRing, px, py, 245, 365, 65);
             const pd = Math.hypot(cand.x - px, cand.y - py);
             let minPeer = 999;
             for (const other of state.enemies) {
@@ -645,7 +685,7 @@ export function updateEnemySystem(
                 minPeer = Math.min(minPeer, Math.hypot(cand.x - other.x, cand.y - other.y));
               }
             }
-            const score = minPeer + Math.abs(pd - 260) * -0.4;
+            const score = minPeer + Math.abs(pd - 305) * -0.4;
             if (score > bestScore) {
               bestScore = score;
               bestX = cand.x;
@@ -658,26 +698,13 @@ export function updateEnemySystem(
           e.sectorAngle = Math.atan2(bestY - py, bestX - px);
           e.teleportCooldown = 180;
           spawnParticleBurst(state, e.x, e.y, 0x00ffff, 18, 3.2, 4, 22);
+          bus?.emit('ENTITY_TELEPORTED', { x: e.x, y: e.y, isBoss: false });
         }
       } else {
         if (inBounds && e.hp / e.maxHp < 0.45 && e.teleportCooldown <= 0 && Math.random() < 0.03) {
           e.warpWarmupTimer = 28;
         } else {
-          e.sectorAngle += 0.006 * e.flankSign;
-          const idealR = 270;
-          const anchor = clampPointToStorm(
-            px + Math.cos(e.sectorAngle) * idealR,
-            py + Math.sin(e.sectorAngle) * idealR,
-            state.stormRing,
-            52
-          );
-          const adx = anchor.x - e.x;
-          const ady = anchor.y - e.y;
-          const ad = Math.hypot(adx, ady);
-          if (ad > 10) {
-            e.x += (adx / ad) * Math.min(ad, e.speed * 1.15);
-            e.y += (ady / ad) * Math.min(ad, e.speed * 1.15);
-          }
+          moveTowardPerimeterAnchor(state, e, 1.02, 0.006, 1.15, stepScale);
 
           if (inBounds && now - e.lastShotMs > 1850 * cdMult && dist < 480) {
             e.lastShotMs = now;
