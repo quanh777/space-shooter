@@ -12,10 +12,10 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&family=JetBrains+Mono:wght@500;700;800&display=swap"
     rel="stylesheet" />
-  <script type="module" crossorigin src="./assets/index-BL7Ozwmu.js"></script>
+  <script type="module" crossorigin src="./assets/index-CCcoVAzw.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/three-CzrI9pao.js">
-  <link rel="modulepreload" crossorigin href="./assets/firebase-B4VwZWzb.js">
-  <link rel="stylesheet" crossorigin href="./assets/index-BSOIqu7N.css">
+  <link rel="modulepreload" crossorigin href="./assets/firebase-B4j5SGmZ.js">
+  <link rel="stylesheet" crossorigin href="./assets/index-CuvmWoQd.css">
 </head>
 
 <body>
@@ -598,6 +598,8 @@
             </div>
           </div>
 
+          <div id="gameOverLoadoutCard" class="gameover-loadout-card"></div>
+
           <div class="submit-box">
             <p class="submit-encourage" data-lang="encourageSubmit">Ghi danh lên Bảng Xếp Hạng Thiên Hà!</p>
             <p id="rankPreview" class="rank-preview"></p>
@@ -623,8 +625,15 @@
         </div>
 
         <div class="gameover-right">
-          <h3 class="sub-panel-title" data-lang="top10">TOP 10 PHI CÔNG</h3>
+          <div class="gameover-lb-head">
+            <h3 class="sub-panel-title" data-lang="top10">TOP 10 PHI CÔNG</h3>
+            <span id="gameOverLbStatus" class="lb-conn-badge state-connecting">
+              <span class="lb-conn-dot"></span>
+              <span id="gameOverLbStatusLabel">ĐANG ĐỒNG BỘ...</span>
+            </span>
+          </div>
           <div id="gameOverLeaderboardBody" class="leaderboard-scroll"></div>
+          <div id="gameOverLbInspector" class="lb-inspector compact"></div>
         </div>
       </div>
     </div>
@@ -632,13 +641,41 @@
 
   <!-- Global Firebase leaderboard modal -->
   <section id="leaderboardScreen" class="screen-overlay modal-backdrop hidden">
-    <div class="modal-card modal-wide">
-      <div class="panel-kicker">NET.UPLINK // GLOBAL RANKINGS</div>
-      <h2 class="modal-title" data-lang="leaderboardTitle">BẢNG XẾP HẠNG</h2>
-      <div id="leaderboardBody" class="leaderboard-scroll tall"></div>
-      <button id="closeLeaderboardBtn" class="btn btn-steel" type="button">
-        <span data-lang="back">QUAY LẠI</span>
-      </button>
+    <div class="modal-card modal-console leaderboard-modal">
+      <div class="console-header">
+        <div>
+          <div class="panel-kicker" data-lang="lbKicker">MẠNG QUỸ ĐẠO // BẢNG XẾP HẠNG TRỰC TUYẾN</div>
+          <h2 class="modal-title" data-lang="leaderboardTitle">BẢNG XẾP HẠNG</h2>
+        </div>
+        <div class="lb-header-actions">
+          <div id="lbConnBadge" class="lb-conn-badge state-connecting">
+            <span class="lb-conn-dot"></span>
+            <span id="lbConnLabel">ĐANG ĐỒNG BỘ...</span>
+          </div>
+          <button id="refreshLeaderboardBtn" class="btn btn-wire btn-sm" type="button">
+            <span data-lang="lbRefreshBtn">LÀM MỚI</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="lb-toolbar">
+        <div id="lbHullFilters" class="lb-hull-filters"></div>
+        <div id="lbSummaryStats" class="lb-summary-stats"></div>
+      </div>
+
+      <div class="lb-split-layout">
+        <div class="lb-list-pane">
+          <div class="lb-pane-hint" data-lang="lbClickInspectHint">Chọn một phi công trong danh sách để xem chi tiết tàu và 6 ổ cứng trang bị</div>
+          <div id="leaderboardBody" class="leaderboard-scroll tall"></div>
+        </div>
+        <aside id="leaderboardInspector" class="lb-detail-pane"></aside>
+      </div>
+
+      <div class="console-footer">
+        <button id="closeLeaderboardBtn" class="btn btn-steel" type="button">
+          <span data-lang="back">QUAY LẠI</span>
+        </button>
+      </div>
     </div>
   </section>
 
