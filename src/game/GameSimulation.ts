@@ -14,11 +14,21 @@ import {
 import type { EventBus } from '../engine/EventBus';
 import type { InputSnapshot } from '../engine/InputManager';
 import { metaProgression } from '../services/MetaProgressionService';
-import { createInitialGameState, nextId, spawnParticleBurst, spawnShockwave } from './GameState';
+import {
+  clampPointToStorm,
+  createIdleTransitionBeat,
+  createInitialGameState,
+  createInitialOnboardingState,
+  nextId,
+  spawnFloatingText,
+  spawnParticleBurst,
+  spawnShockwave,
+  vacuumAndCollectPickupsStep,
+} from './GameState';
 import { updateBossSystem } from './systems/BossSystem';
 import { updateCombatSystem } from './systems/CombatSystem';
 import { updateComboSystem } from './systems/ComboSystem';
-import { updateEnemySystem } from './systems/EnemySystem';
+import { createEnemy, updateEnemySystem } from './systems/EnemySystem';
 import {
   activateChronoOverdrive,
   activateThermalPurge,
@@ -28,20 +38,27 @@ import {
 } from './systems/PlayerSystem';
 import {
   applyQuickDraftChoice,
+  finalizeRoomClearAfterPacing,
   initSectorRooms,
+  openLevelUpDraftImmediate,
   rerollRoomQuickDraft,
   selectRoomDoorOption,
   spawnCombatDrone,
   triggerPendingLevelUpDraft,
   updateRoomSystem,
 } from './systems/RoomSystem';
-import { pickQuickDraftOption, updateRaidSystem } from './systems/RaidSystem';
+import {
+  openRaidQuickDraftImmediate,
+  pickQuickDraftOption,
+  updateRaidSystem,
+} from './systems/RaidSystem';
 import {
   buyCoreUpgrade,
   claimRouletteOffer,
   equipInventoryItemToSlot,
   fuseWeaponGroup,
   mountWeaponOnSlot,
+  openShop,
   purchaseSelectedShopItems,
   refreshShopOffers,
   salvageInventoryItem,
@@ -56,12 +73,13 @@ import {
   unmountWeaponSlot,
   upgradeMountedWeapon,
 } from './systems/ShopSystem';
-import { updateStormRing, updateWaveSystem } from './systems/WaveSystem';
+import { configureStormRingForRoom, updateStormRing, updateWaveSystem } from './systems/WaveSystem';
 import type { GamePhase, GameState, SkillMode } from './types';
 
 export class GameSimulation {
   public state: GameState;
   private openedFromRest = false;
+  private pacingEnabledDefault = false;
 
   constructor(public readonly bus: EventBus) {
     this.state = createInitialGameState();
@@ -69,7 +87,12 @@ export class GameSimulation {
     this.state.player.hullId = metaProgression.getProfile().selectedHull;
   }
 
-  startNewGame(hullId?: HullClassId): void {
+  setPacingEnabled(enabled: boolean): void {
+    this.pacingEnabledDefault = enabled;
+    this.state.pacingEnabled = enabled;
+  }
+
+  startNewGame(hullId?: HullClassId, options?: { tutorial?: boolean }): void {
     const prevPhase = this.state.phase;
     this.openedFromRest = false;
     if (hullId) {
@@ -81,6 +104,7 @@ export class GameSimulation {
     const hullDef = HULL_CATALOG[chosenHull];
 
     this.state = createInitialGameState();
+    this.state.pacingEnabled = this.pacingEnabledDefault;
     this.state.metaBonuses = meta;
     this.state.money += meta.startCredits;
 
@@ -105,7 +129,29 @@ export class GameSimulation {
     this.state.tutorialCircle = null;
     this.state.neededSpawn = false;
     this.state.waveStartMs = 0;
-    initSectorRooms(this.state, 1, this.bus, false);
+
+    if (options?.tutorial) {
+      this.state.onboarding = createInitialOnboardingState(true);
+      this.state.runRoomNumber = 1;
+      this.state.roomsTotalPerSector = 5;
+      this.state.currentRoomKind = 'armory';
+      this.state.currentRoomTitleVi = 'SÂN TẬP PHI CÔNG MỚI';
+      this.state.currentRoomTitleEn = 'PILOT FLIGHT BOOT CAMP';
+      this.state.currentRoomZoneVi = 'KHU VỰC AN TOÀN';
+      this.state.currentRoomZoneEn = 'SAFE TRAINING BAY';
+      configureStormRingForRoom(this.state, 'supply');
+      this.state.stormRing.radius = 680;
+      this.state.stormRing.targetRadius = 680;
+      this.state.stormRing.shrinkRate = 0;
+      this.state.stormRing.transitionActive = false;
+      this.state.arenaObstacles = [];
+      this.state.enemies = [];
+      this.state.spawnQueue = [];
+      this.state.waveTransition.active = false;
+    } else {
+      initSectorRooms(this.state, 1, this.bus, false);
+    }
+
     this.bus.emit('PHASE_CHANGED', { from: prevPhase, to: 'PLAYING' });
     this.bus.emit('GAME_STARTED');
   }
@@ -114,10 +160,40 @@ export class GameSimulation {
     const prevPhase = this.state.phase;
     this.openedFromRest = false;
     this.state = createInitialGameState();
+    this.state.pacingEnabled = this.pacingEnabledDefault;
     this.state.phase = 'MENU';
     if (prevPhase !== 'MENU') {
       this.bus.emit('PHASE_CHANGED', { from: prevPhase, to: 'MENU' });
     }
+  }
+
+  skipOnboarding(): boolean {
+    if (!this.state.onboarding.active) return false;
+    this.finishOnboarding(true);
+    return true;
+  }
+
+  private finishOnboarding(clearDrops: boolean): void {
+    if (!this.state.onboarding.active) return;
+    this.state.onboarding = createInitialOnboardingState(false);
+    this.state.enemies = [];
+    this.state.bullets = [];
+    this.state.scheduledBullets = [];
+    if (clearDrops) {
+      this.state.goldPickups = [];
+      this.state.powerUps = [];
+      this.state.floatingModules = [];
+    } else {
+      vacuumAndCollectPickupsStep(this.state, 16, this.bus, true);
+    }
+    const p = this.state.player;
+    p.health = p.maxHealth;
+    p.energy = p.maxEnergy;
+    p.heat = 0;
+    p.isOverloaded = false;
+    p.thermalPurgeCooldownMs = 0;
+    this.bus.emit('ONBOARDING_COMPLETED');
+    initSectorRooms(this.state, 1, this.bus, false);
   }
 
   setPhase(next: GamePhase): void {
@@ -171,6 +247,15 @@ export class GameSimulation {
     const l = this.state.player.loadout;
     l.garageMode = 'INVENTORY';
     l.activeArmoryTab = 'INVENTORY';
+    this.state.popupReason = {
+      source: 'hangar',
+      kickerVi: 'XƯỞNG LẮP RÁP NHANH [G]',
+      kickerEn: 'QUICK HANGAR ACCESS [G]',
+      titleVi: 'KHO TRANG BỊ & LẮP RÁP TÀU 3D',
+      titleEn: 'SHIP INVENTORY & 3D ASSEMBLY',
+      reasonVi: 'Bạn đã mở Kho trang bị: kéo vũ khí từ cột trái vào 6 ổ trên thân tàu hoặc hợp nhất 3 món cùng cấp.',
+      reasonEn: 'Quick Hangar open: drag looted modules onto 6 hardpoints or fuse 3 matching items.',
+    };
     this.state.phase = 'SHOP';
     this.bus.emit('SHOP_OPENED', { wave: this.state.wave });
     this.bus.emit('PHASE_CHANGED', { from: 'PLAYING', to: 'SHOP' });
@@ -327,6 +412,7 @@ export class GameSimulation {
     if (this.state.phase !== 'SHOP') return;
     const wasBossShop = this.state.player.loadout.garageMode === 'SHOP';
     this.state.shop.selected = [];
+    this.state.popupReason = null;
     this.state.player.loadout.garageMode = 'INVENTORY';
     this.setPhase('PLAYING');
     if (this.openedFromRest || !wasBossShop) {
@@ -398,8 +484,9 @@ export class GameSimulation {
       return;
     }
 
-    const triggerGameOver = () => {
+    const finalizeGameOver = () => {
       if (this.state.phase === 'GAMEOVER') return;
+      this.state.pacingTransition = createIdleTransitionBeat();
       const { shardsEarned } = metaProgression.recordRunReward({
         roomsCleared: this.state.roomsClearedTotal,
         elitesKilled: this.state.elitesKilledRun,
@@ -418,6 +505,39 @@ export class GameSimulation {
       });
     };
 
+    const triggerGameOver = () => {
+      if (this.state.phase === 'GAMEOVER') return;
+      if (!this.state.pacingEnabled) {
+        finalizeGameOver();
+        return;
+      }
+      if (this.state.pacingTransition.kind === 'gameover') return;
+      const p = this.state.player;
+      p.health = 0;
+      spawnShockwave(this.state, p.x, p.y, 185, 0xff3b4e, 34);
+      spawnParticleBurst(this.state, p.x, p.y, 0xff5533, 48, 5.5, 5, 42);
+      this.state.pacingTransition = {
+        kind: 'gameover',
+        elapsedMs: 0,
+        durationMs: 900,
+        bannerTitleVi: 'CHIẾN HẠM THẤT THỦ // MẤT TÍN HIỆU',
+        bannerTitleEn: 'HULL DESTROYED // SIGNAL LOST',
+        bannerSubVi: 'Đang tổng hợp dữ liệu chiến dịch & bảng xếp hạng...',
+        bannerSubEn: 'Compiling combat dossier & leaderboard telemetry...',
+        accent: '#ff3b4e',
+      };
+    };
+
+    if (this.state.pacingTransition.kind !== 'none') {
+      this.stepPacingTransition(input, dtSec, dtMs, finalizeGameOver);
+      return;
+    }
+
+    if (this.state.onboarding.active) {
+      this.stepOnboarding(input, dtSec, dtMs);
+      return;
+    }
+
     const worldDtMs = dtMs * (this.state.timeScale ?? 1.0);
     updatePlayerSystem(this.state, input, this.bus, dtSec, dtMs, triggerGameOver);
     if (this.state.phase !== 'PLAYING') return;
@@ -428,11 +548,34 @@ export class GameSimulation {
     updateCombatSystem(this.state, this.bus, dtMs, triggerGameOver);
 
     if (this.state.phase !== 'PLAYING') return;
+    if (this.state.pacingTransition.kind !== 'none') return;
+
+    if (
+      this.state.pacingEnabled &&
+      this.state.boss === null &&
+      this.state.wave > 0 &&
+      this.state.wave % 5 === 0 &&
+      this.state.bossSpawnedForWave
+    ) {
+      this.state.bullets = this.state.bullets.filter((b) => !b.isEnemy);
+      this.state.scheduledBullets = [];
+      this.state.pacingTransition = {
+        kind: 'boss_shop',
+        elapsedMs: 0,
+        durationMs: 1450,
+        bannerTitleVi: 'ĐẠI BOSS ĐÃ BỊ TIÊU DIỆT! // ĐANG HÚT KHO BÁU',
+        bannerTitleEn: 'CAPITAL BOSS SLAIN! // SECURING BOSS LOOT',
+        bannerSubVi: 'Thu hồi mô-đun vũ khí & vàng về tàu trước khi mở Trạm Hậu Boss...',
+        bannerSubEn: 'Pulling boss weapon pods & gold to hull before opening Armory...',
+        accent: '#fbbf24',
+      };
+      return;
+    }
 
     // Pop the 3-card draft right away when XP fills up (no holding points hostage)
     if (this.state.player.pendingLevelUps > 0) {
       triggerPendingLevelUpDraft(this.state, this.bus);
-      if (this.state.phase !== 'PLAYING') return;
+      if (this.state.phase !== 'PLAYING' || this.state.pacingTransition.kind !== 'none') return;
     }
 
     if (this.state.roomsTotalPerSector < 5) {
@@ -440,10 +583,202 @@ export class GameSimulation {
     } else {
       updateRoomSystem(this.state, this.bus, dtMs);
     }
-    if (this.state.phase !== 'PLAYING') return;
+    if (this.state.phase !== 'PLAYING' || this.state.pacingTransition.kind !== 'none') return;
 
     updateComboSystem(this.state, this.bus, dtMs);
     updateWaveSystem(this.state, this.bus, dtMs);
+  }
+
+  private stepPacingTransition(
+    input: InputSnapshot,
+    dtSec: number,
+    dtMs: number,
+    finalizeGameOver: () => void
+  ): void {
+    const beat = this.state.pacingTransition;
+    beat.elapsedMs += dtMs;
+
+    if (beat.kind === 'gameover') {
+      this.updateAmbientVfx();
+      if (beat.elapsedMs >= beat.durationMs) {
+        this.state.pacingTransition = createIdleTransitionBeat();
+        finalizeGameOver();
+      }
+      return;
+    }
+
+    const p = this.state.player;
+    p.dashInvulnUntilMs = Math.max(p.dashInvulnUntilMs, this.state.simTimeMs + 140);
+    updatePlayerSystem(this.state, input, this.bus, dtSec, dtMs);
+    if (this.state.phase !== 'PLAYING') return;
+
+    updateStormRing(this.state, dtSec);
+    this.updateAmbientVfx();
+
+    if (this.state.roomPortal) {
+      this.state.roomPortal.pulse += dtMs * 0.004;
+    }
+
+    const { remainingCount } = vacuumAndCollectPickupsStep(this.state, dtMs, this.bus, false);
+
+    let enteredPortalEarly = false;
+    if (beat.kind === 'room_clear' && this.state.roomPortal && beat.elapsedMs >= 450 && remainingCount === 0) {
+      const distToPortal = Math.hypot(p.x - this.state.roomPortal.x, p.y - this.state.roomPortal.y);
+      if (distToPortal <= 58) {
+        enteredPortalEarly = true;
+        spawnShockwave(this.state, p.x, p.y, 130, this.state.roomPortal.accentHex, 20);
+      }
+    }
+
+    const readyByTime =
+      (beat.elapsedMs >= beat.durationMs && remainingCount === 0) ||
+      beat.elapsedMs >= beat.durationMs + 550;
+
+    if (!enteredPortalEarly && !readyByTime) {
+      return;
+    }
+
+    const finishedKind = beat.kind;
+    vacuumAndCollectPickupsStep(this.state, dtMs, this.bus, true);
+
+    if (finishedKind === 'room_clear') {
+      finalizeRoomClearAfterPacing(this.state, this.bus);
+    } else if (finishedKind === 'raid_reward') {
+      openRaidQuickDraftImmediate(this.state, this.bus);
+    } else if (finishedKind === 'level_up') {
+      openLevelUpDraftImmediate(this.state, this.bus);
+    } else if (finishedKind === 'boss_shop') {
+      this.state.pacingTransition = createIdleTransitionBeat();
+      this.state.wave++;
+      this.state.bossSpawnedForWave = false;
+      this.state.isResting = false;
+      if (this.state.player.pendingLevelUps > 0) {
+        this.state.neededSpawn = true;
+        openLevelUpDraftImmediate(this.state, this.bus);
+      } else {
+        this.state.neededSpawn = false;
+        openShop(this.state, this.bus);
+      }
+    }
+  }
+
+  private stepOnboarding(input: InputSnapshot, dtSec: number, dtMs: number): void {
+    const o = this.state.onboarding;
+    const p = this.state.player;
+    o.stepElapsedMs += dtMs;
+
+    if (o.step === 1 && p.energy < 35) {
+      p.energy = 40;
+    }
+
+    const effectiveInput: InputSnapshot =
+      o.step === 1 && input.dash && Math.hypot(input.moveX, input.moveY) <= 0.08
+        ? { ...input, moveX: Math.cos(p.facingAngle), moveY: Math.sin(p.facingAngle) }
+        : input;
+
+    if (o.step === 2 && effectiveInput.vent && !o.vented) {
+      p.heat = Math.max(p.heat, p.maxHeat * 0.65);
+      p.thermalPurgeCooldownMs = 0;
+    }
+
+    for (const e of this.state.enemies) {
+      e.speed = 0;
+      e.vx = 0;
+      e.vy = 0;
+      e.ingressActive = false;
+      e.lastShotMs = this.state.simTimeMs + 999999;
+    }
+
+    updatePlayerSystem(this.state, effectiveInput, this.bus, dtSec, dtMs);
+    if (this.state.phase !== 'PLAYING') return;
+    updateEnemySystem(this.state, dtMs, this.bus, () => {
+      // Training targets do not damage player
+    });
+    updateCombatSystem(this.state, this.bus, dtMs, () => {
+      // Player is shielded from fatal hits while onboarding
+    });
+    if (this.state.phase !== 'PLAYING') return;
+
+    for (const e of this.state.enemies) {
+      e.speed = 0;
+      e.vx = 0;
+      e.vy = 0;
+      e.ingressActive = false;
+      e.lastShotMs = this.state.simTimeMs + 999999;
+    }
+    this.state.bullets = this.state.bullets.filter((b) => !b.isEnemy);
+    p.health = Math.max(Math.round(p.maxHealth * 0.65), p.health);
+
+    if (o.step === 1) {
+      o.movedDist = Math.min(200, o.movedDist + Math.hypot(p.vx, p.vy) * (dtMs / FIXED_DT_MS));
+      if (p.dashActive || p.lastDashEndMs > 0) {
+        o.dashed = true;
+      }
+      if (o.movedDist >= 85 && o.dashed) {
+        o.step = 2;
+        o.stepElapsedMs = 0;
+        this.state.enemies = [];
+        const offsets = [-145, 145];
+        for (const ox of offsets) {
+          const pt = clampPointToStorm(p.x + ox, p.y - 135, this.state.stormRing, 80);
+          const drone = createEnemy(this.state, 'small', false, pt);
+          drone.hp = 36;
+          drone.maxHp = 36;
+          drone.speed = 0;
+          drone.lastShotMs = this.state.simTimeMs + 999999;
+          this.state.enemies.push(drone);
+          spawnShockwave(this.state, pt.x, pt.y, 70, 0x38e8ff, 18);
+        }
+        spawnFloatingText(
+          this.state,
+          p.x,
+          p.y - 45,
+          'TRAINING DRONES DEPLOYED',
+          '#38e8ff',
+          1.2,
+          44
+        );
+      }
+    } else if (o.step === 2) {
+      o.targetsKilled = Math.max(o.targetsKilled, o.targetsTotal - this.state.enemies.length);
+      if (p.thermalPurgeCooldownMs > 0 || effectiveInput.vent) {
+        o.vented = true;
+      }
+      if (o.targetsKilled >= o.targetsTotal && !o.vented) {
+        p.heat = Math.max(p.heat, Math.round(p.maxHeat * 0.68));
+      }
+      if (o.targetsKilled >= o.targetsTotal && o.vented) {
+        if (this.state.goldPickups.length === 0) {
+          for (const gx of [-45, 45]) {
+            const gPt = clampPointToStorm(p.x + gx, p.y - 80, this.state.stormRing, 70);
+            this.state.goldPickups.push({
+              id: nextId(this.state),
+              x: gPt.x,
+              y: gPt.y,
+              vx: 0,
+              vy: 0,
+              value: 15,
+              size: 6,
+              age: 0,
+              homing: false,
+            });
+          }
+        }
+        o.step = 3;
+        o.stepElapsedMs = 0;
+      }
+    } else if (o.step === 3) {
+      if (o.stepElapsedMs >= 1400 && this.state.goldPickups.length > 0) {
+        vacuumAndCollectPickupsStep(this.state, dtMs, this.bus, false);
+      }
+      if (this.state.goldPickups.length === 0 && this.state.floatingModules.length === 0) {
+        o.lootCollected = true;
+        o.completeHoldMs += dtMs;
+        if (o.completeHoldMs >= 750) {
+          this.finishOnboarding(false);
+        }
+      }
+    }
   }
 
   private updateAmbientVfx(): void {

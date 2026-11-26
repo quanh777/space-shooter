@@ -1,23 +1,30 @@
 import {
   ARENA_H,
   ARENA_W,
+  FIXED_DT_MS,
   PLAYER_BASE,
   POWER_UP_CONFIG,
   SKILL_BASE,
   type PowerUpType,
 } from '../config/constants';
+import { countMutationStacks } from '../config/mutations';
 import { ALL_SHOP_ITEM_IDS, type ShopItemId } from '../config/shopItems';
-import type { ShipSlotId, WeaponId } from '../config/weapons';
+import { WEAPON_CATALOG, type ShipSlotId, type WeaponId } from '../config/weapons';
 import type { EventBus } from '../engine/EventBus';
 import { generateSectorMap } from './map/SectorMapGenerator';
 import type {
+  FloatingModuleEntity,
   GameState,
+  GoldPickup,
   MountedWeapon,
+  OnboardingState,
   PlayerState,
+  PowerUpPickup,
   SectorRaidState,
   ShipLoadoutState,
   ShopState,
   StormRingState,
+  TransitionBeatState,
 } from './types';
 
 function createMountedStarterWeapon(
@@ -189,9 +196,41 @@ export function createInitialShopState(): ShopState {
   };
 }
 
+export function createIdleTransitionBeat(): TransitionBeatState {
+  return {
+    kind: 'none',
+    elapsedMs: 0,
+    durationMs: 0,
+    bannerTitleVi: '',
+    bannerTitleEn: '',
+    bannerSubVi: '',
+    bannerSubEn: '',
+    accent: '#38e8ff',
+  };
+}
+
+export function createInitialOnboardingState(active = false): OnboardingState {
+  return {
+    active,
+    step: 1,
+    movedDist: 0,
+    dashed: false,
+    targetsKilled: 0,
+    targetsTotal: 2,
+    vented: false,
+    lootCollected: false,
+    stepElapsedMs: 0,
+    completeHoldMs: 0,
+  };
+}
+
 export function createInitialGameState(): GameState {
   const initialState: GameState = {
     phase: 'MENU',
+    pacingEnabled: false,
+    pacingTransition: createIdleTransitionBeat(),
+    popupReason: null,
+    onboarding: createInitialOnboardingState(false),
     simTimeMs: 0,
     hitStopMs: 0,
     screenShake: 0,
@@ -496,4 +535,137 @@ export function grantPlayerXp(state: GameState, amount: number, bus?: EventBus):
     bus?.emit('LEVEL_UP', { level: p.level });
   }
   return leveledUp;
+}
+
+export function collectGoldPickupItem(
+  state: GameState,
+  g: GoldPickup,
+  bus?: EventBus
+): void {
+  const p = state.player;
+  state.money += g.value;
+  if (countMutationStacks(p.activeMutations, 'scrap_overclock') > 0) {
+    p.overclockBuffMs = Math.max(p.overclockBuffMs, 3500);
+  }
+  bus?.emit('GOLD_COLLECTED', { amount: g.value, x: p.x, y: p.y });
+  spawnParticleBurst(state, p.x, p.y, 0xffdd44, 3, 1.5, 2.5, 12);
+}
+
+export function collectPowerUpItem(
+  state: GameState,
+  pu: PowerUpPickup,
+  bus?: EventBus
+): void {
+  activateBuff(state, pu.type);
+  const cfg = POWER_UP_CONFIG[pu.type];
+  spawnShockwave(state, pu.x, pu.y, 58, cfg.hex, 18);
+  spawnParticleBurst(state, pu.x, pu.y, cfg.hex, 14, 2.8, 3.8, 22);
+  spawnFloatingText(state, pu.x, pu.y - 18, cfg.labelEn, cfg.color, 1.15, 45);
+  bus?.emit('POWERUP_COLLECTED', { type: pu.type, x: pu.x, y: pu.y });
+}
+
+export function collectFloatingModuleItem(
+  state: GameState,
+  mod: FloatingModuleEntity,
+  bus?: EventBus
+): void {
+  const entry = WEAPON_CATALOG[mod.weaponId];
+  state.player.loadout.inventory.push({
+    instanceId: `wpn-${nextId(state)}`,
+    weaponId: mod.weaponId,
+    tier: mod.tier,
+    upgrades: {},
+    investedCredits: entry.price,
+    lastFireMs: -10000,
+    recoil: 0,
+  });
+  const hex = parseInt(entry.accent.replace('#', ''), 16) || 0x38e8ff;
+  spawnShockwave(state, mod.x, mod.y, 46, hex, 16);
+  spawnParticleBurst(state, mod.x, mod.y, hex, 12, 2.4, 3.4, 20);
+  spawnFloatingText(state, mod.x, mod.y - 16, `+ ${entry.nameEn}`, entry.accent, 1.05, 40);
+  bus?.emit('MODULE_COLLECTED', { weaponId: mod.weaponId, x: mod.x, y: mod.y });
+}
+
+export function vacuumAndCollectPickupsStep(
+  state: GameState,
+  dtMs: number,
+  bus?: EventBus,
+  instantFlush = false
+): { remainingCount: number } {
+  const p = state.player;
+  const dtScale = Math.max(0.25, dtMs / FIXED_DT_MS);
+
+  if (instantFlush) {
+    for (const g of state.goldPickups) {
+      collectGoldPickupItem(state, g, bus);
+    }
+    state.goldPickups = [];
+
+    for (const pu of state.powerUps) {
+      collectPowerUpItem(state, pu, bus);
+    }
+    state.powerUps = [];
+
+    for (const mod of state.floatingModules) {
+      collectFloatingModuleItem(state, mod, bus);
+    }
+    state.floatingModules = [];
+    return { remainingCount: 0 };
+  }
+
+  const goldSpeed = 24 * dtScale;
+  const nextGold: GoldPickup[] = [];
+  for (const g of state.goldPickups) {
+    g.homing = true;
+    const dx = p.x - g.x;
+    const dy = p.y - g.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist <= p.radius + 22 || dist <= goldSpeed) {
+      collectGoldPickupItem(state, g, bus);
+    } else {
+      g.x += (dx / dist) * goldSpeed;
+      g.y += (dy / dist) * goldSpeed;
+      nextGold.push(g);
+    }
+  }
+  state.goldPickups = nextGold;
+
+  const orbSpeed = 22 * dtScale;
+  const nextPowerUps: PowerUpPickup[] = [];
+  for (const pu of state.powerUps) {
+    pu.pulse += 0.16 * dtScale;
+    const dx = p.x - pu.x;
+    const dy = p.y - pu.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist <= p.radius + 22 || dist <= orbSpeed) {
+      collectPowerUpItem(state, pu, bus);
+    } else {
+      pu.x += (dx / dist) * orbSpeed;
+      pu.y += (dy / dist) * orbSpeed;
+      nextPowerUps.push(pu);
+    }
+  }
+  state.powerUps = nextPowerUps;
+
+  const modSpeed = 20 * dtScale;
+  const nextModules: FloatingModuleEntity[] = [];
+  for (const mod of state.floatingModules) {
+    mod.pulse += 0.14 * dtScale;
+    const dx = p.x - mod.x;
+    const dy = p.y - mod.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist <= p.radius + 24 || dist <= modSpeed) {
+      collectFloatingModuleItem(state, mod, bus);
+    } else {
+      mod.x += (dx / dist) * modSpeed;
+      mod.y += (dy / dist) * modSpeed;
+      nextModules.push(mod);
+    }
+  }
+  state.floatingModules = nextModules;
+
+  return {
+    remainingCount:
+      state.goldPickups.length + state.powerUps.length + state.floatingModules.length,
+  };
 }

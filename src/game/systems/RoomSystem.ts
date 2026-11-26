@@ -19,12 +19,14 @@ import type { EventBus } from '../../engine/EventBus';
 import {
   addScreenShake,
   clampPointToStorm,
+  createIdleTransitionBeat,
   createInitialRaidState,
   grantPlayerXp,
   nextId,
   spawnFloatingText,
   spawnShockwave,
   triggerHitStop,
+  vacuumAndCollectPickupsStep,
   xpRequiredForLevel,
 } from '../GameState';
 import type {
@@ -686,6 +688,15 @@ export function applyQuickDraftChoice(
 
   if (state.player.pendingLevelUps > 0) {
     state.player.pendingLevelUps--;
+    state.popupReason = {
+      source: 'level_up',
+      kickerVi: `THĂNG CẤP CHIẾN HẠM · CẤP ${state.player.level}`,
+      kickerEn: `WARSHIP LEVEL UP · LV.${state.player.level}`,
+      titleVi: `CHỌN NÂNG CẤP CẤP ${state.player.level}`,
+      titleEn: `LEVEL ${state.player.level} UPGRADE DRAFT`,
+      reasonVi: `Bạn vừa đủ XP thăng lên Cấp ${state.player.level} — chọn 1 thẻ cường hóa tiếp theo.`,
+      reasonEn: `You reached Level ${state.player.level} from combat XP — select 1 upgrade card.`,
+    };
     const nextOpts = buildRoomQuickDraft(state);
     state.raid.pendingQuickDraft = nextOpts;
     bus?.emit('QUICK_DRAFT_OPENED', { options: nextOpts });
@@ -695,6 +706,15 @@ export function applyQuickDraftChoice(
   // Elite rooms pay out an extra draft round — hard work deserves extra toys
   if (state.roomDraftsPending > 0) {
     state.roomDraftsPending--;
+    state.popupReason = {
+      source: 'room_bonus',
+      kickerVi: `THƯỞNG PHÒNG TINH NHUỆ // PHẦN THƯỞNG x2`,
+      kickerEn: `ELITE GAUNTLET // DOUBLE DRAFT REWARD`,
+      titleVi: 'RƯƠNG THƯỞNG NÂNG CẤP BỔ SUNG',
+      titleEn: 'BONUS ELITE UPGRADE DRAFT',
+      reasonVi: 'Bạn đã chinh phục phòng Tinh Nhuệ — nhận thêm 1 lượt chọn nâng cấp miễn phí.',
+      reasonEn: 'You conquered an Elite chamber — claim 1 bonus upgrade before leaving.',
+    };
     const nextOpts = buildRoomQuickDraft(state);
     state.raid.pendingQuickDraft = nextOpts;
     bus?.emit('QUICK_DRAFT_OPENED', { options: nextOpts });
@@ -706,6 +726,7 @@ export function applyQuickDraftChoice(
   if (state.pendingRoomDoors.length > 0) {
     openRoomDoorSelection(state, bus);
   } else {
+    state.popupReason = null;
     const prevPhase = state.phase;
     state.phase = 'PLAYING';
     if (prevPhase !== 'PLAYING') {
@@ -738,9 +759,19 @@ export function triggerWarpTransition(
   bus?.emit('WARP_JUMP_STARTED', { accentHex });
 }
 
-export function triggerPendingLevelUpDraft(state: GameState, bus?: EventBus): boolean {
+export function openLevelUpDraftImmediate(state: GameState, bus?: EventBus): boolean {
   if (state.phase !== 'PLAYING' || state.player.pendingLevelUps <= 0) return false;
+  state.pacingTransition = createIdleTransitionBeat();
   state.player.pendingLevelUps--;
+  state.popupReason = {
+    source: 'level_up',
+    kickerVi: `ĐỦ KINH NGHIỆM // CẤP ${state.player.level}`,
+    kickerEn: `XP THRESHOLD REACHED // LV.${state.player.level}`,
+    titleVi: `THĂNG CẤP CHIẾN HẠM · CẤP ${state.player.level}`,
+    titleEn: `WARSHIP LEVEL UP · LV.${state.player.level}`,
+    reasonVi: `Bạn vừa tiêu diệt địch và đạt Cấp ${state.player.level}. Hãy chọn 1 thẻ nâng cấp bên dưới.`,
+    reasonEn: `Combat XP filled Level ${state.player.level}. Choose 1 tactical upgrade card below.`,
+  };
   const opts = buildRoomQuickDraft(state);
   state.raid.pendingQuickDraft = opts;
   const prevPhase = state.phase;
@@ -748,6 +779,25 @@ export function triggerPendingLevelUpDraft(state: GameState, bus?: EventBus): bo
   bus?.emit('QUICK_DRAFT_OPENED', { options: opts });
   bus?.emit('PHASE_CHANGED', { from: prevPhase, to: 'QUICK_DRAFT' });
   return true;
+}
+
+export function triggerPendingLevelUpDraft(state: GameState, bus?: EventBus): boolean {
+  if (state.phase !== 'PLAYING' || state.player.pendingLevelUps <= 0) return false;
+  if (!state.pacingEnabled) {
+    return openLevelUpDraftImmediate(state, bus);
+  }
+  if (state.pacingTransition.kind !== 'none') return false;
+  state.pacingTransition = {
+    kind: 'level_up',
+    elapsedMs: 0,
+    durationMs: 820,
+    bannerTitleVi: `THĂNG CẤP CẤP ${state.player.level}! // CHUẨN BỊ NÂNG CẤP`,
+    bannerTitleEn: `LEVEL UP LV.${state.player.level}! // INCOMING DRAFT`,
+    bannerSubVi: 'Thanh XP đã đầy — đang thu hồi vàng quanh tàu trước khi mở bảng chọn...',
+    bannerSubEn: 'XP bar full — collecting nearby gold before opening upgrades...',
+    accent: '#fbbf24',
+  };
+  return false;
 }
 
 export function buildNextRoomDoors(state: GameState): RoomDoorOption[] {
@@ -832,6 +882,15 @@ export function openRoomDoorSelection(state: GameState, bus?: EventBus): void {
       ? state.pendingRoomDoors
       : buildNextRoomDoors(state);
   state.pendingRoomDoors = doors;
+  state.popupReason = {
+    source: 'room_doors',
+    kickerVi: `PHÒNG ${state.runRoomNumber}/${state.roomsTotalPerSector} ĐÃ HOÀN TẤT`,
+    kickerEn: `CHAMBER ${state.runRoomNumber}/${state.roomsTotalPerSector} CLEARED`,
+    titleVi: 'CHỌN CỬA DỊCH CHUYỂN TIẾP THEO',
+    titleEn: 'SELECT NEXT WARP CHAMBER',
+    reasonVi: `Bạn đã dọn sạch quái Phòng ${state.runRoomNumber}/${state.roomsTotalPerSector} và thu đủ chiến lợi phẩm. Chọn 1 cổng để nhảy tiếp.`,
+    reasonEn: `Chamber ${state.runRoomNumber}/${state.roomsTotalPerSector} cleared & all loot secured. Pick your next Warp Gate.`,
+  };
   const prevPhase = state.phase;
   state.phase = 'ROOM_SELECT';
   bus?.emit('ROOM_DOORS_OPENED', { roomNumber: nextRoomNum, doors });
@@ -857,6 +916,8 @@ export function enterSectorRoom(
   state.roomDraftsPending = 0;
   state.pendingRoomDoors = [];
   state.roomPortal = null;
+  state.pacingTransition = createIdleTransitionBeat();
+  state.popupReason = null;
   state.bullets = [];
   state.scheduledBullets = [];
   state.bombs = [];
@@ -1030,6 +1091,55 @@ export function selectRoomDoorOption(
   return true;
 }
 
+export function finalizeRoomClearAfterPacing(state: GameState, bus: EventBus): void {
+  if (state.phase !== 'PLAYING') return;
+  state.pacingTransition = createIdleTransitionBeat();
+  vacuumAndCollectPickupsStep(state, 16, bus, true);
+
+  state.roomDraftsPending = state.roomRewardDouble ? 1 : 0;
+
+  if (state.player.pendingLevelUps > 0 || state.roomDraftsPending > 0) {
+    state.pendingRoomDoors = buildNextRoomDoors(state);
+    const fromLevelUp = state.player.pendingLevelUps > 0;
+    if (fromLevelUp) {
+      state.player.pendingLevelUps--;
+      if (state.roomRewardDouble && state.roomDraftsPending > 0) {
+        state.roomDraftsPending = 0;
+      }
+      state.popupReason = {
+        source: 'level_up',
+        kickerVi: `PHÒNG ${state.runRoomNumber}/${state.roomsTotalPerSector} SẠCH QUÁI // CẤP ${state.player.level}`,
+        kickerEn: `CHAMBER ${state.runRoomNumber}/${state.roomsTotalPerSector} CLEARED // LV.${state.player.level}`,
+        titleVi: `THĂNG CẤP CẤP ${state.player.level} & MỞ CỔNG PHÒNG`,
+        titleEn: `LEVEL ${state.player.level} UPGRADE DRAFT`,
+        reasonVi: `Phòng ${state.runRoomNumber}/${state.roomsTotalPerSector} đã sạch quái & XP vừa lên Cấp ${state.player.level}. Chọn nâng cấp trước khi sang cửa mới.`,
+        reasonEn: `Room cleared & XP reached Level ${state.player.level}. Pick your upgrade before choosing the next Warp Gate.`,
+      };
+    } else {
+      state.roomDraftsPending--;
+      state.popupReason = {
+        source: 'room_bonus',
+        kickerVi: `HOÀN TẤT PHÒNG TINH NHUỆ // THƯỞNG x2`,
+        kickerEn: `ELITE CHAMBER CLEARED // DOUBLE REWARD`,
+        titleVi: 'CHỌN THẺ THƯỞNG PHÒNG TINH NHUỆ',
+        titleEn: 'ELITE CHAMBER BONUS DRAFT',
+        reasonVi: `Bạn vừa tiêu diệt hết đội hình Tinh Nhuệ và thu hồi chiến lợi phẩm — chọn 1 phần thưởng trước khi qua cổng.`,
+        reasonEn: `All Elite forces eliminated & loot vacuumed — claim your chamber bonus draft before jumping.`,
+      };
+    }
+    const opts = buildRoomQuickDraft(state);
+    state.raid.pendingQuickDraft = opts;
+    const prevPhase = state.phase;
+    state.phase = 'QUICK_DRAFT';
+    bus.emit('QUICK_DRAFT_OPENED', { options: opts });
+    bus.emit('PHASE_CHANGED', { from: prevPhase, to: 'QUICK_DRAFT' });
+    return;
+  }
+
+  state.pendingRoomDoors = [];
+  openRoomDoorSelection(state, bus);
+}
+
 export function completeCurrentRoom(state: GameState, bus: EventBus): void {
   if (state.phase !== 'PLAYING') return;
 
@@ -1058,8 +1168,15 @@ export function completeCurrentRoom(state: GameState, bus: EventBus): void {
   addScreenShake(state, 10);
   triggerHitStop(state, 28);
 
-  const px = state.player.x + Math.cos(state.player.facingAngle) * 140;
-  const py = state.player.y + Math.sin(state.player.facingAngle) * 140;
+  const portalDist = state.pacingEnabled ? 170 : 140;
+  const toCenterX = state.stormRing.centerX - state.player.x;
+  const toCenterY = state.stormRing.centerY - state.player.y;
+  const dirAng =
+    Math.hypot(toCenterX, toCenterY) > 40
+      ? Math.atan2(toCenterY, toCenterX)
+      : state.player.facingAngle;
+  const px = state.player.x + Math.cos(dirAng) * portalDist;
+  const py = state.player.y + Math.sin(dirAng) * portalDist;
   const clamped = clampPointToStorm(px, py, state.stormRing, 90);
   state.roomPortal = {
     x: clamped.x,
@@ -1068,29 +1185,23 @@ export function completeCurrentRoom(state: GameState, bus: EventBus): void {
     pulse: 0,
   };
 
-  state.roomDraftsPending = state.roomRewardDouble ? 1 : 0;
-
-  if (state.player.pendingLevelUps > 0 || state.roomDraftsPending > 0) {
-    state.pendingRoomDoors = buildNextRoomDoors(state);
-    if (state.player.pendingLevelUps > 0) {
-      state.player.pendingLevelUps--;
-      if (state.roomRewardDouble && state.roomDraftsPending > 0) {
-        state.roomDraftsPending = 0;
-      }
-    } else {
-      state.roomDraftsPending--;
-    }
-    const opts = buildRoomQuickDraft(state);
-    state.raid.pendingQuickDraft = opts;
-    const prevPhase = state.phase;
-    state.phase = 'QUICK_DRAFT';
-    bus.emit('QUICK_DRAFT_OPENED', { options: opts });
-    bus.emit('PHASE_CHANGED', { from: prevPhase, to: 'QUICK_DRAFT' });
+  if (!state.pacingEnabled) {
+    finalizeRoomClearAfterPacing(state, bus);
     return;
   }
 
-  state.pendingRoomDoors = [];
-  openRoomDoorSelection(state, bus);
+  state.bullets = state.bullets.filter((b) => !b.isEnemy);
+  state.scheduledBullets = [];
+  state.pacingTransition = {
+    kind: 'room_clear',
+    elapsedMs: 0,
+    durationMs: 1850,
+    bannerTitleVi: `DỌN SẠCH PHÒNG ${state.runRoomNumber}/${state.roomsTotalPerSector}! ĐANG HÚT ĐỒ`,
+    bannerTitleEn: `CHAMBER ${state.runRoomNumber}/${state.roomsTotalPerSector} CLEARED! SECURING LOOT`,
+    bannerSubVi: 'Tự hút toàn bộ vàng & mô-đun — bay vào Cổng Xanh hoặc chờ chọn cửa',
+    bannerSubEn: 'Vacuuming all drops — fly through the Warp Gate or wait briefly',
+    accent: state.roomRewardDouble ? '#fb923c' : '#38e8ff',
+  };
 }
 
 export function initSectorRooms(

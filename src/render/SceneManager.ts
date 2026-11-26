@@ -81,20 +81,134 @@ export interface QualityGovernorDecision {
   changedTo: GraphicsQuality | null;
 }
 
+export type GpuTierClass = 'discrete' | 'integrated' | 'software' | 'unknown';
+
+export interface GpuHardwareInfo {
+  vendor: string;
+  renderer: string;
+  shortLabel: string;
+  tierClass: GpuTierClass;
+  isIntegrated: boolean;
+  isLegacyIntegrated: boolean;
+}
+
+export function classifyGpuRenderer(rendererRaw: string, vendorRaw = ''): GpuHardwareInfo {
+  const renderer = (rendererRaw || '').trim();
+  const vendor = (vendorRaw || '').trim();
+  const combined = `${vendor} ${renderer}`.trim();
+
+  let cleaned = renderer;
+  if (/^ANGLE\s*\(/i.test(cleaned) && cleaned.endsWith(')')) {
+    cleaned = cleaned.slice(cleaned.indexOf('(') + 1, -1).trim();
+    const firstComma = cleaned.indexOf(',');
+    if (firstComma !== -1) {
+      cleaned = cleaned.slice(firstComma + 1).trim();
+    }
+    cleaned = cleaned.replace(/,\s*(Direct3D\d*|D3D\d+|OpenGL|Vulkan|Metal|SwiftShader[^,]*)$/i, '').trim();
+  }
+  cleaned = cleaned
+    .replace(/\(0x[0-9a-fA-F]+\)/g, '')
+    .replace(/\bDirect3D\d*\b.*$/i, '')
+    .replace(/\bvs_\d_\d\b.*$/i, '')
+    .replace(/\bps_\d_\d\b.*$/i, '')
+    .replace(/\bOpenGL\s+Engine\b/i, '')
+    .replace(/\s+/g, ' ')
+    .replace(/,\s*$/, '')
+    .trim();
+
+  const labelBase = cleaned || renderer || vendor || 'WebGL2 GPU';
+  const shortLabel = labelBase.length > 44 ? `${labelBase.slice(0, 41)}...` : labelBase;
+
+  let tierClass: GpuTierClass = 'unknown';
+  if (/swiftshader|llvmpipe|basic render driver|software adapter|microsoft basic|subzero/i.test(combined)) {
+    tierClass = 'software';
+  } else if (
+    /nvidia|geforce|quadro|\brtx\b|\bgtx\b|radeon\s+rx\b|radeon\s+pro\b|intel.*arc\s+a\d{3}|apple\s+m\d+\s+(pro|max|ultra)/i.test(
+      combined
+    )
+  ) {
+    tierClass = 'discrete';
+  } else if (
+    /\bintel\b|uhd\s*graphics|iris|hd\s*graphics|radeon\(tm\)\s*graphics|amd\s+radeon\s+graphics|vega\s*\d|radeon\s+\d{3}m\b|adreno|mali-|powervr|apple\s+m\d\b|apple\s+gpu/i.test(
+      combined
+    )
+  ) {
+    tierClass = 'integrated';
+  }
+
+  const isIntegrated = tierClass === 'integrated';
+  const isLegacyIntegrated =
+    isIntegrated &&
+    (/\bhd\s*graphics\b/i.test(labelBase) ||
+      /\buhd\s*graphics\b/i.test(labelBase) ||
+      /\bvega\s*[368]\b/i.test(labelBase) ||
+      /radeon\(tm\)\s*graphics/i.test(labelBase));
+
+  return {
+    vendor,
+    renderer: renderer || 'Unknown WebGL2 Renderer',
+    shortLabel,
+    tierClass,
+    isIntegrated,
+    isLegacyIntegrated,
+  };
+}
+
+function detectWebGLGpuInfo(gl: WebGLRenderingContext | WebGL2RenderingContext | null): GpuHardwareInfo {
+  if (!gl) return classifyGpuRenderer('');
+  try {
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    if (dbg) {
+      const renderer = String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) ?? '');
+      const vendor = String(gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) ?? '');
+      if (renderer || vendor) {
+        return classifyGpuRenderer(renderer, vendor);
+      }
+    }
+    const fallbackRenderer = String(gl.getParameter(gl.RENDERER) ?? '');
+    const fallbackVendor = String(gl.getParameter(gl.VENDOR) ?? '');
+    return classifyGpuRenderer(fallbackRenderer, fallbackVendor);
+  } catch {
+    return classifyGpuRenderer('');
+  }
+}
+
 export function computeEffectivePixelRatio(
   quality: GraphicsQuality,
   width: number,
   height: number,
-  devicePixelRatio: number
+  devicePixelRatio: number,
+  gpuClass: GpuTierClass = 'discrete'
 ): number {
   const safeW = Math.max(1, width);
   const safeH = Math.max(1, height);
   const dpr = Math.max(1, Number.isFinite(devicePixelRatio) ? devicePixelRatio : 1);
-  const capDpr = quality === 'high' ? Math.min(dpr, 1.5) : quality === 'medium' ? Math.min(dpr, 1.15) : 1.0;
-  const pixelBudget =
-    quality === 'high' ? 2_600_000 : quality === 'medium' ? 1_850_000 : 1_250_000;
+  const lowBandwidthGpu = gpuClass === 'integrated' || gpuClass === 'software';
+  const capDpr = lowBandwidthGpu
+    ? quality === 'high'
+      ? Math.min(dpr, 1.2)
+      : quality === 'medium'
+        ? Math.min(dpr, 1.05)
+        : 1.0
+    : quality === 'high'
+      ? Math.min(dpr, 1.5)
+      : quality === 'medium'
+        ? Math.min(dpr, 1.15)
+        : 1.0;
+  const pixelBudget = lowBandwidthGpu
+    ? quality === 'high'
+      ? 1_800_000
+      : quality === 'medium'
+        ? 1_420_000
+        : 1_050_000
+    : quality === 'high'
+      ? 2_600_000
+      : quality === 'medium'
+        ? 1_850_000
+        : 1_250_000;
   const budgetRatio = Math.sqrt(pixelBudget / (safeW * safeH));
-  return Math.max(0.78, Math.min(capDpr, budgetRatio));
+  const minRatio = lowBandwidthGpu ? 0.75 : 0.78;
+  return Math.max(minRatio, Math.min(capDpr, budgetRatio));
 }
 
 export function evaluateQualityStep(
@@ -334,6 +448,7 @@ export class SceneManager {
   private bloomPass: UnrealBloomPass;
   private postPass: ShaderPass;
   private quality: GraphicsQuality = 'high';
+  private gpuInfo: GpuHardwareInfo;
 
   private backdrop: BackdropSystem;
   private vfx: VFXSystem;
@@ -504,6 +619,7 @@ export class SceneManager {
     this.renderer.setSize(width, height);
     // AgX tonemapping + sRGB encoding run once inside TacticalPostPass - never double-bake colors
     this.renderer.toneMapping = THREE.NoToneMapping;
+    this.gpuInfo = detectWebGLGpuInfo(this.renderer.getContext());
 
     this.renderer.domElement.id = 'gameWebGLCanvas';
     container.appendChild(this.renderer.domElement);
@@ -544,8 +660,18 @@ export class SceneManager {
       this.explosionLights.push({ light: pl, age: 10, peak: 0 });
     }
 
-    // Post-FX chain: RenderPass -> Bloom -> TacticalPostPass (AgX, shockwaves, CA, grain, dither)
-    this.composer = new EffectComposer(this.renderer);
+    // Post-FX chain: RenderPass -> Bloom -> TacticalPostPass (HalfFloat target without stencil saves iGPU bandwidth)
+    const rtType = this.renderer.capabilities.isWebGL2 ? THREE.HalfFloatType : THREE.UnsignedByteType;
+    const composerTarget = new THREE.WebGLRenderTarget(
+      Math.max(1, width),
+      Math.max(1, height),
+      {
+        type: rtType,
+        depthBuffer: true,
+        stencilBuffer: false,
+      }
+    );
+    this.composer = new EffectComposer(this.renderer, composerTarget);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     this.bloomPass = new UnrealBloomPass(new THREE.Vector2(width, height), 0.5, 0.4, 0.65);
     this.composer.addPass(this.bloomPass);
@@ -813,7 +939,13 @@ export class SceneManager {
 
     this.updateViewportRect();
     const savedQuality = loadSavedGraphicsQuality();
-    this.applyQualitySettings(savedQuality ?? 'high', savedQuality !== null, false);
+    const defaultQuality: GraphicsQuality =
+      this.gpuInfo.tierClass === 'software'
+        ? 'low'
+        : this.gpuInfo.isLegacyIntegrated
+          ? 'medium'
+          : 'high';
+    this.applyQualitySettings(savedQuality ?? defaultQuality, savedQuality !== null, false);
     this.updateCameraFraming(width, height);
     try {
       this.renderer.compile(this.scene, this.camera);
@@ -871,6 +1003,10 @@ export class SceneManager {
       slot = this.shockSlots.reduce((oldest, cur) => (cur.z > oldest.z ? cur : oldest));
     }
     slot.set(u, v, 0.0, strength);
+  }
+
+  getGpuInfo(): GpuHardwareInfo {
+    return this.gpuInfo;
   }
 
   getQuality(): GraphicsQuality {
@@ -3325,7 +3461,8 @@ export class SceneManager {
       this.quality,
       width,
       height,
-      window.devicePixelRatio || 1
+      window.devicePixelRatio || 1,
+      this.gpuInfo.tierClass
     );
     const effW = Math.max(1, Math.round(width * effDpr));
     const effH = Math.max(1, Math.round(height * effDpr));
@@ -3336,7 +3473,13 @@ export class SceneManager {
     this.composer.setSize(width, height);
 
     if (this.bloomPass.enabled) {
-      const bloomScale = this.quality === 'high' ? 0.5 : 0.35;
+      const bloomScale = this.gpuInfo.isIntegrated
+        ? this.quality === 'high'
+          ? 0.42
+          : 0.3
+        : this.quality === 'high'
+          ? 0.5
+          : 0.35;
       this.bloomPass.setSize(
         Math.max(64, Math.round(effW * bloomScale)),
         Math.max(64, Math.round(effH * bloomScale))

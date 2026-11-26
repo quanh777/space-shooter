@@ -281,6 +281,46 @@ export interface LanguageStrings {
   roomSelectTitle: string;
   roomSelectHint: string;
   chronoReadyBtn: string;
+
+  bootCampBtn: string;
+  startTutorialBtn: string;
+  skipTutorialBtn: string;
+  gpuQuickLabel: string;
+  gpuBoostBtn: string;
+  gpuModalKicker: string;
+  gpuModalTitleIgpu: string;
+  gpuModalTitleDiscrete: string;
+  gpuModalCurrentLabel: string;
+  gpuModalStep1: string;
+  gpuModalStep2: string;
+  gpuModalStep3: string;
+  gpuModalNote: string;
+  gpuModalAckBtn: string;
+  pauseGpuPrefix: string;
+  pauseGpuDiscrete: string;
+  pauseGpuIntegrated: string;
+  pauseGpuSoftware: string;
+
+  onbBadgePrefix: string;
+  onbStep1Title: string;
+  onbStep1Desc: string;
+  onbStep1DescMobile: string;
+  onbStep1MoveTask: string;
+  onbStep1DashTask: string;
+  onbStep2Title: string;
+  onbStep2Desc: string;
+  onbStep2DescMobile: string;
+  onbStep2KillTask: string;
+  onbStep2VentTask: string;
+  onbStep3Title: string;
+  onbStep3Desc: string;
+  onbStep3LootTask: string;
+  onbCompleteMsg: string;
+
+  coachOverheatTip: string;
+  coachChronoTip: string;
+  coachInventoryTip: string;
+  popupReasonPrefix: string;
 }
 
 export const LANGUAGES: Record<LangCode, LanguageStrings> = {
@@ -565,6 +605,46 @@ export const LANGUAGES: Record<LangCode, LanguageStrings> = {
     roomSelectTitle: 'CHỌN CỬA DỊCH CHUYỂN TIẾP THEO',
     roomSelectHint: 'Nhấn phím [1] [2] [3] hoặc chọn cổng dịch chuyển',
     chronoReadyBtn: '[F] CHRONO',
+
+    bootCampBtn: 'TẬP LÁI CƠ BẢN (20s)',
+    startTutorialBtn: 'VÀO SÂN TẬP LÁI THỰC TẾ',
+    skipTutorialBtn: 'BỎ QUA',
+    gpuQuickLabel: 'iGPU · MẸO TĂNG FPS',
+    gpuBoostBtn: 'HƯỚNG DẪN BẬT CARD RỜI (dGPU)',
+    gpuModalKicker: 'CHẨN ĐOÁN PHẦN CỨNG // BỘ XỬ LÝ ĐỒ HỌA',
+    gpuModalTitleIgpu: 'TRÌNH DUYỆT ĐANG CHẠY CARD TÍCH HỢP (iGPU)',
+    gpuModalTitleDiscrete: 'ĐANG DÙNG CARD ĐỒ HỌA RỜI (dGPU)',
+    gpuModalCurrentLabel: 'GPU hiện tại trình duyệt đang nhận:',
+    gpuModalStep1: '1. Trên Windows 10/11, mở Settings -> System -> Display -> Graphics.',
+    gpuModalStep2: '2. Bấm Browse / chọn trình duyệt bạn đang mở (Chrome, Edge hoặc Cốc Cốc).',
+    gpuModalStep3: '3. Chọn Options -> High performance (NVIDIA / AMD), bấm Save và mở lại trình duyệt.',
+    gpuModalNote: 'Lưu ý: Đã tự động tối ưu bộ đệm cho iGPU. Nếu laptop có card rời mà vẫn hiện iGPU, hãy cắm sạc và làm 3 bước trên để đạt 60 FPS ổn định.',
+    gpuModalAckBtn: 'ĐÃ HIỂU',
+    pauseGpuPrefix: 'GPU ĐANG DÙNG',
+    pauseGpuDiscrete: 'Card rời (dGPU)',
+    pauseGpuIntegrated: 'Card tích hợp (iGPU — đã bật chế độ tiết kiệm băng thông)',
+    pauseGpuSoftware: 'Dựng hình CPU (khuyên bật Hardware Acceleration trong trình duyệt)',
+
+    onbBadgePrefix: 'HUẤN LUYỆN PHI CÔNG MỚI',
+    onbStep1Title: 'CƠ ĐỘNG & LƯỚT NÉ ĐẠN',
+    onbStep1Desc: 'Giữ WASD (hoặc phím mũi tên) để bay, nhấn SHIFT để Lướt Pha bất tử né đạn.',
+    onbStep1DescMobile: 'Kéo cần xoay bên trái để bay, bấm nút DASH để Lướt Pha né đạn.',
+    onbStep1MoveTask: 'Bay thử nghiệm bằng WASD / Mũi tên',
+    onbStep1DashTask: 'Nhấn SHIFT để kích hoạt Lướt Pha',
+    onbStep2Title: 'NGẮM BẮN & XẢ NHIỆT VŨ KHÍ',
+    onbStep2Desc: 'Nhấn giữ Chuột Trái hoặc SPACE để hạ 2 Drone tập, sau đó nhấn R để Xả Nhiệt.',
+    onbStep2DescMobile: 'Nhấn FIRE để hạ 2 Drone tập, sau đó bấm VENT để Xả Nhiệt.',
+    onbStep2KillTask: 'Hạ gục Drone tập bắn',
+    onbStep2VentTask: 'Nhấn [R] kích hoạt Xả Nhiệt đẩy lùi',
+    onbStep3Title: 'THU HỒI CHIẾN LỢI PHẨM',
+    onbStep3Desc: 'Bay lại gần các hạt Vàng rơi để nạp Credits, sau đó xuất kích vào Phòng 1.',
+    onbStep3LootTask: 'Thu hồi Credits rơi từ mục tiêu',
+    onbCompleteMsg: 'HUẤN LUYỆN HOÀN TẤT — CHUẨN BỊ VÀO PHÒNG 1!',
+
+    coachOverheatTip: 'QUÁ NHIỆT! Nhấn [R] ngay khi Nhiệt >= 60% để Xả Nhiệt & nổ xung đẩy lùi địch.',
+    coachChronoTip: 'CHRONO ĐẦY 100%! Nhấn [F] (hoặc chuột giữa) để làm chậm đạn địch & tăng sát thương.',
+    coachInventoryTip: 'ĐÃ NHẶT VŨ KHÍ MỚI! Nhấn [G] lúc nghỉ giữa đợt để mở Kho & gắn lên 6 ổ thân tàu.',
+    popupReasonPrefix: 'VÌ SAO HIỆN BẢNG NÀY:',
   },
   en: {
     subtitle: 'NEBULA VANGUARD · 2.5D/3D EDITION',
@@ -847,6 +927,46 @@ export const LANGUAGES: Record<LangCode, LanguageStrings> = {
     roomSelectTitle: 'SELECT NEXT WARP CHAMBER',
     roomSelectHint: 'Press [1] [2] [3] or click a Warp Gate',
     chronoReadyBtn: '[F] CHRONO',
+
+    bootCampBtn: 'FLIGHT TUTORIAL (20s)',
+    startTutorialBtn: 'LAUNCH FLIGHT TUTORIAL',
+    skipTutorialBtn: 'SKIP',
+    gpuQuickLabel: 'iGPU · BOOST FPS',
+    gpuBoostBtn: 'HOW TO ENABLE DISCRETE GPU',
+    gpuModalKicker: 'HARDWARE TELEMETRY // GRAPHICS ADAPTER',
+    gpuModalTitleIgpu: 'RUNNING ON INTEGRATED GRAPHICS (iGPU)',
+    gpuModalTitleDiscrete: 'RUNNING ON DISCRETE GPU (dGPU)',
+    gpuModalCurrentLabel: 'Detected WebGL2 Adapter:',
+    gpuModalStep1: '1. On Windows 10/11, open Settings -> System -> Display -> Graphics.',
+    gpuModalStep2: '2. Select your browser (Chrome, Edge, or Brave) or browse to its .exe.',
+    gpuModalStep3: '3. Click Options -> High performance (NVIDIA / AMD GPU), Save and restart the browser.',
+    gpuModalNote: 'Note: Render targets and pixel budgets are automatically tuned for iGPU. On dual-GPU laptops, plug in AC power and apply the 3 steps above for maximum FPS.',
+    gpuModalAckBtn: 'GOT IT',
+    pauseGpuPrefix: 'ACTIVE GPU',
+    pauseGpuDiscrete: 'Discrete GPU (dGPU)',
+    pauseGpuIntegrated: 'Integrated iGPU (low-bandwidth mode active)',
+    pauseGpuSoftware: 'Software Rasterizer (enable Browser Hardware Acceleration)',
+
+    onbBadgePrefix: 'ROOKIE FLIGHT CHECK',
+    onbStep1Title: 'THRUST & PHASE DASH',
+    onbStep1Desc: 'Fly with WASD (or Arrow keys), then press SHIFT to trigger an invulnerable Phase Dash.',
+    onbStep1DescMobile: 'Use the left joystick to fly, then tap DASH to trigger Phase Dash.',
+    onbStep1MoveTask: 'Steer fighter with WASD / Arrows',
+    onbStep1DashTask: 'Trigger Phase Dash with [SHIFT]',
+    onbStep2Title: 'AIM FIRE & THERMAL PURGE',
+    onbStep2Desc: 'Hold LMB or SPACE to destroy 2 Training Drones, then press R to vent Thermal Purge.',
+    onbStep2DescMobile: 'Hold FIRE to destroy 2 Training Drones, then tap VENT to Thermal Purge.',
+    onbStep2KillTask: 'Destroy Training Drones',
+    onbStep2VentTask: 'Press [R] to trigger Thermal Purge',
+    onbStep3Title: 'COLLECT BATTLE LOOT',
+    onbStep3Desc: 'Fly near dropped Credits to vacuum them aboard before launching Room 1.',
+    onbStep3LootTask: 'Collect dropped Credits',
+    onbCompleteMsg: 'FLIGHT CHECK PASSED — DEPLOYING TO CHAMBER 1!',
+
+    coachOverheatTip: 'OVERHEATED! Press [R] whenever Heat >= 60% to purge weapons & knock back foes.',
+    coachChronoTip: 'CHRONO 100%! Press [F] (or Middle Mouse) to slow enemy bullets & boost damage.',
+    coachInventoryTip: 'WEAPON POD LOOTED! Press [G] between waves to open Garage & mount on 6 slots.',
+    popupReasonPrefix: 'WHY THIS APPEARED:',
   },
 };
 

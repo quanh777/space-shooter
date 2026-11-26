@@ -91,6 +91,15 @@ export function openShop(state: GameState, bus: EventBus): void {
   state.shop.skillUpBoughtThisShop = false;
   state.shop.selected = [];
   state.shop.offers = generateShopOffers(state);
+  state.popupReason = {
+    source: 'boss_victory',
+    kickerVi: `ĐẠI BOSS KHU VỰC ${state.raid.sectorNumber} ĐÃ BỊ HẠ`,
+    kickerEn: `SECTOR ${state.raid.sectorNumber} CAPITAL BOSS SLAIN`,
+    titleVi: 'TRẠM CHỢ ĐEN & LẮP RÁP HẬU BOSS',
+    titleEn: 'POST-BOSS ARMORY & HANGAR',
+    reasonVi: 'Bạn vừa hạ gục Đại Boss và thu hồi chiến lợi phẩm — hãy nâng cấp lõi & lắp súng trước khi qua Khu Vực mới.',
+    reasonEn: 'Capital Boss defeated & loot secured — spin supply roulette, upgrade core stats, and mount gear.',
+  };
 
   // Open Boss black-market roulette while carrying pity progress across bosses
   const l = state.player.loadout;

@@ -12,6 +12,7 @@ import type { EventBus } from '../../engine/EventBus';
 import {
   addScreenShake,
   clampPointToStorm,
+  createIdleTransitionBeat,
   createInitialRaidState,
   nextId,
   randomPointInStorm,
@@ -19,6 +20,7 @@ import {
   spawnParticleBurst,
   spawnShockwave,
   triggerHitStop,
+  vacuumAndCollectPickupsStep,
 } from '../GameState';
 import type {
   GameState,
@@ -388,6 +390,37 @@ export function buildQuickDraftOptions(state: GameState): QuickDraftOption[] {
   return options;
 }
 
+export function openRaidQuickDraftImmediate(state: GameState, bus?: EventBus): void {
+  state.pacingTransition = createIdleTransitionBeat();
+  vacuumAndCollectPickupsStep(state, 16, bus, true);
+  const isHadesRoomReactor = state.currentRoomKind === 'reactor' && state.roomsTotalPerSector >= 5;
+  const draftOpts = isHadesRoomReactor ? buildRoomQuickDraft(state) : buildQuickDraftOptions(state);
+  state.popupReason = {
+    source: 'raid_objective',
+    kickerVi: isHadesRoomReactor
+      ? 'LÒ PHẢN ỨNG PHÁT NỔ // TIẾP TẾ ĐỘT KÍCH'
+      : `MỤC TIÊU ĐỘT KÍCH ${state.raid.completedCount}/${state.raid.totalRequired}`,
+    kickerEn: isHadesRoomReactor
+      ? 'REACTOR DESTROYED // RAID SUPPLY'
+      : `RAID OBJECTIVE ${state.raid.completedCount}/${state.raid.totalRequired}`,
+    titleVi: 'CHỌN NÂNG CẤP ĐỘT KÍCH',
+    titleEn: 'SELECT RAID SUPPLY UPGRADE',
+    reasonVi: isHadesRoomReactor
+      ? 'Bạn đã phá hủy Lò Phản Ứng và thu hồi xong chiến lợi phẩm — chọn 1 nâng cấp.'
+      : `Hoàn tất mục tiêu ${state.raid.completedCount}/${state.raid.totalRequired} & hút đủ vàng rơi — chọn 1 tiếp tế.`,
+    reasonEn: isHadesRoomReactor
+      ? 'Reactor Core shattered & dropped loot secured — pick 1 upgrade.'
+      : `Completed sector objective ${state.raid.completedCount}/${state.raid.totalRequired} & secured loot — pick 1 upgrade.`,
+  };
+  state.raid.pendingQuickDraft = draftOpts;
+  const prevPhase = state.phase;
+  state.phase = 'QUICK_DRAFT';
+  bus?.emit('QUICK_DRAFT_OPENED', { options: draftOpts });
+  if (prevPhase !== 'QUICK_DRAFT') {
+    bus?.emit('PHASE_CHANGED', { from: prevPhase, to: 'QUICK_DRAFT' });
+  }
+}
+
 function completeRaidObjective(
   state: GameState,
   obj: RaidObjectiveEntity,
@@ -433,17 +466,27 @@ function completeRaidObjective(
   });
 
   const isHadesRoomReactor = state.currentRoomKind === 'reactor' && state.roomsTotalPerSector >= 5;
-  const draftOpts = isHadesRoomReactor ? buildRoomQuickDraft(state) : buildQuickDraftOptions(state);
   if (isHadesRoomReactor) {
     state.roomsClearedTotal++;
   }
-  state.raid.pendingQuickDraft = draftOpts;
-  const prevPhase = state.phase;
-  state.phase = 'QUICK_DRAFT';
-  bus.emit('QUICK_DRAFT_OPENED', { options: draftOpts });
-  if (prevPhase !== 'QUICK_DRAFT') {
-    bus.emit('PHASE_CHANGED', { from: prevPhase, to: 'QUICK_DRAFT' });
+
+  if (state.pacingEnabled) {
+    state.bullets = state.bullets.filter((b) => !b.isEnemy);
+    state.scheduledBullets = [];
+    state.pacingTransition = {
+      kind: 'raid_reward',
+      elapsedMs: 0,
+      durationMs: 950,
+      bannerTitleVi: 'HOÀN THÀNH MỤC TIÊU! // ĐANG HÚT CHIẾN LỢI PHẨM',
+      bannerTitleEn: 'OBJECTIVE SECURED! // VACUUMING REWARDS',
+      bannerSubVi: 'Thu hồi toàn bộ vàng & năng lượng trước khi mở thẻ tiếp tế...',
+      bannerSubEn: 'Pulling dropped credits to hull before opening supply draft...',
+      accent: `#${obj.accentHex.toString(16).padStart(6, '0')}`,
+    };
+    return;
   }
+
+  openRaidQuickDraftImmediate(state, bus);
 }
 
 export function damageRaidObjective(
@@ -540,6 +583,7 @@ export function pickQuickDraftOption(
   }
 
   state.raid.pendingQuickDraft = [];
+  state.popupReason = null;
   state.hitStopMs = 0;
   const prevPhase = state.phase;
   state.phase = 'PLAYING';

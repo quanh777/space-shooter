@@ -65,6 +65,7 @@ import {
 } from '../render/shaders/gameShaders';
 import { GLSL3_NOISE } from '../render/shaders/shaderLib';
 import {
+  classifyGpuRenderer,
   computeEffectivePixelRatio,
   evaluateQualityStep,
   type QualityGovernorState,
@@ -3644,5 +3645,183 @@ describe('Graphics Optimization & Adaptive Quality Governor Tests', () => {
     const lockedStep = evaluateQualityStep(locked, 15, 2.0, true);
     expect(lockedStep.changedTo).toBeNull();
     expect(lockedStep.state.quality).toBe('high');
+  });
+
+  it('classifies discrete dGPU, modern/legacy iGPU, and software adapters with iGPU pixel budgets', () => {
+    const dgpu = classifyGpuRenderer(
+      'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Laptop GPU (0x00002560) Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    );
+    expect(dgpu.tierClass).toBe('discrete');
+    expect(dgpu.isIntegrated).toBe(false);
+    expect(dgpu.shortLabel).toContain('NVIDIA GeForce RTX 3060');
+
+    const modernIgpu = classifyGpuRenderer(
+      'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    );
+    expect(modernIgpu.tierClass).toBe('integrated');
+    expect(modernIgpu.isIntegrated).toBe(true);
+    expect(modernIgpu.isLegacyIntegrated).toBe(false);
+
+    const legacyIgpu = classifyGpuRenderer(
+      'ANGLE (Intel, Intel(R) UHD Graphics 620 (0x00005917) Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    );
+    expect(legacyIgpu.tierClass).toBe('integrated');
+    expect(legacyIgpu.isLegacyIntegrated).toBe(true);
+
+    const amdIgpu = classifyGpuRenderer(
+      'ANGLE (AMD, AMD Radeon(TM) Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    );
+    expect(amdIgpu.tierClass).toBe('integrated');
+
+    const soft = classifyGpuRenderer(
+      'ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)'
+    );
+    expect(soft.tierClass).toBe('software');
+
+    const discreteHi = computeEffectivePixelRatio('high', 1920, 1080, 1.5, 'discrete');
+    const igpuHi = computeEffectivePixelRatio('high', 1920, 1080, 1.5, 'integrated');
+    expect(igpuHi).toBeLessThan(discreteHi);
+    expect(igpuHi).toBeGreaterThanOrEqual(0.75);
+  });
+
+  it('vacuums far loot cleanly during pacing transitions and explains popup reasons without abrupt interrupts', () => {
+    const bus = new EventBus();
+    const sim = new GameSimulation(bus);
+    sim.setPacingEnabled(true);
+    sim.startNewGame('interceptor');
+    const s = sim.state;
+
+    // Drop far gold & weapon module before clearing Room 1
+    s.money = 0;
+    s.goldPickups.push({
+      id: 99501,
+      x: s.player.x + 280,
+      y: s.player.y - 160,
+      vx: 0,
+      vy: 0,
+      value: 60,
+      size: 6,
+      age: 0,
+      homing: false,
+    });
+    s.floatingModules.push({
+      id: 99502,
+      weaponId: 'scatter_cannon',
+      tier: 1,
+      x: s.player.x - 260,
+      y: s.player.y + 140,
+      vx: 0,
+      vy: 0,
+      pulse: 0,
+      lifeMs: 12000,
+    });
+    const invBefore = s.player.loadout.inventory.length;
+
+    // Clear waves in Room 1: should NOT instantly cover the screen with a popup
+    s.roomWavePending = 0;
+    s.enemies = [];
+    sim.step(idleInput(), 1 / 60);
+    expect(s.phase).toBe('PLAYING');
+    expect(s.pacingTransition.kind).toBe('room_clear');
+    expect(s.roomPortal).not.toBeNull();
+
+    // Advance until loot is vacuumed and transition finishes -> ROOM_SELECT opens with clear reason
+    for (let i = 0; i < 160 && s.phase === 'PLAYING'; i++) {
+      sim.step(idleInput(), 1 / 60);
+    }
+    expect(s.goldPickups.length).toBe(0);
+    expect(s.floatingModules.length).toBe(0);
+    expect(s.money).toBeGreaterThanOrEqual(60);
+    expect(s.player.loadout.inventory.length).toBe(invBefore + 1);
+    expect(s.phase === 'ROOM_SELECT' || s.phase === 'QUICK_DRAFT').toBe(true);
+    expect(s.popupReason).not.toBeNull();
+    expect(s.popupReason?.reasonVi.length).toBeGreaterThan(10);
+
+    if (s.phase === 'QUICK_DRAFT') {
+      expect(sim.pickQuickDraftByIndex(0)).toBe(true);
+    }
+    expect(s.phase).toBe('ROOM_SELECT');
+    expect(sim.selectRoomDoor(0)).toBe(true);
+    while (s.warpTransition.active) sim.step(idleInput(), 1 / 60);
+
+    // Mid-room XP level-up uses level_up pacing beat before popping QUICK_DRAFT
+    grantPlayerXp(s, xpRequiredForLevel(s.player.level), bus);
+    sim.step(idleInput(), 1 / 60);
+    expect(s.phase).toBe('PLAYING');
+    expect(s.pacingTransition.kind).toBe('level_up');
+    for (let i = 0; i < 80 && s.phase === 'PLAYING'; i++) {
+      sim.step(idleInput(), 1 / 60);
+    }
+    expect(s.phase).toBe('QUICK_DRAFT');
+    expect(s.popupReason?.source).toBe('level_up');
+    expect(sim.pickQuickDraftByIndex(0)).toBe(true);
+
+    // Fatal hit uses gameover beat before showing Game Over modal
+    s.player.shieldActive = false;
+    s.player.shieldCooldownMs = 99999;
+    s.player.dashInvulnUntilMs = -1000;
+    damagePlayer(s, bus, s.player.maxHealth + 999, false, () => {
+      s.pacingTransition = {
+        kind: 'gameover',
+        elapsedMs: 0,
+        durationMs: 900,
+        bannerTitleVi: 'TEST',
+        bannerTitleEn: 'TEST',
+        bannerSubVi: 'TEST',
+        bannerSubEn: 'TEST',
+        accent: '#ff3b4e',
+      };
+    });
+    expect(s.pacingTransition.kind).toBe('gameover');
+    expect(s.phase).toBe('PLAYING');
+  });
+
+  it('guides new players through 3-step Interactive Onboarding and supports Skip to Room 1', () => {
+    const bus = new EventBus();
+    const sim = new GameSimulation(bus);
+    sim.setPacingEnabled(true);
+    let completedCount = 0;
+    bus.on('ONBOARDING_COMPLETED', () => {
+      completedCount++;
+    });
+
+    // 1. Start in tutorial mode: Step 1 waits for movement + Dash before spawning targets
+    sim.startNewGame('interceptor', { tutorial: true });
+    const s = sim.state;
+    expect(s.phase).toBe('PLAYING');
+    expect(s.onboarding.active).toBe(true);
+    expect(s.onboarding.step).toBe(1);
+    expect(s.enemies.length).toBe(0);
+
+    // Move + trigger Dash -> advances cleanly to Step 2 and deploys 2 non-hostile training drones
+    for (let i = 0; i < 40 && s.onboarding.step === 1; i++) {
+      sim.step(idleInput({ moveX: 0, moveY: -1, dash: i === 2 }), 1 / 60);
+    }
+    expect(s.onboarding.step).toBe(2);
+    expect(s.enemies.length).toBe(2);
+
+    // Step 2: destroy both drones and press [R] Thermal Purge -> spawns loot for Step 3
+    s.enemies = [];
+    sim.step(idleInput({ vent: true }), 1 / 60);
+    expect(s.onboarding.step).toBe(3);
+    expect(s.onboarding.vented).toBe(true);
+    expect(s.goldPickups.length).toBeGreaterThanOrEqual(1);
+
+    // Step 3: vacuum/collect loot and finish onboarding -> transitions into Room 1 Wave 1
+    for (let i = 0; i < 200 && s.onboarding.active; i++) {
+      sim.step(idleInput(), 1 / 60);
+    }
+    expect(s.onboarding.active).toBe(false);
+    expect(completedCount).toBe(1);
+    expect(s.phase).toBe('PLAYING');
+    expect(s.enemies.length).toBeGreaterThan(0);
+
+    // 2. Skip onboarding jumps immediately into Room 1
+    sim.startNewGame('interceptor', { tutorial: true });
+    expect(sim.state.onboarding.active).toBe(true);
+    expect(sim.skipOnboarding()).toBe(true);
+    expect(sim.state.onboarding.active).toBe(false);
+    expect(completedCount).toBe(2);
+    expect(sim.state.enemies.length).toBeGreaterThan(0);
   });
 });

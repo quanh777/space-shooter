@@ -1,6 +1,5 @@
 import {
   PLAYER_BASE,
-  POWER_UP_CONFIG,
   type PowerUpType,
 } from '../../config/constants';
 import { HULL_CATALOG } from '../../config/hulls';
@@ -8,13 +7,14 @@ import { computeMutationArchetypeCounts, countMutationStacks } from '../../confi
 import {
   PRIMARY_WEAPON_IDS,
   SKILL_WEAPON_IDS,
-  WEAPON_CATALOG,
 } from '../../config/weapons';
 import type { EventBus } from '../../engine/EventBus';
 import {
-  activateBuff,
   addScreenShake,
   clampPointToStorm,
+  collectFloatingModuleItem,
+  collectGoldPickupItem,
+  collectPowerUpItem,
   grantPlayerXp,
   hasBuff,
   nextId,
@@ -1323,12 +1323,7 @@ export function updateCombatSystem(
     g.y = nextGold.y;
 
     if (dist <= p.radius + 14) {
-      state.money += g.value;
-      if (countMutationStacks(p.activeMutations, 'scrap_overclock') > 0) {
-        p.overclockBuffMs = Math.max(p.overclockBuffMs, 3500);
-      }
-      bus.emit('GOLD_COLLECTED', { amount: g.value, x: p.x, y: p.y });
-      spawnParticleBurst(state, p.x, p.y, 0xffdd44, 3, 1.5, 2.5, 12);
+      collectGoldPickupItem(state, g, bus);
     } else if (g.age < 1200) {
       remainingGold.push(g);
     }
@@ -1351,12 +1346,7 @@ export function updateCombatSystem(
     }
 
     if (dist <= p.radius + 16) {
-      activateBuff(state, pu.type);
-      const cfg = POWER_UP_CONFIG[pu.type];
-      spawnShockwave(state, pu.x, pu.y, 58, cfg.hex, 18);
-      spawnParticleBurst(state, pu.x, pu.y, cfg.hex, 14, 2.8, 3.8, 22);
-      spawnFloatingText(state, pu.x, pu.y - 18, cfg.labelEn, cfg.color, 1.15, 45);
-      bus.emit('POWERUP_COLLECTED', { type: pu.type, x: pu.x, y: pu.y });
+      collectPowerUpItem(state, pu, bus);
     } else if (pu.lifeTicks > 0) {
       remainingPowerUps.push(pu);
     }
@@ -1405,21 +1395,7 @@ export function updateCombatSystem(
     }
 
     if (dist <= p.radius + 18) {
-      const entry = WEAPON_CATALOG[mod.weaponId];
-      p.loadout.inventory.push({
-        instanceId: `wpn-${nextId(state)}`,
-        weaponId: mod.weaponId,
-        tier: mod.tier,
-        upgrades: {},
-        investedCredits: entry.price,
-        lastFireMs: -10000,
-        recoil: 0,
-      });
-      const hex = parseInt(entry.accent.replace('#', ''), 16) || 0x38e8ff;
-      spawnShockwave(state, mod.x, mod.y, 46, hex, 16);
-      spawnParticleBurst(state, mod.x, mod.y, hex, 12, 2.4, 3.4, 20);
-      spawnFloatingText(state, mod.x, mod.y - 16, `+ ${entry.nameEn}`, entry.accent, 1.05, 40);
-      bus.emit('MODULE_COLLECTED', { weaponId: mod.weaponId, x: mod.x, y: mod.y });
+      collectFloatingModuleItem(state, mod, bus);
     } else if (mod.lifeMs > 0) {
       remainingModules.push(mod);
     }

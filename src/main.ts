@@ -17,6 +17,7 @@ function bootstrap(): void {
 
   const bus = new EventBus();
   const sim = new GameSimulation(bus);
+  sim.setPacingEnabled(true);
   const sound = new SoundEngine(bus);
   const achievements = new AchievementService(bus);
   const leaderboard = new LeaderboardService();
@@ -53,16 +54,19 @@ function bootstrap(): void {
       }
     },
     onQuickDraftPick: (idx) => {
+      if (ui.isPopupInputGuarded()) return;
       if (sim.pickQuickDraftByIndex(idx)) {
         sound.playUiConfirm();
       }
     },
     onQuickDraftReroll: () => {
+      if (ui.isPopupInputGuarded()) return;
       if (sim.rerollQuickDraft()) {
         sound.playUiClick(920);
       }
     },
     onRoomDoorPick: (idx) => {
+      if (ui.isPopupInputGuarded()) return;
       if (sim.selectRoomDoor(idx)) {
         sound.playUiConfirm();
       }

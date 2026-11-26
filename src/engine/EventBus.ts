@@ -93,6 +93,7 @@ export interface GameEvents {
   SNIPER_LOCK: { x: number; y: number };
   SINGULARITY_DETONATED: { x: number; y: number; radius: number };
   DRONE_SHOT: { x: number; y: number };
+  ONBOARDING_COMPLETED: undefined;
   GAME_STARTED: undefined;
   GAME_OVER: { score: number; wave: number; maxCombo: number; bossKills: number; shardsEarned?: number };
 }

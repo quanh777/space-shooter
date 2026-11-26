@@ -852,8 +852,54 @@ export interface ShopState {
   visitedForWave: number;
 }
 
+export type PendingTransitionKind =
+  | 'none'
+  | 'level_up'
+  | 'raid_reward'
+  | 'room_clear'
+  | 'boss_shop'
+  | 'gameover';
+
+export interface TransitionBeatState {
+  kind: PendingTransitionKind;
+  elapsedMs: number;
+  durationMs: number;
+  bannerTitleVi: string;
+  bannerTitleEn: string;
+  bannerSubVi: string;
+  bannerSubEn: string;
+  accent: string;
+}
+
+export interface PopupContextReason {
+  source: 'level_up' | 'raid_objective' | 'room_bonus' | 'room_doors' | 'boss_victory' | 'hangar';
+  kickerVi: string;
+  kickerEn: string;
+  titleVi: string;
+  titleEn: string;
+  reasonVi: string;
+  reasonEn: string;
+}
+
+export interface OnboardingState {
+  active: boolean;
+  step: 1 | 2 | 3;
+  movedDist: number;
+  dashed: boolean;
+  targetsKilled: number;
+  targetsTotal: number;
+  vented: boolean;
+  lootCollected: boolean;
+  stepElapsedMs: number;
+  completeHoldMs: number;
+}
+
 export interface GameState {
   phase: GamePhase;
+  pacingEnabled: boolean;
+  pacingTransition: TransitionBeatState;
+  popupReason: PopupContextReason | null;
+  onboarding: OnboardingState;
   simTimeMs: number;
   hitStopMs: number;
   screenShake: number;

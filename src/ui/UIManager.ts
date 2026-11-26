@@ -91,6 +91,7 @@ import { metaProgression } from '../services/MetaProgressionService';
 import { createTierStarsEl, createUiIcon, setIconText, type UiIconId } from './TacticalIcons';
 
 const LANG_STORAGE_KEY = 'spaceshooter_lang';
+const ONBOARDING_STORAGE_KEY = 'nv_onboarding_done_v1';
 
 interface DragSession {
   sourceType: 'inventory' | 'slot';
@@ -128,6 +129,7 @@ export class UIManager {
   private muteQuickBtn: HTMLButtonElement;
   private muteQuickLabel: HTMLElement;
   private gfxQuickBtn: HTMLButtonElement;
+  private gpuQuickBtn: HTMLButtonElement;
   private langToggleBtn: HTMLButtonElement;
   private fcsReticle: HTMLElement;
   private fcsTag: HTMLElement;
@@ -148,15 +150,22 @@ export class UIManager {
   private shopOverlay: HTMLElement;
   private pauseOverlay: HTMLElement;
   private quickDraftScreen: HTMLElement;
+  private quickDraftShell: HTMLElement;
   private quickDraftKicker: HTMLElement;
   private quickDraftTitle: HTMLElement;
+  private quickDraftReason: HTMLElement;
   private quickDraftGrid: HTMLElement;
   private quickDraftRerollBtn: HTMLButtonElement;
   private quickDraftRerollCount: HTMLElement;
   private roomSelectScreen: HTMLElement;
+  private roomSelectShell: HTMLElement;
   private roomSelectKicker: HTMLElement;
   private roomSelectTitle: HTMLElement;
+  private roomSelectReason: HTMLElement;
   private roomDoorGrid: HTMLElement;
+  private gpuAdvisorModal: HTMLElement;
+  private gpuModalTitle: HTMLElement;
+  private gpuModalCurrentCard: HTMLElement;
   private metaForgeScreen: HTMLElement;
   private metaForgeShardTotal: HTMLElement;
   private metaForgeHullGrid: HTMLElement;
@@ -187,6 +196,23 @@ export class UIManager {
   private hudLevelBadge: HTMLElement;
   private xpFill: HTMLElement;
   private hudXpText: HTMLElement;
+  private onboardingCard: HTMLElement;
+  private onboardingStepBadge: HTMLElement;
+  private onboardingTitle: HTMLElement;
+  private onboardingDesc: HTMLElement;
+  private onboardingChecklist: HTMLElement;
+  private pacingBeatBanner: HTMLElement;
+  private pacingBeatTitle: HTMLElement;
+  private pacingBeatSub: HTMLElement;
+  private pacingBeatFill: HTMLElement;
+  private coachTipBanner: HTMLElement;
+  private lastOnboardingKey = '';
+  private popupInputGuardUntilMs = 0;
+  private popupGuardTimer: number | null = null;
+  private coachTipTimer: number | null = null;
+  private shownOverheatCoach = false;
+  private shownChronoCoach = false;
+  private shownInvCoach = false;
   private warpJumpBanner: HTMLElement;
   private warpJumpKicker: HTMLElement;
   private warpJumpTitle: HTMLElement;
@@ -307,6 +333,7 @@ export class UIManager {
 
   // Post-boss screens: Draft / Armory Store / 3D Hangar refs
   private shopTitle: HTMLElement;
+  private shopReasonBanner: HTMLElement;
   private shopMoneyVal: HTMLElement;
   private shopSelectionBar: HTMLElement;
   private navViewDraft: HTMLButtonElement;
@@ -343,6 +370,8 @@ export class UIManager {
   private pauseAimBtn: HTMLButtonElement;
   private pauseAutoFireBtn: HTMLButtonElement;
   private pauseQualityBtn: HTMLButtonElement;
+  private pauseGpuInfo: HTMLElement;
+  private pauseGpuHelpBtn: HTMLButtonElement;
 
   // Death screen & high-score table refs
   private gameOverShell: HTMLElement;
@@ -419,6 +448,7 @@ export class UIManager {
     this.muteQuickBtn = byId('muteQuickBtn');
     this.muteQuickLabel = byId('muteQuickLabel');
     this.gfxQuickBtn = byId('gfxQuickBtn');
+    this.gpuQuickBtn = byId('gpuQuickBtn');
     this.langToggleBtn = byId('langToggleBtn');
     this.fcsReticle = byId('fcsReticle');
     this.fcsTag = byId('fcsTag');
@@ -439,15 +469,22 @@ export class UIManager {
     this.shopOverlay = byId('shopOverlay');
     this.pauseOverlay = byId('pauseOverlay');
     this.quickDraftScreen = byId('quickDraftScreen');
+    this.quickDraftShell = byId('quickDraftShell');
     this.quickDraftKicker = byId('quickDraftKicker');
     this.quickDraftTitle = byId('quickDraftTitle');
+    this.quickDraftReason = byId('quickDraftReason');
     this.quickDraftGrid = byId('quickDraftGrid');
     this.quickDraftRerollBtn = byId('quickDraftRerollBtn');
     this.quickDraftRerollCount = byId('quickDraftRerollCount');
     this.roomSelectScreen = byId('roomSelectScreen');
+    this.roomSelectShell = byId('roomSelectShell');
     this.roomSelectKicker = byId('roomSelectKicker');
     this.roomSelectTitle = byId('roomSelectTitle');
+    this.roomSelectReason = byId('roomSelectReason');
     this.roomDoorGrid = byId('roomDoorGrid');
+    this.gpuAdvisorModal = byId('gpuAdvisorModal');
+    this.gpuModalTitle = byId('gpuModalTitle');
+    this.gpuModalCurrentCard = byId('gpuModalCurrentCard');
     this.metaForgeScreen = byId('metaForgeScreen');
     this.metaForgeShardTotal = byId('metaForgeShardTotal');
     this.metaForgeHullGrid = byId('metaForgeHullGrid');
@@ -487,6 +524,16 @@ export class UIManager {
     this.hudLevelBadge = byId('hudLevelBadge');
     this.xpFill = byId('xpFill');
     this.hudXpText = byId('hudXpText');
+    this.onboardingCard = byId('onboardingCard');
+    this.onboardingStepBadge = byId('onboardingStepBadge');
+    this.onboardingTitle = byId('onboardingTitle');
+    this.onboardingDesc = byId('onboardingDesc');
+    this.onboardingChecklist = byId('onboardingChecklist');
+    this.pacingBeatBanner = byId('pacingBeatBanner');
+    this.pacingBeatTitle = byId('pacingBeatTitle');
+    this.pacingBeatSub = byId('pacingBeatSub');
+    this.pacingBeatFill = byId('pacingBeatFill');
+    this.coachTipBanner = byId('coachTipBanner');
     this.warpJumpBanner = byId('warpJumpBanner');
     this.warpJumpKicker = byId('warpJumpKicker');
     this.warpJumpTitle = byId('warpJumpTitle');
@@ -573,6 +620,7 @@ export class UIManager {
     this.hudMuteBtn = byId('hudMuteBtn');
 
     this.shopTitle = byId('shopTitle');
+    this.shopReasonBanner = byId('shopReasonBanner');
     this.shopMoneyVal = byId('shopMoneyVal');
     this.shopSelectionBar = byId('shopSelectionBar');
     this.navViewDraft = byId('navViewDraft');
@@ -602,6 +650,8 @@ export class UIManager {
     this.pauseAimBtn = byId('pauseAimBtn');
     this.pauseAutoFireBtn = byId('pauseAutoFireBtn');
     this.pauseQualityBtn = byId('pauseQualityBtn');
+    this.pauseGpuInfo = byId('pauseGpuInfo');
+    this.pauseGpuHelpBtn = byId('pauseGpuHelpBtn');
 
     this.gameOverShell = byId('gameOverShell');
     this.gameOverKicker = byId('gameOverKicker');
@@ -645,6 +695,7 @@ export class UIManager {
     this.syncAudioButtons();
     this.syncControlButtons();
     this.syncQualityButtons();
+    this.syncGpuAdvisorUi();
     this.scene.setQualityChangedCallback(() => {
       this.syncQualityButtons();
       if (!this.pauseOverlay.classList.contains('hidden')) {
@@ -654,6 +705,11 @@ export class UIManager {
     this.renderMenuHulls();
 
     bus.on('PHASE_CHANGED', ({ to }) => this.onPhaseChanged(to));
+    bus.on('ONBOARDING_COMPLETED', () => {
+      this.markOnboardingCompleted();
+      this.lastOnboardingKey = '';
+      this.showCoachTip(this.t.onbCompleteMsg);
+    });
     bus.on('BOSS_ENTRY_IMPACT', () => this.triggerBossIntroSlam());
     bus.on('COMBO_KILL', () => this.triggerComboKillPop());
     bus.on('COMBO_RANK_UP', () => this.triggerComboRankBurst());
@@ -663,6 +719,11 @@ export class UIManager {
       this.hpLagHoldSec = 0;
       this.lastHpPct = 100;
       this.lastXpVal = 0;
+      this.lastOnboardingKey = '';
+      this.shownOverheatCoach = false;
+      this.shownChronoCoach = false;
+      this.shownInvCoach = false;
+      this.coachTipBanner.classList.add('hidden');
     });
     bus.on('ENEMY_HIT', (ev) => {
       this.triggerHitmarker(ev.x, ev.y, ev.isCrit ? 'crit' : 'hit');
@@ -846,8 +907,40 @@ export class UIManager {
     click('hudMuteBtn', () => this.toggleAudio());
     click('gfxQuickBtn', () => this.cycleGraphicsQuality());
     click('hudQualityBtn', () => this.cycleGraphicsQuality());
+    click('gpuQuickBtn', () => this.openGpuAdvisorModal());
+    click('pauseGpuHelpBtn', () => this.openGpuAdvisorModal());
+    click('closeGpuAdvisorBtn', () => this.closeModal(this.gpuAdvisorModal), 'back');
 
-    click('playBtn', () => this.sim.startNewGame(metaProgression.getProfile().selectedHull), 'confirm');
+    click(
+      'playBtn',
+      () => {
+        const isFirstTime = !this.isOnboardingCompleted();
+        this.sim.startNewGame(metaProgression.getProfile().selectedHull, {
+          tutorial: isFirstTime,
+        });
+      },
+      'confirm'
+    );
+    click(
+      'tutorialBootBtn',
+      () => {
+        this.sim.startNewGame(metaProgression.getProfile().selectedHull, { tutorial: true });
+      },
+      'confirm'
+    );
+    click('skipOnboardingBtn', () => {
+      this.markOnboardingCompleted();
+      this.sim.skipOnboarding();
+    });
+    click(
+      'startTutorialFromDocsBtn',
+      () => {
+        this.resetControlDeckState();
+        this.hideOverlayImmediate(this.instructionsScreen);
+        this.sim.startNewGame(metaProgression.getProfile().selectedHull, { tutorial: true });
+      },
+      'confirm'
+    );
     click(
       'playAgainBtn',
       () => this.sim.startNewGame(metaProgression.getProfile().selectedHull),
@@ -995,6 +1088,7 @@ export class UIManager {
     click(
       'quickDraftRerollBtn',
       () => {
+        if (this.isPopupInputGuarded()) return;
         if (this.sim.rerollQuickDraft()) {
           this.sound.playUiClick(920);
         }
@@ -1071,6 +1165,95 @@ export class UIManager {
     this.hudQualityBtn.classList.toggle('active', q === 'high');
   }
 
+  private isOnboardingCompleted(): boolean {
+    try {
+      return localStorage.getItem(ONBOARDING_STORAGE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  private markOnboardingCompleted(): void {
+    try {
+      localStorage.setItem(ONBOARDING_STORAGE_KEY, '1');
+    } catch {
+      // Ignore private-mode storage restrictions
+    }
+  }
+
+  public isPopupInputGuarded(): boolean {
+    return performance.now() < this.popupInputGuardUntilMs;
+  }
+
+  private activatePopupInputGuard(shellEl: HTMLElement): void {
+    this.popupInputGuardUntilMs = performance.now() + 400;
+    shellEl.classList.add('input-guarded');
+    if (this.popupGuardTimer !== null) {
+      window.clearTimeout(this.popupGuardTimer);
+    }
+    this.popupGuardTimer = window.setTimeout(() => {
+      shellEl.classList.remove('input-guarded');
+      this.popupGuardTimer = null;
+    }, 400);
+  }
+
+  private showCoachTip(msg: string): void {
+    this.coachTipBanner.textContent = msg;
+    this.coachTipBanner.classList.remove('hidden');
+    if (this.coachTipTimer !== null) {
+      window.clearTimeout(this.coachTipTimer);
+    }
+    this.coachTipTimer = window.setTimeout(() => {
+      this.coachTipBanner.classList.add('hidden');
+      this.coachTipTimer = null;
+    }, 4500);
+  }
+
+  private syncGpuAdvisorUi(): void {
+    const gpu = this.scene.getGpuInfo();
+    const showBoost = !this.input.isMobile && (gpu.isIntegrated || gpu.tierClass === 'software');
+    this.gpuQuickBtn.classList.toggle('hidden', !showBoost);
+    this.gpuQuickBtn.textContent = this.t.gpuQuickLabel;
+    this.pauseGpuHelpBtn.classList.toggle('hidden', !showBoost);
+
+    const roleDesc =
+      gpu.tierClass === 'discrete'
+        ? this.t.pauseGpuDiscrete
+        : gpu.tierClass === 'software'
+          ? this.t.pauseGpuSoftware
+          : this.t.pauseGpuIntegrated;
+    this.pauseGpuInfo.textContent = `${this.t.pauseGpuPrefix}: ${gpu.shortLabel} · ${roleDesc}`;
+    this.pauseGpuInfo.classList.toggle('is-igpu', gpu.isIntegrated || gpu.tierClass === 'software');
+
+    this.gpuModalTitle.textContent =
+      gpu.tierClass === 'discrete' ? this.t.gpuModalTitleDiscrete : this.t.gpuModalTitleIgpu;
+    this.gpuModalCurrentCard.textContent = `${this.t.gpuModalCurrentLabel} ${gpu.shortLabel} (${roleDesc})`;
+    this.gpuModalCurrentCard.classList.toggle('is-igpu', gpu.isIntegrated || gpu.tierClass === 'software');
+  }
+
+  private openGpuAdvisorModal(): void {
+    this.syncGpuAdvisorUi();
+    this.openModal(this.gpuAdvisorModal);
+  }
+
+  private renderPopupReasonBanner(el: HTMLElement, state: GameState): void {
+    const reason = state.popupReason;
+    if (!reason) {
+      el.classList.add('hidden');
+      el.textContent = '';
+      return;
+    }
+    el.classList.remove('hidden');
+    el.textContent = '';
+    const tag = document.createElement('span');
+    tag.className = 'popup-reason-tag';
+    tag.textContent = this.t.popupReasonPrefix;
+    const body = document.createTextNode(
+      ` ${this.lang === 'vi' ? reason.reasonVi : reason.reasonEn}`
+    );
+    el.append(tag, body);
+  }
+
   applyLanguage(): void {
     const strings = this.t;
     this.langToggleBtn.textContent = this.lang === 'vi' ? 'LOC:VI' : 'LOC:EN';
@@ -1108,6 +1291,8 @@ export class UIManager {
 
     this.updateLeaderboardStatusBadges(this.lbConnectionState);
     this.syncSubmitButtonMode();
+    this.syncGpuAdvisorUi();
+    this.lastOnboardingKey = '';
     this.renderControlInspector(this.selectedControlBindId, this.activeDeckCodes.size > 0);
     if (!this.leaderboardScreen.classList.contains('hidden')) {
       this.renderLeaderboardScreen();
@@ -1134,6 +1319,7 @@ export class UIManager {
     if (phase === 'QUICK_DRAFT') {
       this.renderQuickDraft(true);
       this.openModal(this.quickDraftScreen);
+      this.activatePopupInputGuard(this.quickDraftShell);
     } else {
       this.hideOverlayImmediate(this.quickDraftScreen);
     }
@@ -1141,6 +1327,7 @@ export class UIManager {
     if (phase === 'ROOM_SELECT') {
       this.renderRoomSelect(true);
       this.openModal(this.roomSelectScreen);
+      this.activatePopupInputGuard(this.roomSelectShell);
     } else {
       this.hideOverlayImmediate(this.roomSelectScreen);
     }
@@ -1193,6 +1380,8 @@ export class UIManager {
       this.hideOverlayImmediate(this.infoScreen);
       this.hideOverlayImmediate(this.achievementsScreen);
       this.hideOverlayImmediate(this.metaForgeScreen);
+      this.hideOverlayImmediate(this.gpuAdvisorModal);
+      this.coachTipBanner.classList.add('hidden');
       this.renderMenuHulls();
       this.waveClearBanner.classList.add('hidden');
       this.lastIntroBossId = -1;
@@ -1280,6 +1469,7 @@ export class UIManager {
     const strings = this.t;
     const loadout = state.player.loadout;
     const isShopMode = loadout.garageMode === 'SHOP';
+    this.renderPopupReasonBanner(this.shopReasonBanner, state);
 
     if (!isShopMode) {
       this.activePostWaveView = 'GARAGE';
@@ -2492,6 +2682,7 @@ export class UIManager {
     const qText =
       q === 'high' ? strings.qualityHigh : q === 'medium' ? strings.qualityMedium : strings.qualityLow;
     this.pauseQualityBtn.textContent = `${strings.graphicsLabel}: ${qText}`;
+    this.syncGpuAdvisorUi();
   }
 
   private openGameOverScreen(): void {
@@ -3531,6 +3722,21 @@ export class UIManager {
     }
 
     this.syncMutationHudStrip(state);
+    this.updateOnboardingHud(state);
+    this.updatePacingBeatHud(state);
+
+    if (!state.onboarding.active && state.phase === 'PLAYING' && state.pacingTransition.kind === 'none') {
+      if (!this.shownOverheatCoach && p.isOverloaded) {
+        this.shownOverheatCoach = true;
+        this.showCoachTip(this.t.coachOverheatTip);
+      } else if (!this.shownChronoCoach && p.chronoCharge >= 100 && p.chronoActiveMs <= 0) {
+        this.shownChronoCoach = true;
+        this.showCoachTip(this.t.coachChronoTip);
+      } else if (!this.shownInvCoach && p.loadout.inventory.length > 0) {
+        this.shownInvCoach = true;
+        this.showCoachTip(this.t.coachInventoryTip);
+      }
+    }
 
     this.updateRaidHud(state);
 
@@ -3587,7 +3793,14 @@ export class UIManager {
     this.hudMoney.textContent = String(state.money);
     const q = this.scene.getQuality();
     const qTag = q === 'high' ? 'HIGH' : q === 'medium' ? 'MED' : 'LOW';
-    this.fpsBadge.textContent = `${fps} FPS · ${qTag}`;
+    const gpuInfo = this.scene.getGpuInfo();
+    const gpuShort =
+      gpuInfo.tierClass === 'discrete'
+        ? 'dGPU'
+        : gpuInfo.tierClass === 'software'
+          ? 'CPU'
+          : 'iGPU';
+    this.fpsBadge.textContent = `${fps} FPS · ${qTag} · ${gpuShort}`;
     this.updateOverwatchHud(state, frameDtSec);
 
     if (state.phase === 'PLAYING' && hpPct > 0 && hpPct <= 25) {
@@ -4665,6 +4878,15 @@ export class UIManager {
       ctx.closePath();
       ctx.fill();
     }
+    if (state.roomPortal) {
+      const px = half + (state.roomPortal.x - p.x) * scale;
+      const py = half + (state.roomPortal.y - p.y) * scale;
+      ctx.strokeStyle = '#38e8ff';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.arc(px, py, 4.5 + Math.sin(state.roomPortal.pulse) * 1.2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
 
     // Dead-center heading arrow for our own ship
     ctx.translate(half, half);
@@ -4738,6 +4960,14 @@ export class UIManager {
     for (const m of state.floatingModules.slice(0, 3)) {
       targets.push({ x: m.x, y: m.y, color: '#38e8ff', label: 'POD' });
     }
+    if (state.roomPortal) {
+      targets.push({
+        x: state.roomPortal.x,
+        y: state.roomPortal.y,
+        color: `#${state.roomPortal.accentHex.toString(16).padStart(6, '0')}`,
+        label: this.lang === 'vi' ? 'CỔNG' : 'GATE',
+      });
+    }
 
     const pad = 34;
     let slotIdx = 0;
@@ -4790,6 +5020,76 @@ export class UIManager {
     for (let i = slotIdx; i < this.offscreenPool.length; i++) {
       this.offscreenPool[i].el.classList.add('hidden');
     }
+  }
+
+  private updateOnboardingHud(state: GameState): void {
+    const o = state.onboarding;
+    if (!o.active || state.phase !== 'PLAYING') {
+      this.onboardingCard.classList.add('hidden');
+      this.lastOnboardingKey = '';
+      return;
+    }
+
+    this.onboardingCard.classList.remove('hidden');
+    const step = o.step;
+    const isMob = this.input.isMobile;
+    const key = `${this.lang}|${isMob ? 'm' : 'd'}|${step}|${o.movedDist >= 85 ? 1 : 0}|${o.dashed ? 1 : 0}|${o.targetsKilled}|${o.vented ? 1 : 0}|${o.lootCollected ? 1 : 0}`;
+    if (key === this.lastOnboardingKey) return;
+    this.lastOnboardingKey = key;
+
+    this.onboardingStepBadge.textContent = `${this.t.onbBadgePrefix} · ${step}/3`;
+    this.onboardingChecklist.textContent = '';
+
+    const addTaskRow = (label: string, done: boolean) => {
+      const row = document.createElement('div');
+      row.className = `onb-task-row${done ? ' done' : ''}`;
+      const box = document.createElement('span');
+      box.className = 'onb-task-box';
+      if (done) {
+        box.appendChild(createUiIcon('check', 'ui-svg-icon'));
+      } else {
+        box.textContent = '-';
+      }
+      const txt = document.createElement('span');
+      txt.textContent = label;
+      row.append(box, txt);
+      this.onboardingChecklist.appendChild(row);
+    };
+
+    if (step === 1) {
+      this.onboardingTitle.textContent = this.t.onbStep1Title;
+      this.onboardingDesc.textContent = isMob ? this.t.onbStep1DescMobile : this.t.onbStep1Desc;
+      addTaskRow(this.t.onbStep1MoveTask, o.movedDist >= 85);
+      addTaskRow(this.t.onbStep1DashTask, o.dashed);
+    } else if (step === 2) {
+      this.onboardingTitle.textContent = this.t.onbStep2Title;
+      this.onboardingDesc.textContent = isMob ? this.t.onbStep2DescMobile : this.t.onbStep2Desc;
+      addTaskRow(
+        `${this.t.onbStep2KillTask} (${Math.min(o.targetsTotal, o.targetsKilled)}/${o.targetsTotal})`,
+        o.targetsKilled >= o.targetsTotal
+      );
+      addTaskRow(this.t.onbStep2VentTask, o.vented);
+    } else {
+      this.onboardingTitle.textContent = o.lootCollected ? this.t.onbCompleteMsg : this.t.onbStep3Title;
+      this.onboardingDesc.textContent = this.t.onbStep3Desc;
+      addTaskRow(this.t.onbStep3LootTask, o.lootCollected);
+    }
+  }
+
+  private updatePacingBeatHud(state: GameState): void {
+    const beat = state.pacingTransition;
+    if (beat.kind === 'none' || state.phase !== 'PLAYING' || state.onboarding.active) {
+      this.pacingBeatBanner.classList.add('hidden');
+      return;
+    }
+
+    this.pacingBeatBanner.classList.remove('hidden');
+    this.pacingBeatBanner.style.setProperty('--beat-accent', beat.accent || '#38e8ff');
+    this.pacingBeatTitle.textContent =
+      this.lang === 'vi' ? beat.bannerTitleVi : beat.bannerTitleEn;
+    this.pacingBeatSub.textContent = this.lang === 'vi' ? beat.bannerSubVi : beat.bannerSubEn;
+    const pct = Math.max(4, Math.min(100, (beat.elapsedMs / Math.max(1, beat.durationMs)) * 100));
+    this.pacingBeatFill.style.width = `${pct.toFixed(1)}%`;
   }
 
   private updateRaidHud(state: GameState): void {
@@ -4885,15 +5185,22 @@ export class UIManager {
     const opts = state.raid?.pendingQuickDraft ?? [];
     const rerolls = state.player.rerollsLeft;
     const lvl = state.player.level;
-    this.quickDraftKicker.textContent =
-      this.lang === 'vi'
-        ? `CHIẾN HẠM CẤP ${lvl} // CHỌN 1 NÂNG CẤP`
-        : `WARSHIP LEVEL ${lvl} // DRAFT 1 UPGRADE`;
-    this.quickDraftTitle.textContent =
-      this.lang === 'vi'
-        ? `THĂNG CẤP CHIẾN HẠM · CẤP ${lvl}`
-        : `WARSHIP LEVEL UP · LV.${lvl}`;
-    const key = `${this.lang}|${lvl}|${rerolls}|${opts.map((o) => o.id).join(',')}`;
+    const reason = state.popupReason;
+    if (reason) {
+      this.quickDraftKicker.textContent = this.lang === 'vi' ? reason.kickerVi : reason.kickerEn;
+      this.quickDraftTitle.textContent = this.lang === 'vi' ? reason.titleVi : reason.titleEn;
+    } else {
+      this.quickDraftKicker.textContent =
+        this.lang === 'vi'
+          ? `CHIẾN HẠM CẤP ${lvl} // CHỌN 1 NÂNG CẤP`
+          : `WARSHIP LEVEL ${lvl} // DRAFT 1 UPGRADE`;
+      this.quickDraftTitle.textContent =
+        this.lang === 'vi'
+          ? `THĂNG CẤP CHIẾN HẠM · CẤP ${lvl}`
+          : `WARSHIP LEVEL UP · LV.${lvl}`;
+    }
+    this.renderPopupReasonBanner(this.quickDraftReason, state);
+    const key = `${this.lang}|${lvl}|${rerolls}|${reason?.source ?? ''}|${opts.map((o) => o.id).join(',')}`;
     this.quickDraftRerollCount.textContent = String(rerolls);
     this.quickDraftRerollBtn.disabled = rerolls <= 0;
     if (!force && key === this.lastQuickDraftKey) return;
@@ -4950,6 +5257,7 @@ export class UIManager {
 
       card.append(topRow, iconWrap, title, desc);
       card.addEventListener('click', () => {
+        if (this.isPopupInputGuarded()) return;
         this.sound.unlock();
         if (this.sim.pickQuickDraft(opt.id)) {
           this.sound.playUiConfirm();
@@ -4961,8 +5269,18 @@ export class UIManager {
   }
 
   public renderRoomSelect(force = false): void {
-    const doors = this.sim.state.pendingRoomDoors;
-    const key = `${this.lang}|${doors.map((d) => d.id).join(',')}`;
+    const state = this.sim.state;
+    const reason = state.popupReason;
+    if (reason) {
+      this.roomSelectKicker.textContent = this.lang === 'vi' ? reason.kickerVi : reason.kickerEn;
+      this.roomSelectTitle.textContent = this.lang === 'vi' ? reason.titleVi : reason.titleEn;
+    } else {
+      this.roomSelectKicker.textContent = this.t.roomSelectKicker;
+      this.roomSelectTitle.textContent = this.t.roomSelectTitle;
+    }
+    this.renderPopupReasonBanner(this.roomSelectReason, state);
+    const doors = state.pendingRoomDoors;
+    const key = `${this.lang}|${reason?.source ?? ''}|${doors.map((d) => d.id).join(',')}`;
     if (!force && key === this.lastRoomDoorsKey) return;
     this.lastRoomDoorsKey = key;
 
@@ -5021,6 +5339,7 @@ export class UIManager {
       body.append(riskTag, title, reward);
       card.append(bannerWrap, body);
       card.addEventListener('click', () => {
+        if (this.isPopupInputGuarded()) return;
         this.sound.unlock();
         if (this.sim.selectRoomDoor(door.id)) {
           this.sound.playUiConfirm();
